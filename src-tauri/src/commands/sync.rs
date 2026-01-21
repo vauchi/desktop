@@ -14,9 +14,11 @@ use tungstenite::{Message, WebSocket};
 use vauchi_core::crypto::ratchet::DoubleRatchetState;
 use vauchi_core::exchange::{EncryptedExchangeMessage, X3DHKeyPair};
 use vauchi_core::network::simple_message::{
-    create_simple_ack, create_simple_envelope, decode_simple_message, encode_simple_message,
-    LegacyExchangeMessage, SimpleAckStatus, SimpleEncryptedUpdate, SimpleHandshake, SimplePayload,
+    create_device_sync_ack, create_device_sync_message, create_simple_ack, create_simple_envelope,
+    decode_simple_message, encode_simple_message, LegacyExchangeMessage, SimpleAckStatus,
+    SimpleDeviceSyncMessage, SimpleEncryptedUpdate, SimpleHandshake, SimplePayload,
 };
+use vauchi_core::sync::{DeviceSyncOrchestrator, SyncItem};
 use vauchi_core::{Contact, ContactCard, Identity, Storage};
 
 use crate::state::AppState;
@@ -58,9 +60,11 @@ fn connect_to_relay(relay_url: &str) -> Result<WebSocket<MaybeTlsStream<TcpStrea
 fn send_handshake(
     socket: &mut WebSocket<MaybeTlsStream<TcpStream>>,
     client_id: &str,
+    device_id: Option<&str>,
 ) -> Result<(), String> {
     let handshake = SimpleHandshake {
         client_id: client_id.to_string(),
+        device_id: device_id.map(|s| s.to_string()),
     };
     let envelope = create_simple_envelope(SimplePayload::Handshake(handshake));
     let data = encode_simple_message(&envelope).map_err(|e| format!("Encode error: {}", e))?;
@@ -75,6 +79,7 @@ struct ReceivedMessages {
     legacy_exchange: Vec<LegacyExchangeMessage>,
     encrypted_exchange: Vec<Vec<u8>>,
     card_updates: Vec<(String, Vec<u8>)>,
+    device_sync_messages: Vec<SimpleDeviceSyncMessage>,
 }
 
 /// Receive pending messages from relay.
@@ -84,6 +89,7 @@ fn receive_pending(
     let mut legacy_exchange = Vec::new();
     let mut encrypted_exchange = Vec::new();
     let mut card_updates = Vec::new();
+    let mut device_sync_messages = Vec::new();
 
     // Set read timeout for non-blocking receive
     if let MaybeTlsStream::Plain(ref stream) = socket.get_ref() {
@@ -94,28 +100,44 @@ fn receive_pending(
         match socket.read() {
             Ok(Message::Binary(data)) => {
                 if let Ok(envelope) = decode_simple_message(&data) {
-                    if let SimplePayload::EncryptedUpdate(update) = envelope.payload {
-                        // Classify the message
-                        if LegacyExchangeMessage::is_exchange(&update.ciphertext) {
-                            if let Some(exchange) =
-                                LegacyExchangeMessage::from_bytes(&update.ciphertext)
+                    match envelope.payload {
+                        SimplePayload::EncryptedUpdate(update) => {
+                            // Classify the message
+                            if LegacyExchangeMessage::is_exchange(&update.ciphertext) {
+                                if let Some(exchange) =
+                                    LegacyExchangeMessage::from_bytes(&update.ciphertext)
+                                {
+                                    legacy_exchange.push(exchange);
+                                }
+                            } else if EncryptedExchangeMessage::from_bytes(&update.ciphertext)
+                                .is_ok()
                             {
-                                legacy_exchange.push(exchange);
+                                encrypted_exchange.push(update.ciphertext);
+                            } else {
+                                card_updates.push((update.sender_id, update.ciphertext));
                             }
-                        } else if EncryptedExchangeMessage::from_bytes(&update.ciphertext).is_ok() {
-                            encrypted_exchange.push(update.ciphertext);
-                        } else {
-                            card_updates.push((update.sender_id, update.ciphertext));
-                        }
 
-                        // Send acknowledgment
-                        let ack = create_simple_ack(
-                            &envelope.message_id,
-                            SimpleAckStatus::ReceivedByRecipient,
-                        );
-                        if let Ok(ack_data) = encode_simple_message(&ack) {
-                            let _ = socket.send(Message::Binary(ack_data));
+                            // Send acknowledgment
+                            let ack = create_simple_ack(
+                                &envelope.message_id,
+                                SimpleAckStatus::ReceivedByRecipient,
+                            );
+                            if let Ok(ack_data) = encode_simple_message(&ack) {
+                                let _ = socket.send(Message::Binary(ack_data));
+                            }
                         }
+                        SimplePayload::DeviceSyncMessage(msg) => {
+                            // Get version before moving msg
+                            let version = msg.version;
+                            device_sync_messages.push(msg);
+
+                            // Send device sync ack
+                            let ack = create_device_sync_ack(&envelope.message_id, version);
+                            if let Ok(ack_data) = encode_simple_message(&ack) {
+                                let _ = socket.send(Message::Binary(ack_data));
+                            }
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -138,6 +160,7 @@ fn receive_pending(
         legacy_exchange,
         encrypted_exchange,
         card_updates,
+        device_sync_messages,
     })
 }
 
@@ -285,7 +308,7 @@ fn send_exchange_response(
     let mut socket = connect_to_relay(relay_url)?;
 
     let our_id = identity.public_id();
-    send_handshake(&mut socket, &our_id)?;
+    send_handshake(&mut socket, &our_id, None)?;
 
     let our_x3dh = identity.x3dh_keypair();
     let (encrypted_msg, _) = EncryptedExchangeMessage::create(
@@ -396,6 +419,182 @@ fn send_pending_updates(
     Ok(sent)
 }
 
+/// Process incoming device sync messages from other devices.
+fn process_device_sync_messages(
+    identity: &Identity,
+    storage: &Storage,
+    messages: Vec<SimpleDeviceSyncMessage>,
+) -> Result<u32, String> {
+    if messages.is_empty() {
+        return Ok(0);
+    }
+
+    // Try to load device registry - if none exists, skip
+    let registry = match storage.load_device_registry() {
+        Ok(Some(r)) if r.device_count() > 1 => r,
+        _ => return Ok(0),
+    };
+
+    let mut orchestrator =
+        DeviceSyncOrchestrator::new(storage, identity.create_device_info(), registry.clone());
+
+    let mut processed = 0u32;
+
+    for msg in messages {
+        // Parse sender device ID
+        let sender_device_id: [u8; 32] = match hex::decode(&msg.sender_device_id) {
+            Ok(bytes) if bytes.len() == 32 => {
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(&bytes);
+                arr
+            }
+            _ => continue,
+        };
+
+        // Find sender in registry
+        let sender_device = match registry.find_device(&sender_device_id) {
+            Some(d) => d,
+            None => continue,
+        };
+
+        // Decrypt payload
+        let plaintext = match orchestrator
+            .decrypt_from_device(&sender_device.exchange_public_key, &msg.encrypted_payload)
+        {
+            Ok(pt) => pt,
+            Err(_) => continue,
+        };
+
+        // Parse SyncItems
+        let items: Vec<SyncItem> = match serde_json::from_slice(&plaintext) {
+            Ok(items) => items,
+            Err(_) => continue,
+        };
+
+        // Process items with conflict resolution
+        let applied = match orchestrator.process_incoming(items) {
+            Ok(applied) => applied,
+            Err(_) => continue,
+        };
+
+        // Apply the items
+        for item in &applied {
+            let _ = apply_sync_item(storage, item);
+        }
+
+        if !applied.is_empty() {
+            processed += 1;
+        }
+    }
+
+    Ok(processed)
+}
+
+/// Apply a single sync item to local storage.
+fn apply_sync_item(storage: &Storage, item: &SyncItem) -> Result<(), String> {
+    match item {
+        SyncItem::ContactAdded { contact_data, .. } => {
+            if let Ok(contact) = contact_data.to_contact() {
+                storage.save_contact(&contact).map_err(|e| e.to_string())?;
+            }
+        }
+        SyncItem::ContactRemoved { contact_id, .. } => {
+            storage.delete_contact(contact_id).map_err(|e| e.to_string())?;
+        }
+        SyncItem::CardUpdated {
+            field_label,
+            new_value,
+            ..
+        } => {
+            if let Ok(Some(mut card)) = storage.load_own_card() {
+                if card.update_field_value(field_label, new_value).is_ok() {
+                    storage.save_own_card(&card).map_err(|e| e.to_string())?;
+                }
+            }
+        }
+        SyncItem::VisibilityChanged {
+            contact_id,
+            field_label,
+            is_visible,
+            ..
+        } => {
+            if let Some(mut contact) = storage.load_contact(contact_id).map_err(|e| e.to_string())? {
+                if *is_visible {
+                    contact.visibility_rules_mut().set_everyone(field_label);
+                } else {
+                    contact.visibility_rules_mut().set_nobody(field_label);
+                }
+                storage.save_contact(&contact).map_err(|e| e.to_string())?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Send pending device sync items to other devices.
+fn send_device_sync(
+    identity: &Identity,
+    storage: &Storage,
+    socket: &mut WebSocket<MaybeTlsStream<TcpStream>>,
+) -> Result<u32, String> {
+    // Try to load device registry - if none exists, skip
+    let registry = match storage.load_device_registry() {
+        Ok(Some(r)) if r.device_count() > 1 => r,
+        _ => return Ok(0),
+    };
+
+    let orchestrator =
+        DeviceSyncOrchestrator::new(storage, identity.create_device_info(), registry.clone());
+
+    let identity_id = identity.public_id();
+    let sender_device_id = hex::encode(identity.device_id());
+    let mut sent = 0u32;
+
+    for device in registry.active_devices() {
+        // Skip self
+        if device.device_id == *identity.device_id() {
+            continue;
+        }
+
+        let pending = orchestrator.pending_for_device(&device.device_id);
+        if pending.is_empty() {
+            continue;
+        }
+
+        // Serialize and encrypt
+        let payload = match serde_json::to_vec(pending) {
+            Ok(p) => p,
+            Err(_) => continue,
+        };
+
+        let encrypted =
+            match orchestrator.encrypt_for_device(&device.exchange_public_key, &payload) {
+                Ok(ct) => ct,
+                Err(_) => continue,
+            };
+
+        // Create and send device sync message
+        let target_device_id = hex::encode(device.device_id);
+        let version = orchestrator.version_vector().get(identity.device_id());
+
+        let envelope = create_device_sync_message(
+            &identity_id,
+            &target_device_id,
+            &sender_device_id,
+            encrypted,
+            version,
+        );
+
+        if let Ok(data) = encode_simple_message(&envelope) {
+            if socket.send(Message::Binary(data)).is_ok() {
+                sent += 1;
+            }
+        }
+    }
+
+    Ok(sent)
+}
+
 /// Perform a sync with the relay server.
 ///
 /// This sends pending updates to contacts and receives incoming updates.
@@ -410,12 +609,13 @@ pub fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
 
     let relay_url = state.relay_url();
     let client_id = identity.public_id();
+    let device_id_hex = hex::encode(identity.device_id());
 
     // Connect to relay
     let mut socket = connect_to_relay(relay_url)?;
 
-    // Send handshake
-    send_handshake(&mut socket, &client_id)?;
+    // Send handshake with device_id for inter-device sync
+    send_handshake(&mut socket, &client_id, Some(&device_id_hex))?;
 
     // Wait briefly for server to send pending messages
     std::thread::sleep(Duration::from_millis(500));
@@ -444,6 +644,13 @@ pub fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
     // Process card updates
     let cards_updated = process_card_updates(&state.storage, received.card_updates)?;
 
+    // Process device sync messages (inter-device synchronization)
+    let device_synced =
+        process_device_sync_messages(identity, &state.storage, received.device_sync_messages)?;
+
+    // Send pending device sync items to other devices
+    let device_sync_sent = send_device_sync(identity, &state.storage, &mut socket)?;
+
     // Send pending outbound updates
     let updates_sent = send_pending_updates(identity, &state.storage, &mut socket)?;
 
@@ -452,8 +659,8 @@ pub fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
 
     Ok(SyncResult {
         contacts_added,
-        cards_updated,
-        updates_sent,
+        cards_updated: cards_updated + device_synced,
+        updates_sent: updates_sent + device_sync_sent,
         success: true,
         error: None,
     })
