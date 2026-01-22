@@ -174,23 +174,31 @@ function Home(props: HomeProps) {
   }
 
   return (
-    <div class="page home">
-      <header>
-        <h1>Hello, {card()?.display_name || 'User'}!</h1>
-        <p class="public-id">ID: {identity()?.public_id.substring(0, 16)}...</p>
+    <div class="page home" role="main" aria-labelledby="home-title">
+      <header role="banner">
+        <h1 id="home-title">Hello, {card()?.display_name || 'User'}!</h1>
+        <p class="public-id" aria-label={`Your public ID: ${identity()?.public_id.substring(0, 16)}`}>
+          ID: {identity()?.public_id.substring(0, 16)}...
+        </p>
       </header>
 
-      <section class="card-section">
+      <section class="card-section" aria-labelledby="card-section-title">
         <div class="section-header">
-          <h2>Your Card</h2>
-          <button class="icon-btn" onClick={() => setShowAddField(true)}>+ Add Field</button>
+          <h2 id="card-section-title">Your Card</h2>
+          <button
+            class="icon-btn"
+            onClick={() => setShowAddField(true)}
+            aria-label="Add a new field to your card"
+          >
+            + Add Field
+          </button>
         </div>
 
-        <div class="fields-list">
+        <div class="fields-list" role="list" aria-label="Your contact card fields">
           <For each={card()?.fields}>
             {(field) => (
-              <div class="field-item">
-                <span class="field-icon">{fieldIcon(field.field_type)}</span>
+              <div class="field-item" role="listitem" aria-label={`${field.label}: ${field.value}`}>
+                <span class="field-icon" aria-hidden="true">{fieldIcon(field.field_type)}</span>
                 <div class="field-content">
                   <span class="field-label">{field.label}</span>
                   <span class="field-value">{field.value}</span>
@@ -198,21 +206,21 @@ function Home(props: HomeProps) {
                 <button
                   class="edit-btn"
                   onClick={(e) => { e.stopPropagation(); openEditDialog(field) }}
-                  title="Edit this field"
+                  aria-label={`Edit ${field.label}`}
                 >
                   edit
                 </button>
                 <button
                   class="visibility-btn"
                   onClick={(e) => { e.stopPropagation(); openVisibilityDialog(field) }}
-                  title="Manage who can see this field"
+                  aria-label={`Manage who can see ${field.label}`}
                 >
                   visibility
                 </button>
                 <button
                   class="delete-btn"
                   onClick={(e) => { e.stopPropagation(); handleDeleteField(field.id) }}
-                  title="Delete this field"
+                  aria-label={`Delete ${field.label}`}
                 >
                   ×
                 </button>
@@ -221,16 +229,16 @@ function Home(props: HomeProps) {
           </For>
 
           {card()?.fields.length === 0 && (
-            <p class="empty-state">No fields yet. Add your first field!</p>
+            <p class="empty-state" role="status">No fields yet. Add your first field!</p>
           )}
         </div>
       </section>
 
-      <nav class="bottom-nav">
-        <button class="nav-btn active">Home</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('contacts')}>Contacts</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('exchange')}>Exchange</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('settings')}>Settings</button>
+      <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
+        <button class="nav-btn active" aria-current="page" aria-label="Home (current page)">Home</button>
+        <button class="nav-btn" onClick={() => props.onNavigate('contacts')} aria-label="Go to Contacts">Contacts</button>
+        <button class="nav-btn" onClick={() => props.onNavigate('exchange')} aria-label="Go to Exchange">Exchange</button>
+        <button class="nav-btn" onClick={() => props.onNavigate('settings')} aria-label="Go to Settings">Settings</button>
       </nav>
 
       {showAddField() && (
@@ -239,35 +247,43 @@ function Home(props: HomeProps) {
 
       {/* Field Visibility Dialog */}
       <Show when={selectedFieldId()}>
-        <div class="dialog-overlay" onClick={closeVisibilityDialog}>
-          <div class="dialog visibility-dialog" onClick={(e) => e.stopPropagation()}>
-            <h3>Who can see "{selectedFieldLabel()}"?</h3>
+        <div class="dialog-overlay" onClick={closeVisibilityDialog} role="presentation">
+          <div
+            class="dialog visibility-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="visibility-dialog-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="visibility-dialog-title">Who can see "{selectedFieldLabel()}"?</h3>
 
             <Show when={visibilityError()}>
-              <p class="error">{visibilityError()}</p>
+              <p class="error" role="alert" aria-live="assertive">{visibilityError()}</p>
             </Show>
 
             <Show when={fieldViewers().length === 0}>
-              <p class="empty-state">No contacts yet. Add contacts to manage visibility.</p>
+              <p class="empty-state" role="status">No contacts yet. Add contacts to manage visibility.</p>
             </Show>
 
             <Show when={fieldViewers().length > 0}>
-              <div class="visibility-actions">
-                <button class="small" onClick={() => setAllVisibility(true)}>Show to all</button>
-                <button class="small secondary" onClick={() => setAllVisibility(false)}>Hide from all</button>
+              <div class="visibility-actions" role="group" aria-label="Bulk visibility actions">
+                <button class="small" onClick={() => setAllVisibility(true)} aria-label="Show this field to all contacts">Show to all</button>
+                <button class="small secondary" onClick={() => setAllVisibility(false)} aria-label="Hide this field from all contacts">Hide from all</button>
               </div>
 
-              <div class="visibility-list">
+              <div class="visibility-list" role="list" aria-label="Contact visibility settings">
                 <For each={fieldViewers()}>
                   {(viewer) => (
-                    <div class="visibility-item">
-                      <div class="contact-avatar small">
+                    <div class="visibility-item" role="listitem">
+                      <div class="contact-avatar small" aria-hidden="true">
                         {viewer.display_name.charAt(0).toUpperCase()}
                       </div>
                       <span class="contact-name">{viewer.display_name}</span>
                       <button
                         class={viewer.can_see ? 'visible' : 'hidden'}
                         onClick={() => toggleContactVisibility(viewer.contact_id, viewer.can_see)}
+                        aria-pressed={viewer.can_see}
+                        aria-label={`${viewer.display_name}: ${viewer.can_see ? 'can see this field' : 'cannot see this field'}. Click to toggle.`}
                       >
                         {viewer.can_see ? 'Visible' : 'Hidden'}
                       </button>
@@ -278,7 +294,7 @@ function Home(props: HomeProps) {
             </Show>
 
             <div class="dialog-actions">
-              <button class="secondary" onClick={closeVisibilityDialog}>Done</button>
+              <button class="secondary" onClick={closeVisibilityDialog} aria-label="Close visibility settings">Done</button>
             </div>
           </div>
         </div>
@@ -286,25 +302,34 @@ function Home(props: HomeProps) {
 
       {/* Edit Field Dialog */}
       <Show when={editingField()}>
-        <div class="dialog-overlay" onClick={() => { if (!isEditSaving()) closeEditDialog() }}>
-          <div class="dialog" onClick={(e) => e.stopPropagation()}>
-            <h3>Edit {editingField()?.label}</h3>
+        <div class="dialog-overlay" onClick={() => { if (!isEditSaving()) closeEditDialog() }} role="presentation">
+          <div
+            class="dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-dialog-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="edit-dialog-title">Edit {editingField()?.label}</h3>
 
             <div class="form">
-              <label>Current Type</label>
-              <input type="text" value={editingField()?.field_type || ''} disabled />
+              <label for="edit-field-type">Current Type</label>
+              <input id="edit-field-type" type="text" value={editingField()?.field_type || ''} disabled aria-readonly="true" />
 
-              <label>Value</label>
+              <label for="edit-field-value">Value</label>
               <input
+                id="edit-field-value"
                 type="text"
                 value={editValue()}
                 onInput={(e) => setEditValue(e.target.value)}
                 placeholder="Enter new value"
                 disabled={isEditSaving()}
+                aria-describedby={editError() ? 'edit-error' : undefined}
+                aria-invalid={editError() ? 'true' : undefined}
               />
 
               <Show when={editError()}>
-                <p class="error">{editError()}</p>
+                <p id="edit-error" class="error" role="alert" aria-live="assertive">{editError()}</p>
               </Show>
 
               <div class="dialog-actions">
@@ -312,6 +337,8 @@ function Home(props: HomeProps) {
                   class="primary"
                   onClick={handleSaveEdit}
                   disabled={isEditSaving()}
+                  aria-busy={isEditSaving()}
+                  aria-label={isEditSaving() ? 'Saving changes' : 'Save changes'}
                 >
                   {isEditSaving() ? 'Saving...' : 'Save'}
                 </button>
@@ -319,6 +346,7 @@ function Home(props: HomeProps) {
                   class="secondary"
                   onClick={closeEditDialog}
                   disabled={isEditSaving()}
+                  aria-label="Cancel editing"
                 >
                   Cancel
                 </button>
@@ -361,13 +389,24 @@ function AddFieldDialog(props: AddFieldDialogProps) {
   }
 
   return (
-    <div class="dialog-overlay" onClick={props.onClose}>
-      <div class="dialog" onClick={(e) => e.stopPropagation()}>
-        <h3>Add Field</h3>
+    <div class="dialog-overlay" onClick={props.onClose} role="presentation">
+      <div
+        class="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-field-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 id="add-field-title">Add Field</h3>
 
         <div class="form">
-          <label>Type</label>
-          <select value={fieldType()} onChange={(e) => setFieldType(e.target.value)}>
+          <label for="add-field-type">Type</label>
+          <select
+            id="add-field-type"
+            value={fieldType()}
+            onChange={(e) => setFieldType(e.target.value)}
+            aria-label="Field type"
+          >
             <option value="email">Email</option>
             <option value="phone">Phone</option>
             <option value="website">Website</option>
@@ -376,27 +415,33 @@ function AddFieldDialog(props: AddFieldDialogProps) {
             <option value="custom">Custom</option>
           </select>
 
-          <label>Label</label>
+          <label for="add-field-label">Label</label>
           <input
+            id="add-field-label"
             type="text"
             placeholder="e.g., Work, Personal"
             value={label()}
             onInput={(e) => setLabel(e.target.value)}
+            aria-required="true"
           />
 
-          <label>Value</label>
+          <label for="add-field-value">Value</label>
           <input
+            id="add-field-value"
             type="text"
             placeholder="Enter value"
             value={value()}
             onInput={(e) => setValue(e.target.value)}
+            aria-required="true"
+            aria-describedby={error() ? 'add-field-error' : undefined}
+            aria-invalid={error() ? 'true' : undefined}
           />
 
-          {error() && <p class="error">{error()}</p>}
+          {error() && <p id="add-field-error" class="error" role="alert" aria-live="assertive">{error()}</p>}
 
           <div class="dialog-actions">
-            <button class="secondary" onClick={props.onClose}>Cancel</button>
-            <button onClick={handleAdd}>Add</button>
+            <button class="secondary" onClick={props.onClose} aria-label="Cancel adding field">Cancel</button>
+            <button onClick={handleAdd} aria-label="Add this field to your card">Add</button>
           </div>
         </div>
       </div>

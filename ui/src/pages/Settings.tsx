@@ -271,179 +271,194 @@ function Settings(props: SettingsProps) {
   }
 
   return (
-    <div class="page settings">
-      <header>
-        <button class="back-btn" onClick={() => props.onNavigate('home')}>← Back</button>
-        <h1>Settings</h1>
+    <div class="page settings" role="main" aria-labelledby="settings-title">
+      <header role="banner">
+        <button class="back-btn" onClick={() => props.onNavigate('home')} aria-label="Go back to home">← Back</button>
+        <h1 id="settings-title">Settings</h1>
       </header>
 
-      <section class="settings-section">
-        <h2>Identity</h2>
+      <section class="settings-section" aria-labelledby="identity-section-title">
+        <h2 id="identity-section-title">Identity</h2>
         <div class="setting-item">
-          <span class="setting-label">Display Name</span>
+          <span class="setting-label" id="display-name-label">Display Name</span>
           <Show when={editingName()} fallback={
             <div class="setting-value-row">
-              <span class="setting-value">{identity()?.display_name}</span>
-              <button class="small" onClick={startEditingName}>Edit</button>
+              <span class="setting-value" aria-labelledby="display-name-label">{identity()?.display_name}</span>
+              <button class="small" onClick={startEditingName} aria-label="Edit display name">Edit</button>
             </div>
           }>
-            <div class="edit-name-form">
+            <div class="edit-name-form" role="form" aria-label="Edit display name">
               <input
                 type="text"
                 value={newName()}
                 onInput={(e) => setNewName(e.target.value)}
                 placeholder="Enter display name"
+                aria-label="New display name"
+                aria-describedby={nameError() ? 'name-error' : undefined}
+                aria-invalid={nameError() ? 'true' : undefined}
               />
               <div class="edit-actions">
-                <button class="small primary" onClick={handleUpdateName}>Save</button>
-                <button class="small secondary" onClick={cancelEditingName}>Cancel</button>
+                <button class="small primary" onClick={handleUpdateName} aria-label="Save display name">Save</button>
+                <button class="small secondary" onClick={cancelEditingName} aria-label="Cancel editing">Cancel</button>
               </div>
               <Show when={nameError()}>
-                <p class="error small">{nameError()}</p>
+                <p id="name-error" class="error small" role="alert" aria-live="assertive">{nameError()}</p>
               </Show>
             </div>
           </Show>
         </div>
         <div class="setting-item">
-          <span class="setting-label">Public ID</span>
-          <span class="setting-value mono">{identity()?.public_id}</span>
+          <span class="setting-label" id="public-id-label">Public ID</span>
+          <span class="setting-value mono" aria-labelledby="public-id-label">{identity()?.public_id}</span>
         </div>
       </section>
 
-      <section class="settings-section">
-        <h2>Devices & Recovery</h2>
-        <div class="setting-buttons">
-          <button class="secondary" onClick={() => props.onNavigate('devices')}>
+      <section class="settings-section" aria-labelledby="devices-section-title">
+        <h2 id="devices-section-title">Devices & Recovery</h2>
+        <div class="setting-buttons" role="group" aria-label="Device and recovery options">
+          <button class="secondary" onClick={() => props.onNavigate('devices')} aria-label="Manage linked devices">
             Manage Devices
           </button>
-          <button class="secondary" onClick={() => props.onNavigate('recovery')}>
+          <button class="secondary" onClick={() => props.onNavigate('recovery')} aria-label="Configure recovery options">
             Recovery Options
           </button>
         </div>
       </section>
 
-      <section class="settings-section">
-        <h2>Sync</h2>
-        <p class="setting-description">
+      <section class="settings-section" aria-labelledby="sync-section-title">
+        <h2 id="sync-section-title">Sync</h2>
+        <p class="setting-description" id="sync-description">
           Synchronize your contact cards with the relay server.
         </p>
 
         <div class="setting-item">
-          <span class="setting-label">Relay Server</span>
+          <span class="setting-label" id="relay-label">Relay Server</span>
           <Show when={editingRelay()} fallback={
             <div class="setting-value-row">
-              <span class="setting-value mono small">{relayUrl() || 'Not configured'}</span>
-              <button class="small" onClick={startEditingRelay}>Edit</button>
+              <span class="setting-value mono small" aria-labelledby="relay-label">{relayUrl() || 'Not configured'}</span>
+              <button class="small" onClick={startEditingRelay} aria-label="Edit relay server URL">Edit</button>
             </div>
           }>
-            <div class="edit-relay-form">
+            <div class="edit-relay-form" role="form" aria-label="Edit relay server">
               <input
                 type="text"
                 value={newRelayUrl()}
                 onInput={(e) => setNewRelayUrl(e.target.value)}
                 placeholder="wss://relay.example.com"
+                aria-label="Relay server URL"
+                aria-describedby={relayError() ? 'relay-error' : undefined}
+                aria-invalid={relayError() ? 'true' : undefined}
               />
               <div class="edit-actions">
-                <button class="small primary" onClick={handleUpdateRelay}>Save</button>
-                <button class="small secondary" onClick={cancelEditingRelay}>Cancel</button>
+                <button class="small primary" onClick={handleUpdateRelay} aria-label="Save relay URL">Save</button>
+                <button class="small secondary" onClick={cancelEditingRelay} aria-label="Cancel editing">Cancel</button>
               </div>
               <Show when={relayError()}>
-                <p class="error small">{relayError()}</p>
+                <p id="relay-error" class="error small" role="alert" aria-live="assertive">{relayError()}</p>
               </Show>
             </div>
           </Show>
         </div>
 
         <Show when={syncStatus()}>
-          <div class="setting-item">
-            <span class="setting-label">Pending Updates</span>
-            <span class="setting-value">{syncStatus()?.pending_updates || 0}</span>
+          <div class="setting-item" role="status" aria-live="polite">
+            <span class="setting-label" id="pending-label">Pending Updates</span>
+            <span class="setting-value" aria-labelledby="pending-label">{syncStatus()?.pending_updates || 0}</span>
           </div>
           <Show when={syncStatus()?.last_sync}>
             <div class="setting-item">
-              <span class="setting-label">Last Sync</span>
-              <span class="setting-value">
+              <span class="setting-label" id="last-sync-label">Last Sync</span>
+              <span class="setting-value" aria-labelledby="last-sync-label">
                 {new Date((syncStatus()?.last_sync || 0) * 1000).toLocaleString()}
               </span>
             </div>
           </Show>
         </Show>
         <Show when={syncMessage()}>
-          <p class="sync-message">{syncMessage()}</p>
+          <p class="sync-message" role="status" aria-live="polite">{syncMessage()}</p>
         </Show>
         <div class="setting-buttons">
           <button
             class="primary"
             onClick={handleSync}
             disabled={isSyncing()}
+            aria-busy={isSyncing()}
+            aria-label={isSyncing() ? 'Syncing in progress' : 'Start synchronization'}
           >
             {isSyncing() ? 'Syncing...' : 'Sync Now'}
           </button>
         </div>
       </section>
 
-      <section class="settings-section">
-        <h2>Backup</h2>
-        <p class="setting-description">
+      <section class="settings-section" aria-labelledby="backup-section-title">
+        <h2 id="backup-section-title">Backup</h2>
+        <p class="setting-description" id="backup-description">
           Export your identity to back it up or transfer to another device.
         </p>
-        <div class="setting-buttons">
-          <button class="secondary" onClick={() => setShowBackupDialog(true)}>Export Backup</button>
-          <button class="secondary" onClick={() => setShowImportDialog(true)}>Import Backup</button>
+        <div class="setting-buttons" role="group" aria-describedby="backup-description">
+          <button class="secondary" onClick={() => setShowBackupDialog(true)} aria-label="Export a backup of your identity">Export Backup</button>
+          <button class="secondary" onClick={() => setShowImportDialog(true)} aria-label="Import a backup file">Import Backup</button>
         </div>
       </section>
 
-      <section class="settings-section">
-        <h2>Help & Support</h2>
-        <div class="setting-buttons help-links">
-          <button class="secondary link-btn" onClick={() => open('https://vauchi.app/user-guide')}>
+      <section class="settings-section" aria-labelledby="help-section-title">
+        <h2 id="help-section-title">Help & Support</h2>
+        <div class="setting-buttons help-links" role="group" aria-label="Help and support links">
+          <button class="secondary link-btn" onClick={() => open('https://vauchi.app/user-guide')} aria-label="Open user guide in browser">
             User Guide
           </button>
-          <button class="secondary link-btn" onClick={() => open('https://vauchi.app/faq')}>
+          <button class="secondary link-btn" onClick={() => open('https://vauchi.app/faq')} aria-label="Open FAQ in browser">
             FAQ
           </button>
-          <button class="secondary link-btn" onClick={() => open('https://github.com/vauchi/issues')}>
+          <button class="secondary link-btn" onClick={() => open('https://github.com/vauchi/issues')} aria-label="Report an issue on GitHub">
             Report Issue
           </button>
-          <button class="secondary link-btn" onClick={() => open('https://vauchi.app/privacy')}>
+          <button class="secondary link-btn" onClick={() => open('https://vauchi.app/privacy')} aria-label="View privacy policy">
             Privacy Policy
           </button>
         </div>
       </section>
 
-      <section class="settings-section">
-        <h2>About</h2>
+      <section class="settings-section" aria-labelledby="about-section-title">
+        <h2 id="about-section-title">About</h2>
         <div class="setting-item">
-          <span class="setting-label">Version</span>
-          <span class="setting-value">1.0.0 (build 1)</span>
+          <span class="setting-label" id="version-label">Version</span>
+          <span class="setting-value" aria-labelledby="version-label">1.0.0 (build 1)</span>
         </div>
         <div class="setting-item">
-          <span class="setting-label">Vauchi</span>
-          <span class="setting-value">Privacy-focused contact card exchange</span>
+          <span class="setting-label" id="app-label">Vauchi</span>
+          <span class="setting-value" aria-labelledby="app-label">Privacy-focused contact card exchange</span>
         </div>
       </section>
 
       {/* Backup Dialog */}
       <Show when={showBackupDialog()}>
-        <div class="dialog-overlay" onClick={closeDialog}>
-          <div class="dialog" onClick={(e) => e.stopPropagation()}>
-            <h3>Export Backup</h3>
+        <div class="dialog-overlay" onClick={closeDialog} role="presentation">
+          <div
+            class="dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="backup-dialog-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="backup-dialog-title">Export Backup</h3>
 
             <Show when={!backupData()} fallback={
               <div class="backup-result">
-                <p class="success">Backup created successfully!</p>
-                <textarea readonly value={backupData()} rows={6} />
+                <p class="success" role="status" aria-live="polite">Backup created successfully!</p>
+                <textarea readonly value={backupData()} rows={6} aria-label="Your encrypted backup data" />
                 <div class="dialog-actions">
-                  <button class="primary" onClick={copyBackup}>Copy to Clipboard</button>
-                  <button class="secondary" onClick={closeDialog}>Close</button>
+                  <button class="primary" onClick={copyBackup} aria-label="Copy backup data to clipboard">Copy to Clipboard</button>
+                  <button class="secondary" onClick={closeDialog} aria-label="Close backup dialog">Close</button>
                 </div>
               </div>
             }>
               <div class="backup-form">
-                <p>Enter a strong password to encrypt your backup.</p>
+                <p id="backup-form-description">Enter a strong password to encrypt your backup.</p>
 
-                <label>Password</label>
+                <label for="backup-password">Password</label>
                 <input
+                  id="backup-password"
                   type="password"
                   value={backupPassword()}
                   onInput={(e) => {
@@ -451,13 +466,16 @@ function Settings(props: SettingsProps) {
                     checkPassword()
                   }}
                   placeholder="Enter password"
+                  aria-describedby={`${passwordStrength() ? 'password-strength' : ''} ${backupError() ? 'backup-error' : ''}`.trim() || undefined}
+                  aria-invalid={backupError() ? 'true' : undefined}
                 />
                 <Show when={passwordStrength()}>
-                  <p class="password-strength">Strength: {passwordStrength()}</p>
+                  <p id="password-strength" class="password-strength" role="status" aria-live="polite">Strength: {passwordStrength()}</p>
                 </Show>
 
-                <label>Confirm Password</label>
+                <label for="backup-confirm-password">Confirm Password</label>
                 <input
+                  id="backup-confirm-password"
                   type="password"
                   value={confirmPassword()}
                   onInput={(e) => setConfirmPassword(e.target.value)}
@@ -465,12 +483,12 @@ function Settings(props: SettingsProps) {
                 />
 
                 <Show when={backupError()}>
-                  <p class="error">{backupError()}</p>
+                  <p id="backup-error" class="error" role="alert" aria-live="assertive">{backupError()}</p>
                 </Show>
 
                 <div class="dialog-actions">
-                  <button class="primary" onClick={handleExportBackup}>Export</button>
-                  <button class="secondary" onClick={closeDialog}>Cancel</button>
+                  <button class="primary" onClick={handleExportBackup} aria-label="Create encrypted backup">Export</button>
+                  <button class="secondary" onClick={closeDialog} aria-label="Cancel backup">Cancel</button>
                 </div>
               </div>
             </Show>
@@ -480,46 +498,58 @@ function Settings(props: SettingsProps) {
 
       {/* Import Dialog */}
       <Show when={showImportDialog()}>
-        <div class="dialog-overlay" onClick={closeImportDialog}>
-          <div class="dialog" onClick={(e) => e.stopPropagation()}>
-            <h3>Import Backup</h3>
+        <div class="dialog-overlay" onClick={closeImportDialog} role="presentation">
+          <div
+            class="dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="import-dialog-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="import-dialog-title">Import Backup</h3>
 
             <Show when={importSuccess()}>
               <div class="import-result">
-                <p class="success">{importSuccess()}</p>
+                <p class="success" role="status" aria-live="polite">{importSuccess()}</p>
                 <div class="dialog-actions">
-                  <button class="primary" onClick={closeImportDialog}>Done</button>
+                  <button class="primary" onClick={closeImportDialog} aria-label="Close import dialog">Done</button>
                 </div>
               </div>
             </Show>
 
             <Show when={!importSuccess()}>
               <div class="import-form">
-                <p>Paste your backup data and enter the password used to encrypt it.</p>
+                <p id="import-form-description">Paste your backup data and enter the password used to encrypt it.</p>
 
-                <label>Backup Data</label>
+                <label for="import-data">Backup Data</label>
                 <textarea
+                  id="import-data"
                   value={importData()}
                   onInput={(e) => setImportData(e.target.value)}
                   placeholder="Paste your backup data here..."
                   rows={4}
+                  aria-required="true"
+                  aria-describedby={importError() ? 'import-error' : undefined}
+                  aria-invalid={importError() ? 'true' : undefined}
                 />
 
-                <label>Password</label>
+                <label for="import-password">Password</label>
                 <input
+                  id="import-password"
                   type="password"
                   value={importPassword()}
                   onInput={(e) => setImportPassword(e.target.value)}
                   placeholder="Enter backup password"
+                  aria-required="true"
                 />
 
                 <Show when={importError()}>
-                  <p class="error">{importError()}</p>
+                  <p id="import-error" class="error" role="alert" aria-live="assertive">{importError()}</p>
                 </Show>
 
                 <div class="dialog-actions">
-                  <button class="primary" onClick={handleImportBackup}>Import</button>
-                  <button class="secondary" onClick={closeImportDialog}>Cancel</button>
+                  <button class="primary" onClick={handleImportBackup} aria-label="Import and restore backup">Import</button>
+                  <button class="secondary" onClick={closeImportDialog} aria-label="Cancel import">Cancel</button>
                 </div>
               </div>
             </Show>
@@ -527,11 +557,11 @@ function Settings(props: SettingsProps) {
         </div>
       </Show>
 
-      <nav class="bottom-nav">
-        <button class="nav-btn" onClick={() => props.onNavigate('home')}>Home</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('contacts')}>Contacts</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('exchange')}>Exchange</button>
-        <button class="nav-btn active">Settings</button>
+      <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
+        <button class="nav-btn" onClick={() => props.onNavigate('home')} aria-label="Go to Home">Home</button>
+        <button class="nav-btn" onClick={() => props.onNavigate('contacts')} aria-label="Go to Contacts">Contacts</button>
+        <button class="nav-btn" onClick={() => props.onNavigate('exchange')} aria-label="Go to Exchange">Exchange</button>
+        <button class="nav-btn active" aria-current="page" aria-label="Settings (current page)">Settings</button>
       </nav>
     </div>
   )

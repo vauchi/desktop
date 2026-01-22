@@ -205,29 +205,49 @@ function Contacts(props: ContactsProps) {
   }
 
   return (
-    <div class="page contacts">
-      <header>
-        <button class="back-btn" onClick={() => props.onNavigate('home')}>← Back</button>
-        <h1>Contacts</h1>
+    <div class="page contacts" role="main" aria-labelledby="contacts-title">
+      <header role="banner">
+        <button
+          class="back-btn"
+          onClick={() => props.onNavigate('home')}
+          aria-label="Go back to home"
+        >
+          ← Back
+        </button>
+        <h1 id="contacts-title">Contacts</h1>
       </header>
 
-      <div class="search-bar">
+      <div class="search-bar" role="search">
         <input
           type="text"
           placeholder="Search contacts..."
           value={searchQuery()}
           onInput={(e) => setSearchQuery(e.target.value)}
+          aria-label="Search contacts by name"
         />
         <Show when={searchQuery()}>
-          <button class="clear-search" onClick={() => setSearchQuery('')}>×</button>
+          <button
+            class="clear-search"
+            onClick={() => setSearchQuery('')}
+            aria-label="Clear search"
+          >
+            ×
+          </button>
         </Show>
       </div>
 
-      <div class="contacts-list">
+      <div class="contacts-list" role="list" aria-label="Contacts list">
         <For each={filteredContacts()}>
           {(contact) => (
-            <div class="contact-item" onClick={() => openContactDetail(contact.id)}>
-              <div class="contact-avatar">
+            <div
+              class="contact-item"
+              role="listitem"
+              tabIndex={0}
+              onClick={() => openContactDetail(contact.id)}
+              onKeyPress={(e) => e.key === 'Enter' && openContactDetail(contact.id)}
+              aria-label={`${contact.display_name}, ${contact.verified ? 'verified' : 'not verified'}. Press Enter to view details.`}
+            >
+              <div class="contact-avatar" aria-hidden="true">
                 {contact.display_name.charAt(0).toUpperCase()}
               </div>
               <div class="contact-info">
@@ -241,14 +261,14 @@ function Contacts(props: ContactsProps) {
         </For>
 
         {filteredContacts().length === 0 && searchQuery() && (
-          <div class="empty-state">
+          <div class="empty-state" role="status" aria-live="polite">
             <p>No contacts match "{searchQuery()}"</p>
             <button class="secondary" onClick={() => setSearchQuery('')}>Clear search</button>
           </div>
         )}
 
         {contacts()?.length === 0 && !searchQuery() && (
-          <div class="empty-state">
+          <div class="empty-state" role="status" aria-label="No contacts yet. Exchange cards with someone to add contacts.">
             <p>No contacts yet</p>
             <button onClick={() => props.onNavigate('exchange')}>
               Exchange with someone
@@ -259,31 +279,47 @@ function Contacts(props: ContactsProps) {
 
       {/* Contact Detail Dialog */}
       <Show when={selectedContact()}>
-        <div class="dialog-overlay" onClick={closeDetail}>
-          <div class="dialog contact-detail" onClick={(e) => e.stopPropagation()}>
+        <div class="dialog-overlay" onClick={closeDetail} role="presentation">
+          <div
+            class="dialog contact-detail"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="contact-detail-title"
+            onClick={(e) => e.stopPropagation()}
+          >
             <Show when={!showDeleteConfirm()} fallback={
-              <div class="delete-confirm">
-                <h3>Delete Contact?</h3>
-                <p>Are you sure you want to delete {selectedContact()?.display_name}?</p>
-                <p class="warning">This action cannot be undone.</p>
+              <div
+                class="delete-confirm"
+                role="alertdialog"
+                aria-labelledby="delete-confirm-title"
+                aria-describedby="delete-confirm-description"
+              >
+                <h3 id="delete-confirm-title">Delete Contact?</h3>
+                <p id="delete-confirm-description">Are you sure you want to delete {selectedContact()?.display_name}?</p>
+                <p class="warning" role="alert">This action cannot be undone.</p>
                 <div class="dialog-actions">
-                  <button class="danger" onClick={handleDelete}>Delete</button>
+                  <button class="danger" onClick={handleDelete} aria-label={`Delete ${selectedContact()?.display_name}`}>Delete</button>
                   <button class="secondary" onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
                 </div>
               </div>
             }>
               <div class="contact-header">
-                <div class="contact-avatar large">
+                <div class="contact-avatar large" aria-hidden="true">
                   {selectedContact()?.display_name.charAt(0).toUpperCase()}
                 </div>
-                <h3>{selectedContact()?.display_name}</h3>
-                <span class={selectedContact()?.verified ? 'verified' : 'not-verified'}>
+                <h3 id="contact-detail-title">{selectedContact()?.display_name}</h3>
+                <span
+                  class={selectedContact()?.verified ? 'verified' : 'not-verified'}
+                  role="status"
+                  aria-label={`Verification status: ${selectedContact()?.verified ? 'verified' : 'not verified'}`}
+                >
                   {selectedContact()?.verified ? '✓ Verified' : 'Not verified'}
                 </span>
                 <Show when={!selectedContact()?.verified}>
                   <button
                     class="small primary"
                     onClick={() => loadFingerprint(selectedContact()!.id)}
+                    aria-label={`Verify ${selectedContact()?.display_name}'s identity`}
                   >
                     Verify Identity
                   </button>
@@ -291,26 +327,29 @@ function Contacts(props: ContactsProps) {
               </div>
 
               <Show when={error()}>
-                <p class="error">{error()}</p>
+                <p class="error" role="alert" aria-live="assertive">{error()}</p>
               </Show>
 
-              <div class="contact-fields">
+              <div class="contact-fields" role="list" aria-label="Contact information fields">
                 <Show when={selectedContact()?.fields.length === 0}>
-                  <p class="empty-fields">No contact information shared yet.</p>
+                  <p class="empty-fields" role="status">No contact information shared yet.</p>
                 </Show>
                 <For each={selectedContact()?.fields}>
                   {(field) => (
                     <div
                       class="field-item clickable"
+                      role="listitem"
+                      tabIndex={0}
                       onClick={() => handleFieldClick(field)}
-                      title={`Click to open ${field.field_type.toLowerCase()}`}
+                      onKeyPress={(e) => e.key === 'Enter' && handleFieldClick(field)}
+                      aria-label={`${field.label}: ${field.value}. Press Enter to open.`}
                     >
-                      <span class="field-icon">{getFieldIcon(field.field_type)}</span>
+                      <span class="field-icon" aria-hidden="true">{getFieldIcon(field.field_type)}</span>
                       <div class="field-content">
                         <span class="field-label">{field.label}</span>
                         <span class="field-value">{field.value}</span>
                       </div>
-                      <span class="field-action">→</span>
+                      <span class="field-action" aria-hidden="true">→</span>
                     </div>
                   )}
                 </For>
@@ -323,25 +362,30 @@ function Contacts(props: ContactsProps) {
 
               {/* Verification Section */}
               <Show when={showVerification() && fingerprint()}>
-                <div class="verification-section">
-                  <h4>Verify {selectedContact()?.display_name}'s Identity</h4>
-                  <p class="verify-instructions">
+                <div
+                  class="verification-section"
+                  role="region"
+                  aria-labelledby="verification-title"
+                  aria-describedby="verification-instructions"
+                >
+                  <h4 id="verification-title">Verify {selectedContact()?.display_name}'s Identity</h4>
+                  <p id="verification-instructions" class="verify-instructions">
                     Compare these fingerprints with {selectedContact()?.display_name} in person
                     to verify their identity.
                   </p>
 
-                  <div class="fingerprint-comparison">
+                  <div class="fingerprint-comparison" role="group" aria-label="Fingerprint comparison">
                     <div class="fingerprint-block">
-                      <span class="fp-label">Their Fingerprint</span>
-                      <code class="fingerprint">{fingerprint()?.formatted_their}</code>
+                      <span class="fp-label" id="their-fp-label">Their Fingerprint</span>
+                      <code class="fingerprint" aria-labelledby="their-fp-label">{fingerprint()?.formatted_their}</code>
                     </div>
                     <div class="fingerprint-block">
-                      <span class="fp-label">Your Fingerprint</span>
-                      <code class="fingerprint">{fingerprint()?.formatted_our}</code>
+                      <span class="fp-label" id="our-fp-label">Your Fingerprint</span>
+                      <code class="fingerprint" aria-labelledby="our-fp-label">{fingerprint()?.formatted_our}</code>
                     </div>
                   </div>
 
-                  <p class="verify-warning">
+                  <p class="verify-warning" role="alert">
                     Only mark as verified if you have confirmed these fingerprints match
                     the ones shown on their device.
                   </p>
@@ -351,6 +395,8 @@ function Contacts(props: ContactsProps) {
                       class="primary"
                       onClick={handleVerifyContact}
                       disabled={isVerifying()}
+                      aria-busy={isVerifying()}
+                      aria-label={isVerifying() ? 'Verifying contact' : `Mark ${selectedContact()?.display_name} as verified`}
                     >
                       {isVerifying() ? 'Verifying...' : 'Mark as Verified'}
                     </button>
@@ -361,6 +407,7 @@ function Contacts(props: ContactsProps) {
                         setFingerprint(null)
                       }}
                       disabled={isVerifying()}
+                      aria-label="Cancel verification"
                     >
                       Cancel
                     </button>
@@ -369,51 +416,65 @@ function Contacts(props: ContactsProps) {
               </Show>
 
               {/* Visibility Section */}
-              <div class="visibility-section">
+              <div class="visibility-section" role="region" aria-label="Field visibility settings">
                 <Show when={!showVisibility()} fallback={
                   <div class="visibility-list">
-                    <h4>What {selectedContact()?.display_name} can see:</h4>
+                    <h4 id="visibility-title">What {selectedContact()?.display_name} can see:</h4>
                     <Show when={visibilityRules().length === 0}>
-                      <p class="empty-fields">You haven't added any fields to your card yet.</p>
+                      <p class="empty-fields" role="status">You haven't added any fields to your card yet.</p>
                     </Show>
-                    <For each={visibilityRules()}>
-                      {(field) => (
-                        <div class="visibility-item">
-                          <span class="field-label">{field.field_label}</span>
-                          <button
-                            class={field.can_see ? 'visible' : 'hidden'}
-                            onClick={() => toggleFieldVisibility(field.field_id, field.can_see)}
-                          >
-                            {field.can_see ? 'Visible' : 'Hidden'}
-                          </button>
-                        </div>
-                      )}
-                    </For>
+                    <div role="list" aria-labelledby="visibility-title">
+                      <For each={visibilityRules()}>
+                        {(field) => (
+                          <div class="visibility-item" role="listitem">
+                            <span class="field-label" id={`visibility-label-${field.field_id}`}>{field.field_label}</span>
+                            <button
+                              class={field.can_see ? 'visible' : 'hidden'}
+                              onClick={() => toggleFieldVisibility(field.field_id, field.can_see)}
+                              aria-pressed={field.can_see}
+                              aria-label={`${field.field_label}: ${field.can_see ? 'visible to contact' : 'hidden from contact'}. Click to toggle.`}
+                            >
+                              {field.can_see ? 'Visible' : 'Hidden'}
+                            </button>
+                          </div>
+                        )}
+                      </For>
+                    </div>
                     <button class="secondary small" onClick={() => setShowVisibility(false)}>
                       Hide visibility settings
                     </button>
                   </div>
                 }>
-                  <button class="secondary" onClick={() => loadVisibilityRules(selectedContact()!.id)}>
+                  <button
+                    class="secondary"
+                    onClick={() => loadVisibilityRules(selectedContact()!.id)}
+                    aria-label={`Manage what ${selectedContact()?.display_name} can see from your card`}
+                  >
                     Manage what they see
                   </button>
                 </Show>
               </div>
 
               <div class="dialog-actions">
-                <button class="secondary" onClick={closeDetail}>Close</button>
-                <button class="danger" onClick={() => setShowDeleteConfirm(true)}>Delete Contact</button>
+                <button class="secondary" onClick={closeDetail} aria-label="Close contact details">Close</button>
+                <button
+                  class="danger"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  aria-label={`Delete ${selectedContact()?.display_name} from contacts`}
+                >
+                  Delete Contact
+                </button>
               </div>
             </Show>
           </div>
         </div>
       </Show>
 
-      <nav class="bottom-nav">
-        <button class="nav-btn" onClick={() => props.onNavigate('home')}>Home</button>
-        <button class="nav-btn active">Contacts</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('exchange')}>Exchange</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('settings')}>Settings</button>
+      <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
+        <button class="nav-btn" onClick={() => props.onNavigate('home')} aria-label="Go to Home">Home</button>
+        <button class="nav-btn active" aria-current="page" aria-label="Contacts (current page)">Contacts</button>
+        <button class="nav-btn" onClick={() => props.onNavigate('exchange')} aria-label="Go to Exchange">Exchange</button>
+        <button class="nav-btn" onClick={() => props.onNavigate('settings')} aria-label="Go to Settings">Settings</button>
       </nav>
     </div>
   )

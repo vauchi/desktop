@@ -124,37 +124,64 @@ function Exchange(props: ExchangeProps) {
   }
 
   return (
-    <div class="page exchange">
-      <header>
-        <button class="back-btn" onClick={() => props.onNavigate('home')}>← Back</button>
-        <h1>Exchange</h1>
+    <div class="page exchange" role="main" aria-labelledby="exchange-title">
+      <header role="banner">
+        <button
+          class="back-btn"
+          onClick={() => props.onNavigate('home')}
+          aria-label="Go back to home"
+        >
+          ← Back
+        </button>
+        <h1 id="exchange-title">Exchange</h1>
       </header>
 
-      <section class="qr-section">
-        <h2>Your QR Code</h2>
-        <p>Have someone scan this to add you as a contact</p>
+      <section class="qr-section" aria-labelledby="qr-section-title">
+        <h2 id="qr-section-title">Your QR Code</h2>
+        <p id="qr-description">Have someone scan this to add you as a contact</p>
 
-        <Show when={qrData()} fallback={<div class="loading">Generating QR...</div>}>
-          <div class="qr-container">
+        <Show when={qrData()} fallback={
+          <div class="loading" role="status" aria-live="polite">Generating QR...</div>
+        }>
+          <div class="qr-container" aria-describedby="qr-description">
             <Show when={!isExpired()} fallback={
-              <div class="qr-expired">
+              <div class="qr-expired" role="alert">
                 <p>QR Code Expired</p>
-                <button onClick={refreshQR}>Generate New QR</button>
+                <button onClick={refreshQR} aria-label="Generate a new QR code">
+                  Generate New QR
+                </button>
               </div>
             }>
               <Show when={qrImageUrl()} fallback={
-                <pre class="qr-ascii">{qrData()?.qr_ascii}</pre>
+                <pre class="qr-ascii" aria-label="QR code in ASCII format">{qrData()?.qr_ascii}</pre>
               }>
-                <img src={qrImageUrl()} alt="Exchange QR Code" class="qr-image" />
+                <img
+                  src={qrImageUrl()}
+                  alt="Your contact exchange QR code. Show this to someone to let them scan and add you as a contact."
+                  class="qr-image"
+                />
               </Show>
             </Show>
-            <p class="display-name">{qrData()?.display_name}</p>
+            <p class="display-name" aria-label={`Display name: ${qrData()?.display_name}`}>
+              {qrData()?.display_name}
+            </p>
 
-            <div class={`qr-timer ${timeRemaining() <= 30 ? 'warning' : ''} ${isExpired() ? 'expired' : ''}`}>
+            <div
+              class={`qr-timer ${timeRemaining() <= 30 ? 'warning' : ''} ${isExpired() ? 'expired' : ''}`}
+              role="timer"
+              aria-live="polite"
+              aria-atomic="true"
+            >
               <Show when={!isExpired()} fallback={<span>Expired</span>}>
                 <span>Expires in {formatTime(timeRemaining())}</span>
               </Show>
-              <button class="refresh-btn small" onClick={refreshQR} title="Refresh QR">↻</button>
+              <button
+                class="refresh-btn small"
+                onClick={refreshQR}
+                aria-label="Refresh QR code"
+              >
+                ↻
+              </button>
             </div>
           </div>
         </Show>
@@ -168,23 +195,30 @@ function Exchange(props: ExchangeProps) {
         </div>
       </section>
 
-      <section class="scan-section">
-        <h2>Complete Exchange</h2>
-        <p>Paste the exchange data from another user</p>
+      <section class="scan-section" aria-labelledby="scan-section-title">
+        <h2 id="scan-section-title">Complete Exchange</h2>
+        <p id="scan-description">Paste the exchange data from another user</p>
 
         <input
           type="text"
           placeholder="Paste exchange data here..."
           value={scanData()}
           onInput={(e) => setScanData(e.target.value)}
+          aria-label="Exchange data input"
+          aria-describedby="scan-description"
+          aria-invalid={error() ? 'true' : undefined}
         />
 
         <Show when={error()}>
-          <p class="error">{error()}</p>
+          <p class="error" role="alert" aria-live="assertive">{error()}</p>
         </Show>
 
         <Show when={result()}>
-          <div class={result()?.success ? 'success' : 'warning'}>
+          <div
+            class={result()?.success ? 'success' : 'warning'}
+            role="status"
+            aria-live="polite"
+          >
             <p>{result()?.message}</p>
             <Show when={result()?.success}>
               <p>Added: {result()?.contact_name}</p>
@@ -192,14 +226,27 @@ function Exchange(props: ExchangeProps) {
           </div>
         </Show>
 
-        <button onClick={handleComplete}>Complete Exchange</button>
+        <button
+          onClick={handleComplete}
+          aria-label="Complete the contact exchange"
+        >
+          Complete Exchange
+        </button>
       </section>
 
-      <nav class="bottom-nav">
-        <button class="nav-btn" onClick={() => props.onNavigate('home')}>Home</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('contacts')}>Contacts</button>
-        <button class="nav-btn active">Exchange</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('settings')}>Settings</button>
+      <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
+        <button class="nav-btn" onClick={() => props.onNavigate('home')} aria-label="Go to Home">
+          Home
+        </button>
+        <button class="nav-btn" onClick={() => props.onNavigate('contacts')} aria-label="Go to Contacts">
+          Contacts
+        </button>
+        <button class="nav-btn active" aria-current="page" aria-label="Exchange (current page)">
+          Exchange
+        </button>
+        <button class="nav-btn" onClick={() => props.onNavigate('settings')} aria-label="Go to Settings">
+          Settings
+        </button>
       </nav>
     </div>
   )

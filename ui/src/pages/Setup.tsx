@@ -30,12 +30,16 @@ function Setup(props: SetupProps) {
   }
 
   return (
-    <div class="page setup">
+    <main class="page setup" role="main" aria-labelledby="setup-title">
       <div class="setup-container">
-        <h1>Welcome to Vauchi</h1>
-        <p>Privacy-focused contact card exchange</p>
+        <h1 id="setup-title">Welcome to Vauchi</h1>
+        <p id="setup-description">Privacy-focused contact card exchange</p>
 
-        <div class="form">
+        <form
+          class="form"
+          onSubmit={(e) => { e.preventDefault(); handleCreate(); }}
+          aria-describedby="setup-description"
+        >
           <label for="name">Your Display Name</label>
           <input
             id="name"
@@ -44,16 +48,28 @@ function Setup(props: SetupProps) {
             value={name()}
             onInput={(e) => setName(e.target.value)}
             disabled={loading()}
+            aria-describedby={error() ? 'name-error' : undefined}
+            aria-invalid={error() ? 'true' : undefined}
+            aria-required="true"
           />
 
-          {error() && <p class="error">{error()}</p>}
+          {error() && (
+            <p id="name-error" class="error" role="alert" aria-live="polite">
+              {error()}
+            </p>
+          )}
 
-          <button onClick={handleCreate} disabled={loading()}>
+          <button
+            type="submit"
+            disabled={loading()}
+            aria-busy={loading()}
+            aria-label={loading() ? 'Creating your identity' : 'Get started and create your identity'}
+          >
             {loading() ? 'Creating...' : 'Get Started'}
           </button>
-        </div>
+        </form>
       </div>
-    </div>
+    </main>
   )
 }
 
