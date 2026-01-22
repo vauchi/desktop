@@ -63,7 +63,19 @@ function Settings(props: SettingsProps) {
   const [newRelayUrl, setNewRelayUrl] = createSignal('')
   const [relayError, setRelayError] = createSignal('')
 
-  // Load sync status and relay URL on mount
+  // Accessibility settings state
+  const [reduceMotion, setReduceMotion] = createSignal(false)
+  const [highContrast, setHighContrast] = createSignal(false)
+  const [largeTouchTargets, setLargeTouchTargets] = createSignal(false)
+
+  // Apply accessibility settings to document
+  const applyAccessibilitySettings = () => {
+    document.documentElement.setAttribute('data-reduce-motion', String(reduceMotion()))
+    document.documentElement.setAttribute('data-high-contrast', String(highContrast()))
+    document.documentElement.setAttribute('data-large-touch-targets', String(largeTouchTargets()))
+  }
+
+  // Load sync status, relay URL, and accessibility settings on mount
   onMount(async () => {
     try {
       const status = await invoke('get_sync_status') as SyncStatus
@@ -78,7 +90,38 @@ function Settings(props: SettingsProps) {
     } catch (e) {
       console.error('Failed to get relay URL:', e)
     }
+
+    // Load accessibility settings from localStorage
+    const savedReduceMotion = localStorage.getItem('a11y-reduce-motion') === 'true'
+    const savedHighContrast = localStorage.getItem('a11y-high-contrast') === 'true'
+    const savedLargeTouchTargets = localStorage.getItem('a11y-large-touch-targets') === 'true'
+
+    setReduceMotion(savedReduceMotion)
+    setHighContrast(savedHighContrast)
+    setLargeTouchTargets(savedLargeTouchTargets)
+    applyAccessibilitySettings()
   })
+
+  const toggleReduceMotion = () => {
+    const newValue = !reduceMotion()
+    setReduceMotion(newValue)
+    localStorage.setItem('a11y-reduce-motion', String(newValue))
+    applyAccessibilitySettings()
+  }
+
+  const toggleHighContrast = () => {
+    const newValue = !highContrast()
+    setHighContrast(newValue)
+    localStorage.setItem('a11y-high-contrast', String(newValue))
+    applyAccessibilitySettings()
+  }
+
+  const toggleLargeTouchTargets = () => {
+    const newValue = !largeTouchTargets()
+    setLargeTouchTargets(newValue)
+    localStorage.setItem('a11y-large-touch-targets', String(newValue))
+    applyAccessibilitySettings()
+  }
 
   const handleSync = async () => {
     setIsSyncing(true)
@@ -322,6 +365,62 @@ function Settings(props: SettingsProps) {
           <button class="secondary" onClick={() => props.onNavigate('recovery')} aria-label="Configure recovery options">
             Recovery Options
           </button>
+        </div>
+      </section>
+
+      <section class="settings-section" aria-labelledby="accessibility-section-title">
+        <h2 id="accessibility-section-title">Accessibility</h2>
+        <p class="setting-description" id="accessibility-description">
+          Customize the app for your accessibility needs.
+        </p>
+
+        <div class="accessibility-toggle">
+          <label for="reduce-motion-toggle">
+            Reduce Motion
+            <span class="toggle-description">Minimize animations and transitions</span>
+          </label>
+          <div class="toggle-switch">
+            <input
+              type="checkbox"
+              id="reduce-motion-toggle"
+              checked={reduceMotion()}
+              onChange={toggleReduceMotion}
+              aria-describedby="accessibility-description"
+            />
+            <span class="toggle-slider" aria-hidden="true"></span>
+          </div>
+        </div>
+
+        <div class="accessibility-toggle">
+          <label for="high-contrast-toggle">
+            High Contrast
+            <span class="toggle-description">Increase color contrast for better visibility</span>
+          </label>
+          <div class="toggle-switch">
+            <input
+              type="checkbox"
+              id="high-contrast-toggle"
+              checked={highContrast()}
+              onChange={toggleHighContrast}
+            />
+            <span class="toggle-slider" aria-hidden="true"></span>
+          </div>
+        </div>
+
+        <div class="accessibility-toggle">
+          <label for="large-touch-toggle">
+            Large Touch Targets
+            <span class="toggle-description">Increase button and input sizes for easier interaction</span>
+          </label>
+          <div class="toggle-switch">
+            <input
+              type="checkbox"
+              id="large-touch-toggle"
+              checked={largeTouchTargets()}
+              onChange={toggleLargeTouchTargets}
+            />
+            <span class="toggle-slider" aria-hidden="true"></span>
+          </div>
         </div>
       </section>
 

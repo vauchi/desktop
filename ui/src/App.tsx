@@ -18,6 +18,17 @@ function App() {
   const [page, setPage] = createSignal<Page>('home')
   const [hasIdentity] = createResource(checkIdentity)
 
+  // Apply saved accessibility settings on app startup
+  onMount(() => {
+    const reduceMotion = localStorage.getItem('a11y-reduce-motion') === 'true'
+    const highContrast = localStorage.getItem('a11y-high-contrast') === 'true'
+    const largeTouchTargets = localStorage.getItem('a11y-large-touch-targets') === 'true'
+
+    document.documentElement.setAttribute('data-reduce-motion', String(reduceMotion))
+    document.documentElement.setAttribute('data-high-contrast', String(highContrast))
+    document.documentElement.setAttribute('data-large-touch-targets', String(largeTouchTargets))
+  })
+
   const currentPage = () => {
     if (hasIdentity.loading) return <div class="loading">Loading...</div>
     if (!hasIdentity()) return <Setup onComplete={() => location.reload()} />
