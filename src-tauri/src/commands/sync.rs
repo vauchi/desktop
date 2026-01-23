@@ -67,13 +67,13 @@ fn connect_to_relay(relay_url: &str) -> Result<WebSocket<MaybeTlsStream<TcpStrea
         .next()
         .ok_or_else(|| format!("No addresses found for {}", addr_str))?;
 
-    // Connect with timeout (5 seconds)
-    let stream = TcpStream::connect_timeout(&addr, Duration::from_secs(5))
-        .map_err(|e| format!("Connection timeout or failed: {}", e))?;
+    // Connect with timeout (2 seconds for responsive UX)
+    let stream = TcpStream::connect_timeout(&addr, Duration::from_secs(2))
+        .map_err(|e| format!("Connection failed: {}", e))?;
 
-    // Set read/write timeouts
-    stream.set_read_timeout(Some(Duration::from_secs(10))).ok();
-    stream.set_write_timeout(Some(Duration::from_secs(10))).ok();
+    // Set read/write timeouts (3 seconds)
+    stream.set_read_timeout(Some(Duration::from_secs(3))).ok();
+    stream.set_write_timeout(Some(Duration::from_secs(3))).ok();
 
     // Handle TLS if needed
     let tls_stream: MaybeTlsStream<TcpStream> = if url.scheme() == "wss" {
@@ -649,14 +649,14 @@ pub fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
     let client_id = identity.public_id();
     let device_id_hex = hex::encode(identity.device_id());
 
-    // Connect to relay
+    // Connect to relay with timeout
     let mut socket = connect_to_relay(relay_url)?;
 
     // Send handshake with device_id for inter-device sync
     send_handshake(&mut socket, &client_id, Some(&device_id_hex))?;
 
-    // Wait briefly for server to send pending messages
-    std::thread::sleep(Duration::from_millis(500));
+    // Brief wait for server to send pending messages (reduced from 500ms)
+    std::thread::sleep(Duration::from_millis(100));
 
     // Receive pending messages
     let received = receive_pending(&mut socket)?;

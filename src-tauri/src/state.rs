@@ -215,6 +215,19 @@ impl AppState {
         &self.relay_url
     }
 
+    /// Get the data directory path.
+    pub fn data_dir(&self) -> &Path {
+        &self.data_dir
+    }
+
+    /// Open a storage instance for the given data directory.
+    /// Used for creating storage in background threads.
+    pub fn open_storage(data_dir: &Path) -> Result<Storage> {
+        let db_path = data_dir.join("vauchi.db");
+        let key = Self::load_or_create_storage_key(data_dir)?;
+        Storage::open(&db_path, key).context("Failed to open storage")
+    }
+
     /// Set the relay URL.
     pub fn set_relay_url(&mut self, url: &str) -> Result<()> {
         let url = url.trim();
