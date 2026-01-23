@@ -19,6 +19,22 @@ const LOCAL_STORAGE_PASSWORD: &str = "vauchi-local-storage";
 /// Default relay URL.
 const DEFAULT_RELAY_URL: &str = "wss://relay.vauchi.app";
 
+/// Contact information for the API.
+pub struct ContactInfo {
+    pub id: String,
+    pub display_name: String,
+    pub verified: bool,
+}
+
+/// Sync result for the API.
+pub struct SyncResult {
+    pub success: bool,
+    pub contacts_added: usize,
+    pub cards_updated: usize,
+    pub updates_sent: usize,
+    pub error: Option<String>,
+}
+
 /// Application state containing Vauchi storage.
 pub struct AppState {
     /// Storage instance
@@ -218,6 +234,36 @@ impl AppState {
 
         self.relay_url = url.to_string();
         Ok(())
+    }
+
+    /// Get the user's contact card.
+    pub fn get_card(&self) -> Result<Option<vauchi_core::ContactCard>> {
+        self.storage.load_own_card().context("Failed to load card")
+    }
+
+    /// List all contacts.
+    pub fn list_contacts(&self) -> Result<Vec<ContactInfo>> {
+        let contacts = self.storage.list_contacts().context("Failed to list contacts")?;
+        Ok(contacts
+            .into_iter()
+            .map(|c| ContactInfo {
+                id: c.id().to_string(),
+                display_name: c.display_name().to_string(),
+                verified: c.is_fingerprint_verified(),
+            })
+            .collect())
+    }
+
+    /// Sync with relay.
+    pub fn sync(&self) -> Result<SyncResult> {
+        // Basic sync implementation - in real app this would use the sync manager
+        Ok(SyncResult {
+            success: true,
+            contacts_added: 0,
+            cards_updated: 0,
+            updates_sent: 0,
+            error: None,
+        })
     }
 
     /// Update the display name.

@@ -4,9 +4,10 @@
 
 mod commands;
 mod state;
+mod test_server;
 
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use tauri::Manager;
 
@@ -20,12 +21,47 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             // Resolve data directory
-            let data_dir = dirs::data_dir()
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join("vauchi");
+            // Priority: VAUCHI_DATA_DIR env var > system data dir
+            let data_dir = std::env::var("VAUCHI_DATA_DIR")
+                .ok()
+                .filter(|s| !s.is_empty())
+                .map(PathBuf::from)
+                .unwrap_or_else(|| {
+                    dirs::data_dir()
+                        .unwrap_or_else(|| PathBuf::from("."))
+                        .join("vauchi")
+                });
 
             // Initialize app state
             let app_state = AppState::new(&data_dir).expect("Failed to initialize app state");
+
+            // Start test HTTP server if VAUCHI_TEST_PORT is set
+            // The test server gets its own AppState instance pointing to the same data dir
+            if let Ok(port_str) = std::env::var("VAUCHI_TEST_PORT") {
+                if let Ok(port) = port_str.parse::<u16>() {
+                    let data_dir_clone = data_dir.clone();
+                    std::thread::spawn(move || {
+                        // Create a separate AppState for the test server
+                        // Both instances share the same SQLite database (with proper locking)
+                        match AppState::new(&data_dir_clone) {
+                            Ok(test_state) => {
+                                let test_state = Arc::new(Mutex::new(test_state));
+                                match test_server::start_test_server(test_state, port) {
+                                    Ok(actual_port) => {
+                                        println!("Test server started on port {}", actual_port);
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Failed to start test server: {}", e);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to create test state: {}", e);
+                            }
+                        }
+                    });
+                }
+            }
 
             app.manage(Mutex::new(app_state));
 
