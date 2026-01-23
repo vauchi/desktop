@@ -49,10 +49,48 @@ pub struct SyncStatus {
     pub is_syncing: bool,
 }
 
-/// Connect to relay server via WebSocket.
+/// Connect to relay server via WebSocket with timeout.
 fn connect_to_relay(relay_url: &str) -> Result<WebSocket<MaybeTlsStream<TcpStream>>, String> {
-    let (socket, _response) = tungstenite::connect(relay_url)
-        .map_err(|e| format!("Failed to connect to relay: {}", e))?;
+    use std::net::ToSocketAddrs;
+    use url::Url;
+
+    // Parse URL to get host and port
+    let url = Url::parse(relay_url).map_err(|e| format!("Invalid relay URL: {}", e))?;
+    let host = url.host_str().ok_or("No host in relay URL")?;
+    let port = url.port().unwrap_or(if url.scheme() == "wss" { 443 } else { 80 });
+    let addr_str = format!("{}:{}", host, port);
+
+    // Resolve address
+    let addr = addr_str
+        .to_socket_addrs()
+        .map_err(|e| format!("Failed to resolve {}: {}", addr_str, e))?
+        .next()
+        .ok_or_else(|| format!("No addresses found for {}", addr_str))?;
+
+    // Connect with timeout (5 seconds)
+    let stream = TcpStream::connect_timeout(&addr, Duration::from_secs(5))
+        .map_err(|e| format!("Connection timeout or failed: {}", e))?;
+
+    // Set read/write timeouts
+    stream.set_read_timeout(Some(Duration::from_secs(10))).ok();
+    stream.set_write_timeout(Some(Duration::from_secs(10))).ok();
+
+    // Handle TLS if needed
+    let tls_stream: MaybeTlsStream<TcpStream> = if url.scheme() == "wss" {
+        let connector = native_tls::TlsConnector::new()
+            .map_err(|e| format!("Failed to create TLS connector: {}", e))?;
+        let tls_stream = connector
+            .connect(host, stream)
+            .map_err(|e| format!("TLS handshake failed: {}", e))?;
+        MaybeTlsStream::NativeTls(tls_stream)
+    } else {
+        MaybeTlsStream::Plain(stream)
+    };
+
+    // Perform WebSocket handshake
+    let (socket, _response) = tungstenite::client(relay_url, tls_stream)
+        .map_err(|e| format!("WebSocket handshake failed: {}", e))?;
+
     Ok(socket)
 }
 
