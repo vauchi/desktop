@@ -120,6 +120,12 @@ pub fn run() {
             commands::sync::get_sync_status,
             commands::sync::get_relay_url,
             commands::sync::set_relay_url,
+            commands::content::check_content_updates,
+            commands::content::apply_content_updates,
+            commands::content::get_content_settings,
+            commands::content::set_content_updates_enabled,
+            commands::content::set_content_url,
+            commands::content::get_social_networks,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -27,6 +27,20 @@ interface SyncResult {
   error: string | null;
 }
 
+interface ContentSettings {
+  enabled: boolean;
+  content_url: string;
+  check_interval_secs: number;
+}
+
+interface ContentUpdateStatus {
+  has_updates: boolean;
+  available_updates: string[];
+  last_check: number | null;
+  enabled: boolean;
+  error: string | null;
+}
+
 interface SettingsProps {
   onNavigate: (
     page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery'
@@ -65,6 +79,12 @@ function Settings(props: SettingsProps) {
   const [newRelayUrl, setNewRelayUrl] = createSignal('');
   const [relayError, setRelayError] = createSignal('');
 
+  // Content updates state
+  const [contentUpdatesEnabled, setContentUpdatesEnabled] = createSignal(true);
+  const [isCheckingContent, setIsCheckingContent] = createSignal(false);
+  const [contentUpdateMessage, setContentUpdateMessage] = createSignal('');
+  const [hasContentUpdates, setHasContentUpdates] = createSignal(false);
+
   // Accessibility settings state
   const [reduceMotion, setReduceMotion] = createSignal(false);
   const [highContrast, setHighContrast] = createSignal(false);
@@ -91,6 +111,14 @@ function Settings(props: SettingsProps) {
       setRelayUrl(url);
     } catch (e) {
       console.error('Failed to get relay URL:', e);
+    }
+
+    // Load content update settings
+    try {
+      const settings = (await invoke('get_content_settings')) as ContentSettings;
+      setContentUpdatesEnabled(settings.enabled);
+    } catch (e) {
+      console.error('Failed to get content settings:', e);
     }
 
     // Load accessibility settings from localStorage
@@ -317,6 +345,52 @@ function Settings(props: SettingsProps) {
     setEditingRelay(false);
     setNewRelayUrl('');
     setRelayError('');
+  };
+
+  const toggleContentUpdates = async () => {
+    const newValue = !contentUpdatesEnabled();
+    try {
+      await invoke('set_content_updates_enabled', { enabled: newValue });
+      setContentUpdatesEnabled(newValue);
+    } catch (e) {
+      console.error('Failed to toggle content updates:', e);
+    }
+  };
+
+  const checkContentUpdates = async () => {
+    setIsCheckingContent(true);
+    setContentUpdateMessage('');
+
+    try {
+      const status = (await invoke('check_content_updates')) as ContentUpdateStatus;
+      if (status.error) {
+        setContentUpdateMessage(status.error);
+      } else if (status.has_updates) {
+        setHasContentUpdates(true);
+        setContentUpdateMessage(`Updates available: ${status.available_updates.join(', ')}`);
+      } else {
+        setContentUpdateMessage('Content is up to date');
+      }
+    } catch (e) {
+      setContentUpdateMessage(String(e));
+    }
+
+    setIsCheckingContent(false);
+  };
+
+  const applyContentUpdates = async () => {
+    setIsCheckingContent(true);
+    setContentUpdateMessage('Applying updates...');
+
+    try {
+      await invoke('apply_content_updates');
+      setHasContentUpdates(false);
+      setContentUpdateMessage('Content updated successfully');
+    } catch (e) {
+      setContentUpdateMessage(String(e));
+    }
+
+    setIsCheckingContent(false);
   };
 
   return (
@@ -570,6 +644,58 @@ function Settings(props: SettingsProps) {
           >
             {isSyncing() ? 'Syncing...' : 'Sync Now'}
           </button>
+        </div>
+      </section>
+
+      <section class="settings-section" aria-labelledby="content-section-title">
+        <h2 id="content-section-title">Content Updates</h2>
+        <p class="setting-description" id="content-description">
+          Update social networks, themes, and localization without app updates.
+        </p>
+
+        <div class="accessibility-toggle">
+          <label for="content-updates-toggle">
+            Enable Remote Updates
+            <span class="toggle-description">Automatically check for content updates</span>
+          </label>
+          <div class="toggle-switch">
+            <input
+              type="checkbox"
+              id="content-updates-toggle"
+              checked={contentUpdatesEnabled()}
+              onChange={toggleContentUpdates}
+              aria-describedby="content-description"
+            />
+            <span class="toggle-slider" aria-hidden="true" />
+          </div>
+        </div>
+
+        <Show when={contentUpdateMessage()}>
+          <p class="sync-message" role="status" aria-live="polite">
+            {contentUpdateMessage()}
+          </p>
+        </Show>
+
+        <div class="setting-buttons">
+          <button
+            class="secondary"
+            onClick={checkContentUpdates}
+            disabled={isCheckingContent() || !contentUpdatesEnabled()}
+            aria-busy={isCheckingContent()}
+            aria-label="Check for content updates"
+          >
+            {isCheckingContent() ? 'Checking...' : 'Check for Updates'}
+          </button>
+          <Show when={hasContentUpdates()}>
+            <button
+              class="primary"
+              onClick={applyContentUpdates}
+              disabled={isCheckingContent()}
+              aria-label="Apply content updates"
+            >
+              Apply Updates
+            </button>
+          </Show>
         </div>
       </section>
 

@@ -6,6 +6,7 @@ pub mod actions;
 pub mod backup;
 pub mod card;
 pub mod contacts;
+pub mod content;
 pub mod devices;
 pub mod exchange;
 pub mod identity;
