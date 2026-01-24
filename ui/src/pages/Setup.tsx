@@ -1,33 +1,33 @@
-import { createSignal } from 'solid-js'
-import { invoke } from '@tauri-apps/api/core'
+import { createSignal } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
 
 interface SetupProps {
-  onComplete: () => void
+  onComplete: () => void;
 }
 
 function Setup(props: SetupProps) {
-  const [name, setName] = createSignal('')
-  const [loading, setLoading] = createSignal(false)
-  const [error, setError] = createSignal('')
+  const [name, setName] = createSignal('');
+  const [loading, setLoading] = createSignal(false);
+  const [error, setError] = createSignal('');
 
   const handleCreate = async () => {
     if (!name().trim()) {
-      setError('Please enter your name')
-      return
+      setError('Please enter your name');
+      return;
     }
 
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError('');
 
     try {
-      await invoke('create_identity', { name: name() })
-      props.onComplete()
+      await invoke('create_identity', { name: name() });
+      props.onComplete();
     } catch (e) {
-      setError(String(e))
+      setError(String(e));
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <main class="page setup" role="main" aria-labelledby="setup-title">
@@ -37,7 +37,10 @@ function Setup(props: SetupProps) {
 
         <form
           class="form"
-          onSubmit={(e) => { e.preventDefault(); handleCreate(); }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleCreate();
+          }}
           aria-describedby="setup-description"
         >
           <label for="name">Your Display Name</label>
@@ -63,14 +66,16 @@ function Setup(props: SetupProps) {
             type="submit"
             disabled={loading()}
             aria-busy={loading()}
-            aria-label={loading() ? 'Creating your identity' : 'Get started and create your identity'}
+            aria-label={
+              loading() ? 'Creating your identity' : 'Get started and create your identity'
+            }
           >
             {loading() ? 'Creating...' : 'Get Started'}
           </button>
         </form>
       </div>
     </main>
-  )
+  );
 }
 
-export default Setup
+export default Setup;

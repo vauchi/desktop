@@ -1,81 +1,85 @@
-import { createSignal, Show } from 'solid-js'
-import { invoke } from '@tauri-apps/api/core'
+import { createSignal, Show } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
 
-interface RecoverySettingsInfo {
-  recovery_threshold: number
-  verification_threshold: number
+interface _RecoverySettingsInfo {
+  recovery_threshold: number;
+  verification_threshold: number;
 }
 
 interface ClaimInfo {
-  old_pk: string
-  new_pk: string
-  is_expired: boolean
-  contact_name: string | null
+  old_pk: string;
+  new_pk: string;
+  is_expired: boolean;
+  contact_name: string | null;
 }
 
 interface RecoveryProps {
-  onNavigate: (page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery') => void
+  onNavigate: (
+    page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery'
+  ) => void;
 }
 
 function Recovery(props: RecoveryProps) {
-  const [mode, setMode] = createSignal<'menu' | 'claim' | 'vouch'>('menu')
-  const [error, setError] = createSignal('')
-  const [success, setSuccess] = createSignal('')
+  const [mode, setMode] = createSignal<'menu' | 'claim' | 'vouch'>('menu');
+  const [error, setError] = createSignal('');
+  const [success, setSuccess] = createSignal('');
 
   // Claim state
-  const [oldPkHex, setOldPkHex] = createSignal('')
-  const [claimData, setClaimData] = createSignal('')
+  const [oldPkHex, setOldPkHex] = createSignal('');
+  const [claimData, setClaimData] = createSignal('');
 
   // Vouch state
-  const [vouchInput, setVouchInput] = createSignal('')
-  const [claimInfo, setClaimInfo] = createSignal<ClaimInfo | null>(null)
-  const [voucherData, setVoucherData] = createSignal('')
+  const [vouchInput, setVouchInput] = createSignal('');
+  const [claimInfo, setClaimInfo] = createSignal<ClaimInfo | null>(null);
+  const [voucherData, setVoucherData] = createSignal('');
 
   const createClaim = async () => {
     if (!oldPkHex().trim()) {
-      setError('Please enter your old public key')
-      return
+      setError('Please enter your old public key');
+      return;
     }
 
     try {
-      const claim = await invoke('create_recovery_claim', { oldPkHex: oldPkHex() }) as string
-      setClaimData(claim)
-      setError('')
-      setSuccess('Recovery claim created!')
+      const claim = (await invoke('create_recovery_claim', { oldPkHex: oldPkHex() })) as string;
+      setClaimData(claim);
+      setError('');
+      setSuccess('Recovery claim created!');
     } catch (e) {
-      setError(String(e))
+      setError(String(e));
     }
-  }
+  };
 
   const parseClaim = async () => {
     if (!vouchInput().trim()) {
-      setError('Please enter a recovery claim')
-      return
+      setError('Please enter a recovery claim');
+      return;
     }
 
     try {
-      const info = await invoke('parse_recovery_claim', { claimB64: vouchInput() }) as ClaimInfo
-      setClaimInfo(info)
-      setError('')
+      const info = (await invoke('parse_recovery_claim', { claimB64: vouchInput() })) as ClaimInfo;
+      setClaimInfo(info);
+      setError('');
     } catch (e) {
-      setError(String(e))
+      setError(String(e));
     }
-  }
+  };
 
   const createVoucher = async () => {
     try {
-      const voucher = await invoke('create_recovery_voucher', { claimB64: vouchInput() }) as string
-      setVoucherData(voucher)
-      setError('')
-      setSuccess('Voucher created!')
+      const voucher = (await invoke('create_recovery_voucher', {
+        claimB64: vouchInput(),
+      })) as string;
+      setVoucherData(voucher);
+      setError('');
+      setSuccess('Voucher created!');
     } catch (e) {
-      setError(String(e))
+      setError(String(e));
     }
-  }
+  };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
+    navigator.clipboard.writeText(text);
+  };
 
   return (
     <div class="page recovery" role="main" aria-labelledby="recovery-title">
@@ -84,14 +88,14 @@ function Recovery(props: RecoveryProps) {
           class="back-btn"
           onClick={() => {
             if (mode() === 'menu') {
-              props.onNavigate('home')
+              props.onNavigate('home');
             } else {
-              setMode('menu')
-              setError('')
-              setSuccess('')
-              setClaimData('')
-              setVoucherData('')
-              setClaimInfo(null)
+              setMode('menu');
+              setError('');
+              setSuccess('');
+              setClaimData('');
+              setVoucherData('');
+              setClaimInfo(null);
             }
           }}
           aria-label={mode() === 'menu' ? 'Go back to home' : 'Go back to recovery menu'}
@@ -102,11 +106,15 @@ function Recovery(props: RecoveryProps) {
       </header>
 
       <Show when={error()}>
-        <p class="error" role="alert" aria-live="assertive">{error()}</p>
+        <p class="error" role="alert" aria-live="assertive">
+          {error()}
+        </p>
       </Show>
 
       <Show when={success()}>
-        <p class="success" role="status" aria-live="polite">{success()}</p>
+        <p class="success" role="status" aria-live="polite">
+          {success()}
+        </p>
       </Show>
 
       {/* Menu Mode */}
@@ -120,7 +128,9 @@ function Recovery(props: RecoveryProps) {
             onKeyPress={(e) => e.key === 'Enter' && setMode('claim')}
             aria-label="Create Recovery Claim. Lost your device? Start the recovery process."
           >
-            <div class="menu-icon" aria-hidden="true">🔑</div>
+            <div class="menu-icon" aria-hidden="true">
+              🔑
+            </div>
             <div class="menu-content">
               <h3>Create Recovery Claim</h3>
               <p>Lost your device? Start the recovery process.</p>
@@ -135,7 +145,9 @@ function Recovery(props: RecoveryProps) {
             onKeyPress={(e) => e.key === 'Enter' && setMode('vouch')}
             aria-label="Vouch for Contact. Help a contact recover their identity."
           >
-            <div class="menu-icon" aria-hidden="true">✅</div>
+            <div class="menu-icon" aria-hidden="true">
+              ✅
+            </div>
             <div class="menu-content">
               <h3>Vouch for Contact</h3>
               <p>Help a contact recover their identity.</p>
@@ -172,15 +184,25 @@ function Recovery(props: RecoveryProps) {
               aria-required="true"
             />
 
-            <button onClick={createClaim} aria-label="Generate recovery claim">Generate Claim</button>
+            <button onClick={createClaim} aria-label="Generate recovery claim">
+              Generate Claim
+            </button>
           </div>
 
           <Show when={claimData()}>
             <div class="result-box" role="region" aria-labelledby="claim-result-title">
               <h3 id="claim-result-title">Your Recovery Claim</h3>
               <p>Share this with your contacts:</p>
-              <code class="claim-data" aria-label="Recovery claim data">{claimData()}</code>
-              <button class="small" onClick={() => copyToClipboard(claimData())} aria-label="Copy claim data to clipboard">Copy</button>
+              <code class="claim-data" aria-label="Recovery claim data">
+                {claimData()}
+              </code>
+              <button
+                class="small"
+                onClick={() => copyToClipboard(claimData())}
+                aria-label="Copy claim data to clipboard"
+              >
+                Copy
+              </button>
             </div>
           </Show>
         </section>
@@ -203,29 +225,52 @@ function Recovery(props: RecoveryProps) {
               aria-required="true"
             />
 
-            <button onClick={parseClaim} aria-label="Verify the recovery claim">Verify Claim</button>
+            <button onClick={parseClaim} aria-label="Verify the recovery claim">
+              Verify Claim
+            </button>
           </div>
 
           <Show when={claimInfo()}>
-            <div class="claim-preview" role="region" aria-labelledby="claim-details-title" aria-live="polite">
+            <div
+              class="claim-preview"
+              role="region"
+              aria-labelledby="claim-details-title"
+              aria-live="polite"
+            >
               <h3 id="claim-details-title">Claim Details</h3>
-              <p><strong>Old Identity:</strong> {claimInfo()?.old_pk.substring(0, 16)}...</p>
-              <p><strong>New Identity:</strong> {claimInfo()?.new_pk.substring(0, 16)}...</p>
+              <p>
+                <strong>Old Identity:</strong> {claimInfo()?.old_pk.substring(0, 16)}...
+              </p>
+              <p>
+                <strong>New Identity:</strong> {claimInfo()?.new_pk.substring(0, 16)}...
+              </p>
 
               <Show when={claimInfo()?.contact_name}>
-                <p class="success" role="status">Matches your contact: {claimInfo()?.contact_name}</p>
+                <p class="success" role="status">
+                  Matches your contact: {claimInfo()?.contact_name}
+                </p>
               </Show>
 
               <Show when={!claimInfo()?.contact_name}>
-                <p class="warning" role="alert">This key is NOT in your contacts. Verify in person!</p>
+                <p class="warning" role="alert">
+                  This key is NOT in your contacts. Verify in person!
+                </p>
               </Show>
 
               <Show when={claimInfo()?.is_expired}>
-                <p class="error" role="alert">This claim has expired!</p>
+                <p class="error" role="alert">
+                  This claim has expired!
+                </p>
               </Show>
 
               <Show when={!claimInfo()?.is_expired}>
-                <button class="primary" onClick={createVoucher} aria-label="Create a voucher to help this contact recover">Create Voucher</button>
+                <button
+                  class="primary"
+                  onClick={createVoucher}
+                  aria-label="Create a voucher to help this contact recover"
+                >
+                  Create Voucher
+                </button>
               </Show>
             </div>
           </Show>
@@ -234,21 +279,49 @@ function Recovery(props: RecoveryProps) {
             <div class="result-box" role="region" aria-labelledby="voucher-result-title">
               <h3 id="voucher-result-title">Your Voucher</h3>
               <p>Give this to the person recovering:</p>
-              <code class="voucher-data" aria-label="Voucher data">{voucherData()}</code>
-              <button class="small" onClick={() => copyToClipboard(voucherData())} aria-label="Copy voucher to clipboard">Copy</button>
+              <code class="voucher-data" aria-label="Voucher data">
+                {voucherData()}
+              </code>
+              <button
+                class="small"
+                onClick={() => copyToClipboard(voucherData())}
+                aria-label="Copy voucher to clipboard"
+              >
+                Copy
+              </button>
             </div>
           </Show>
         </section>
       </Show>
 
       <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
-        <button class="nav-btn" onClick={() => props.onNavigate('home')} aria-label="Go to Home">Home</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('contacts')} aria-label="Go to Contacts">Contacts</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('exchange')} aria-label="Go to Exchange">Exchange</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('settings')} aria-label="Go to Settings">Settings</button>
+        <button class="nav-btn" onClick={() => props.onNavigate('home')} aria-label="Go to Home">
+          Home
+        </button>
+        <button
+          class="nav-btn"
+          onClick={() => props.onNavigate('contacts')}
+          aria-label="Go to Contacts"
+        >
+          Contacts
+        </button>
+        <button
+          class="nav-btn"
+          onClick={() => props.onNavigate('exchange')}
+          aria-label="Go to Exchange"
+        >
+          Exchange
+        </button>
+        <button
+          class="nav-btn"
+          onClick={() => props.onNavigate('settings')}
+          aria-label="Go to Settings"
+        >
+          Settings
+        </button>
       </nav>
     </div>
-  )
+  );
 }
 
-export default Recovery
+export default Recovery;

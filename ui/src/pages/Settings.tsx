@@ -1,335 +1,356 @@
-import { createResource, createSignal, Show, onMount } from 'solid-js'
-import { invoke } from '@tauri-apps/api/core'
-import { open } from '@tauri-apps/plugin-shell'
+import { createResource, createSignal, Show, onMount } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-shell';
 
 interface IdentityInfo {
-  display_name: string
-  public_id: string
+  display_name: string;
+  public_id: string;
 }
 
 interface BackupResult {
-  success: boolean
-  data: string | null
-  error: string | null
+  success: boolean;
+  data: string | null;
+  error: string | null;
 }
 
 interface SyncStatus {
-  pending_updates: number
-  last_sync: number | null
-  is_syncing: boolean
+  pending_updates: number;
+  last_sync: number | null;
+  is_syncing: boolean;
 }
 
 interface SyncResult {
-  contacts_added: number
-  cards_updated: number
-  updates_sent: number
-  success: boolean
-  error: string | null
+  contacts_added: number;
+  cards_updated: number;
+  updates_sent: number;
+  success: boolean;
+  error: string | null;
 }
 
 interface SettingsProps {
-  onNavigate: (page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery') => void
+  onNavigate: (
+    page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery'
+  ) => void;
 }
 
 async function fetchIdentity(): Promise<IdentityInfo> {
-  return await invoke('get_identity_info')
+  return await invoke('get_identity_info');
 }
 
 function Settings(props: SettingsProps) {
-  const [identity, { refetch: refetchIdentity }] = createResource(fetchIdentity)
-  const [showBackupDialog, setShowBackupDialog] = createSignal(false)
-  const [showImportDialog, setShowImportDialog] = createSignal(false)
-  const [backupPassword, setBackupPassword] = createSignal('')
-  const [confirmPassword, setConfirmPassword] = createSignal('')
-  const [backupData, setBackupData] = createSignal('')
-  const [backupError, setBackupError] = createSignal('')
-  const [passwordStrength, setPasswordStrength] = createSignal('')
-  const [importData, setImportData] = createSignal('')
-  const [importPassword, setImportPassword] = createSignal('')
-  const [importError, setImportError] = createSignal('')
-  const [importSuccess, setImportSuccess] = createSignal('')
-  const [editingName, setEditingName] = createSignal(false)
-  const [newName, setNewName] = createSignal('')
-  const [nameError, setNameError] = createSignal('')
+  const [identity, { refetch: refetchIdentity }] = createResource(fetchIdentity);
+  const [showBackupDialog, setShowBackupDialog] = createSignal(false);
+  const [showImportDialog, setShowImportDialog] = createSignal(false);
+  const [backupPassword, setBackupPassword] = createSignal('');
+  const [confirmPassword, setConfirmPassword] = createSignal('');
+  const [backupData, setBackupData] = createSignal('');
+  const [backupError, setBackupError] = createSignal('');
+  const [passwordStrength, setPasswordStrength] = createSignal('');
+  const [importData, setImportData] = createSignal('');
+  const [importPassword, setImportPassword] = createSignal('');
+  const [importError, setImportError] = createSignal('');
+  const [importSuccess, setImportSuccess] = createSignal('');
+  const [editingName, setEditingName] = createSignal(false);
+  const [newName, setNewName] = createSignal('');
+  const [nameError, setNameError] = createSignal('');
 
   // Sync state
-  const [syncStatus, setSyncStatus] = createSignal<SyncStatus | null>(null)
-  const [isSyncing, setIsSyncing] = createSignal(false)
-  const [syncMessage, setSyncMessage] = createSignal('')
+  const [syncStatus, setSyncStatus] = createSignal<SyncStatus | null>(null);
+  const [isSyncing, setIsSyncing] = createSignal(false);
+  const [syncMessage, setSyncMessage] = createSignal('');
 
   // Relay URL state
-  const [relayUrl, setRelayUrl] = createSignal('')
-  const [editingRelay, setEditingRelay] = createSignal(false)
-  const [newRelayUrl, setNewRelayUrl] = createSignal('')
-  const [relayError, setRelayError] = createSignal('')
+  const [relayUrl, setRelayUrl] = createSignal('');
+  const [editingRelay, setEditingRelay] = createSignal(false);
+  const [newRelayUrl, setNewRelayUrl] = createSignal('');
+  const [relayError, setRelayError] = createSignal('');
 
   // Accessibility settings state
-  const [reduceMotion, setReduceMotion] = createSignal(false)
-  const [highContrast, setHighContrast] = createSignal(false)
-  const [largeTouchTargets, setLargeTouchTargets] = createSignal(false)
+  const [reduceMotion, setReduceMotion] = createSignal(false);
+  const [highContrast, setHighContrast] = createSignal(false);
+  const [largeTouchTargets, setLargeTouchTargets] = createSignal(false);
 
   // Apply accessibility settings to document
   const applyAccessibilitySettings = () => {
-    document.documentElement.setAttribute('data-reduce-motion', String(reduceMotion()))
-    document.documentElement.setAttribute('data-high-contrast', String(highContrast()))
-    document.documentElement.setAttribute('data-large-touch-targets', String(largeTouchTargets()))
-  }
+    document.documentElement.setAttribute('data-reduce-motion', String(reduceMotion()));
+    document.documentElement.setAttribute('data-high-contrast', String(highContrast()));
+    document.documentElement.setAttribute('data-large-touch-targets', String(largeTouchTargets()));
+  };
 
   // Load sync status, relay URL, and accessibility settings on mount
   onMount(async () => {
     try {
-      const status = await invoke('get_sync_status') as SyncStatus
-      setSyncStatus(status)
+      const status = (await invoke('get_sync_status')) as SyncStatus;
+      setSyncStatus(status);
     } catch (e) {
-      console.error('Failed to get sync status:', e)
+      console.error('Failed to get sync status:', e);
     }
 
     try {
-      const url = await invoke('get_relay_url') as string
-      setRelayUrl(url)
+      const url = (await invoke('get_relay_url')) as string;
+      setRelayUrl(url);
     } catch (e) {
-      console.error('Failed to get relay URL:', e)
+      console.error('Failed to get relay URL:', e);
     }
 
     // Load accessibility settings from localStorage
-    const savedReduceMotion = localStorage.getItem('a11y-reduce-motion') === 'true'
-    const savedHighContrast = localStorage.getItem('a11y-high-contrast') === 'true'
-    const savedLargeTouchTargets = localStorage.getItem('a11y-large-touch-targets') === 'true'
+    const savedReduceMotion = localStorage.getItem('a11y-reduce-motion') === 'true';
+    const savedHighContrast = localStorage.getItem('a11y-high-contrast') === 'true';
+    const savedLargeTouchTargets = localStorage.getItem('a11y-large-touch-targets') === 'true';
 
-    setReduceMotion(savedReduceMotion)
-    setHighContrast(savedHighContrast)
-    setLargeTouchTargets(savedLargeTouchTargets)
-    applyAccessibilitySettings()
-  })
+    setReduceMotion(savedReduceMotion);
+    setHighContrast(savedHighContrast);
+    setLargeTouchTargets(savedLargeTouchTargets);
+    applyAccessibilitySettings();
+  });
 
   const toggleReduceMotion = () => {
-    const newValue = !reduceMotion()
-    setReduceMotion(newValue)
-    localStorage.setItem('a11y-reduce-motion', String(newValue))
-    applyAccessibilitySettings()
-  }
+    const newValue = !reduceMotion();
+    setReduceMotion(newValue);
+    localStorage.setItem('a11y-reduce-motion', String(newValue));
+    applyAccessibilitySettings();
+  };
 
   const toggleHighContrast = () => {
-    const newValue = !highContrast()
-    setHighContrast(newValue)
-    localStorage.setItem('a11y-high-contrast', String(newValue))
-    applyAccessibilitySettings()
-  }
+    const newValue = !highContrast();
+    setHighContrast(newValue);
+    localStorage.setItem('a11y-high-contrast', String(newValue));
+    applyAccessibilitySettings();
+  };
 
   const toggleLargeTouchTargets = () => {
-    const newValue = !largeTouchTargets()
-    setLargeTouchTargets(newValue)
-    localStorage.setItem('a11y-large-touch-targets', String(newValue))
-    applyAccessibilitySettings()
-  }
+    const newValue = !largeTouchTargets();
+    setLargeTouchTargets(newValue);
+    localStorage.setItem('a11y-large-touch-targets', String(newValue));
+    applyAccessibilitySettings();
+  };
 
   const handleSync = async () => {
-    setIsSyncing(true)
-    setSyncMessage('')
+    setIsSyncing(true);
+    setSyncMessage('');
 
     try {
-      const result = await invoke('sync') as SyncResult
+      const result = (await invoke('sync')) as SyncResult;
       if (result.success) {
         if (result.error) {
-          setSyncMessage(result.error)
+          setSyncMessage(result.error);
         } else {
-          setSyncMessage(`Synced: ${result.cards_updated} cards updated, ${result.updates_sent} sent`)
+          setSyncMessage(
+            `Synced: ${result.cards_updated} cards updated, ${result.updates_sent} sent`
+          );
         }
       } else {
-        setSyncMessage(result.error || 'Sync failed')
+        setSyncMessage(result.error || 'Sync failed');
       }
 
       // Refresh status
-      const status = await invoke('get_sync_status') as SyncStatus
-      setSyncStatus(status)
+      const status = (await invoke('get_sync_status')) as SyncStatus;
+      setSyncStatus(status);
     } catch (e) {
-      setSyncMessage(String(e))
+      setSyncMessage(String(e));
     }
 
-    setIsSyncing(false)
-  }
+    setIsSyncing(false);
+  };
 
   const checkPassword = async () => {
-    const password = backupPassword()
+    const password = backupPassword();
     if (password.length < 8) {
-      setPasswordStrength('')
-      return
+      setPasswordStrength('');
+      return;
     }
     try {
-      const strength = await invoke('check_password_strength', { password }) as string
-      setPasswordStrength(strength)
-    } catch (e) {
-      setPasswordStrength('')
+      const strength = (await invoke('check_password_strength', { password })) as string;
+      setPasswordStrength(strength);
+    } catch {
+      setPasswordStrength('');
     }
-  }
+  };
 
   const handleExportBackup = async () => {
-    setBackupError('')
+    setBackupError('');
 
     if (backupPassword() !== confirmPassword()) {
-      setBackupError('Passwords do not match')
-      return
+      setBackupError('Passwords do not match');
+      return;
     }
 
     if (backupPassword().length < 8) {
-      setBackupError('Password must be at least 8 characters')
-      return
+      setBackupError('Password must be at least 8 characters');
+      return;
     }
 
     try {
       // Check password strength
-      await invoke('check_password_strength', { password: backupPassword() })
+      await invoke('check_password_strength', { password: backupPassword() });
 
       // Export backup
-      const result = await invoke('export_backup', { password: backupPassword() }) as BackupResult
+      const result = (await invoke('export_backup', {
+        password: backupPassword(),
+      })) as BackupResult;
 
       if (result.success && result.data) {
-        setBackupData(result.data)
-        setBackupError('')
+        setBackupData(result.data);
+        setBackupError('');
       } else {
-        setBackupError(result.error || 'Export failed')
+        setBackupError(result.error || 'Export failed');
       }
     } catch (e) {
-      setBackupError(String(e))
+      setBackupError(String(e));
     }
-  }
+  };
 
   const copyBackup = async () => {
-    await navigator.clipboard.writeText(backupData())
-  }
+    await navigator.clipboard.writeText(backupData());
+  };
 
   const closeDialog = () => {
-    setShowBackupDialog(false)
-    setBackupPassword('')
-    setConfirmPassword('')
-    setBackupData('')
-    setBackupError('')
-    setPasswordStrength('')
-  }
+    setShowBackupDialog(false);
+    setBackupPassword('');
+    setConfirmPassword('');
+    setBackupData('');
+    setBackupError('');
+    setPasswordStrength('');
+  };
 
   const handleImportBackup = async () => {
-    setImportError('')
-    setImportSuccess('')
+    setImportError('');
+    setImportSuccess('');
 
     if (!importData().trim()) {
-      setImportError('Please paste your backup data')
-      return
+      setImportError('Please paste your backup data');
+      return;
     }
 
     if (!importPassword().trim()) {
-      setImportError('Please enter your backup password')
-      return
+      setImportError('Please enter your backup password');
+      return;
     }
 
     try {
-      const result = await invoke('import_backup', {
+      const result = (await invoke('import_backup', {
         backupData: importData(),
-        password: importPassword()
-      }) as string
-      setImportSuccess(result)
-      setImportData('')
-      setImportPassword('')
-      refetchIdentity()
+        password: importPassword(),
+      })) as string;
+      setImportSuccess(result);
+      setImportData('');
+      setImportPassword('');
+      refetchIdentity();
     } catch (e) {
-      setImportError(String(e))
+      setImportError(String(e));
     }
-  }
+  };
 
   const closeImportDialog = () => {
-    setShowImportDialog(false)
-    setImportData('')
-    setImportPassword('')
-    setImportError('')
-    setImportSuccess('')
-  }
+    setShowImportDialog(false);
+    setImportData('');
+    setImportPassword('');
+    setImportError('');
+    setImportSuccess('');
+  };
 
   const startEditingName = () => {
-    setNewName(identity()?.display_name || '')
-    setNameError('')
-    setEditingName(true)
-  }
+    setNewName(identity()?.display_name || '');
+    setNameError('');
+    setEditingName(true);
+  };
 
   const handleUpdateName = async () => {
-    setNameError('')
-    const name = newName().trim()
+    setNameError('');
+    const name = newName().trim();
     if (!name) {
-      setNameError('Display name cannot be empty')
-      return
+      setNameError('Display name cannot be empty');
+      return;
     }
     if (name.length > 100) {
-      setNameError('Display name cannot exceed 100 characters')
-      return
+      setNameError('Display name cannot exceed 100 characters');
+      return;
     }
     try {
-      await invoke('update_display_name', { name })
-      setEditingName(false)
-      refetchIdentity()
+      await invoke('update_display_name', { name });
+      setEditingName(false);
+      refetchIdentity();
     } catch (e) {
-      setNameError(String(e))
+      setNameError(String(e));
     }
-  }
+  };
 
   const cancelEditingName = () => {
-    setEditingName(false)
-    setNewName('')
-    setNameError('')
-  }
+    setEditingName(false);
+    setNewName('');
+    setNameError('');
+  };
 
   const startEditingRelay = () => {
-    setNewRelayUrl(relayUrl())
-    setRelayError('')
-    setEditingRelay(true)
-  }
+    setNewRelayUrl(relayUrl());
+    setRelayError('');
+    setEditingRelay(true);
+  };
 
   const handleUpdateRelay = async () => {
-    setRelayError('')
-    const url = newRelayUrl().trim()
+    setRelayError('');
+    const url = newRelayUrl().trim();
 
     // Validate URL format
     if (!url.startsWith('wss://') && !url.startsWith('ws://')) {
-      setRelayError('URL must start with wss:// (or ws:// for local dev)')
-      return
+      setRelayError('URL must start with wss:// (or ws:// for local dev)');
+      return;
     }
 
     try {
-      new URL(url) // Validate URL format
+      new URL(url); // Validate URL format
     } catch {
-      setRelayError('Invalid URL format')
-      return
+      setRelayError('Invalid URL format');
+      return;
     }
 
     try {
-      await invoke('set_relay_url', { url })
-      setRelayUrl(url)
-      setEditingRelay(false)
+      await invoke('set_relay_url', { url });
+      setRelayUrl(url);
+      setEditingRelay(false);
     } catch (e) {
-      setRelayError(String(e))
+      setRelayError(String(e));
     }
-  }
+  };
 
   const cancelEditingRelay = () => {
-    setEditingRelay(false)
-    setNewRelayUrl('')
-    setRelayError('')
-  }
+    setEditingRelay(false);
+    setNewRelayUrl('');
+    setRelayError('');
+  };
 
   return (
     <div class="page settings" role="main" aria-labelledby="settings-title">
       <header role="banner">
-        <button class="back-btn" onClick={() => props.onNavigate('home')} aria-label="Go back to home">← Back</button>
+        <button
+          class="back-btn"
+          onClick={() => props.onNavigate('home')}
+          aria-label="Go back to home"
+        >
+          ← Back
+        </button>
         <h1 id="settings-title">Settings</h1>
       </header>
 
       <section class="settings-section" aria-labelledby="identity-section-title">
         <h2 id="identity-section-title">Identity</h2>
         <div class="setting-item">
-          <span class="setting-label" id="display-name-label">Display Name</span>
-          <Show when={editingName()} fallback={
-            <div class="setting-value-row">
-              <span class="setting-value" aria-labelledby="display-name-label">{identity()?.display_name}</span>
-              <button class="small" onClick={startEditingName} aria-label="Edit display name">Edit</button>
-            </div>
-          }>
+          <span class="setting-label" id="display-name-label">
+            Display Name
+          </span>
+          <Show
+            when={editingName()}
+            fallback={
+              <div class="setting-value-row">
+                <span class="setting-value" aria-labelledby="display-name-label">
+                  {identity()?.display_name}
+                </span>
+                <button class="small" onClick={startEditingName} aria-label="Edit display name">
+                  Edit
+                </button>
+              </div>
+            }
+          >
             <div class="edit-name-form" role="form" aria-label="Edit display name">
               <input
                 type="text"
@@ -341,28 +362,54 @@ function Settings(props: SettingsProps) {
                 aria-invalid={nameError() ? 'true' : undefined}
               />
               <div class="edit-actions">
-                <button class="small primary" onClick={handleUpdateName} aria-label="Save display name">Save</button>
-                <button class="small secondary" onClick={cancelEditingName} aria-label="Cancel editing">Cancel</button>
+                <button
+                  class="small primary"
+                  onClick={handleUpdateName}
+                  aria-label="Save display name"
+                >
+                  Save
+                </button>
+                <button
+                  class="small secondary"
+                  onClick={cancelEditingName}
+                  aria-label="Cancel editing"
+                >
+                  Cancel
+                </button>
               </div>
               <Show when={nameError()}>
-                <p id="name-error" class="error small" role="alert" aria-live="assertive">{nameError()}</p>
+                <p id="name-error" class="error small" role="alert" aria-live="assertive">
+                  {nameError()}
+                </p>
               </Show>
             </div>
           </Show>
         </div>
         <div class="setting-item">
-          <span class="setting-label" id="public-id-label">Public ID</span>
-          <span class="setting-value mono" aria-labelledby="public-id-label">{identity()?.public_id}</span>
+          <span class="setting-label" id="public-id-label">
+            Public ID
+          </span>
+          <span class="setting-value mono" aria-labelledby="public-id-label">
+            {identity()?.public_id}
+          </span>
         </div>
       </section>
 
       <section class="settings-section" aria-labelledby="devices-section-title">
         <h2 id="devices-section-title">Devices & Recovery</h2>
         <div class="setting-buttons" role="group" aria-label="Device and recovery options">
-          <button class="secondary" onClick={() => props.onNavigate('devices')} aria-label="Manage linked devices">
+          <button
+            class="secondary"
+            onClick={() => props.onNavigate('devices')}
+            aria-label="Manage linked devices"
+          >
             Manage Devices
           </button>
-          <button class="secondary" onClick={() => props.onNavigate('recovery')} aria-label="Configure recovery options">
+          <button
+            class="secondary"
+            onClick={() => props.onNavigate('recovery')}
+            aria-label="Configure recovery options"
+          >
             Recovery Options
           </button>
         </div>
@@ -387,7 +434,7 @@ function Settings(props: SettingsProps) {
               onChange={toggleReduceMotion}
               aria-describedby="accessibility-description"
             />
-            <span class="toggle-slider" aria-hidden="true"></span>
+            <span class="toggle-slider" aria-hidden="true" />
           </div>
         </div>
 
@@ -403,14 +450,16 @@ function Settings(props: SettingsProps) {
               checked={highContrast()}
               onChange={toggleHighContrast}
             />
-            <span class="toggle-slider" aria-hidden="true"></span>
+            <span class="toggle-slider" aria-hidden="true" />
           </div>
         </div>
 
         <div class="accessibility-toggle">
           <label for="large-touch-toggle">
             Large Touch Targets
-            <span class="toggle-description">Increase button and input sizes for easier interaction</span>
+            <span class="toggle-description">
+              Increase button and input sizes for easier interaction
+            </span>
           </label>
           <div class="toggle-switch">
             <input
@@ -419,7 +468,7 @@ function Settings(props: SettingsProps) {
               checked={largeTouchTargets()}
               onChange={toggleLargeTouchTargets}
             />
-            <span class="toggle-slider" aria-hidden="true"></span>
+            <span class="toggle-slider" aria-hidden="true" />
           </div>
         </div>
       </section>
@@ -431,13 +480,26 @@ function Settings(props: SettingsProps) {
         </p>
 
         <div class="setting-item">
-          <span class="setting-label" id="relay-label">Relay Server</span>
-          <Show when={editingRelay()} fallback={
-            <div class="setting-value-row">
-              <span class="setting-value mono small" aria-labelledby="relay-label">{relayUrl() || 'Not configured'}</span>
-              <button class="small" onClick={startEditingRelay} aria-label="Edit relay server URL">Edit</button>
-            </div>
-          }>
+          <span class="setting-label" id="relay-label">
+            Relay Server
+          </span>
+          <Show
+            when={editingRelay()}
+            fallback={
+              <div class="setting-value-row">
+                <span class="setting-value mono small" aria-labelledby="relay-label">
+                  {relayUrl() || 'Not configured'}
+                </span>
+                <button
+                  class="small"
+                  onClick={startEditingRelay}
+                  aria-label="Edit relay server URL"
+                >
+                  Edit
+                </button>
+              </div>
+            }
+          >
             <div class="edit-relay-form" role="form" aria-label="Edit relay server">
               <input
                 type="text"
@@ -449,11 +511,25 @@ function Settings(props: SettingsProps) {
                 aria-invalid={relayError() ? 'true' : undefined}
               />
               <div class="edit-actions">
-                <button class="small primary" onClick={handleUpdateRelay} aria-label="Save relay URL">Save</button>
-                <button class="small secondary" onClick={cancelEditingRelay} aria-label="Cancel editing">Cancel</button>
+                <button
+                  class="small primary"
+                  onClick={handleUpdateRelay}
+                  aria-label="Save relay URL"
+                >
+                  Save
+                </button>
+                <button
+                  class="small secondary"
+                  onClick={cancelEditingRelay}
+                  aria-label="Cancel editing"
+                >
+                  Cancel
+                </button>
               </div>
               <Show when={relayError()}>
-                <p id="relay-error" class="error small" role="alert" aria-live="assertive">{relayError()}</p>
+                <p id="relay-error" class="error small" role="alert" aria-live="assertive">
+                  {relayError()}
+                </p>
               </Show>
             </div>
           </Show>
@@ -461,12 +537,18 @@ function Settings(props: SettingsProps) {
 
         <Show when={syncStatus()}>
           <div class="setting-item" role="status" aria-live="polite">
-            <span class="setting-label" id="pending-label">Pending Updates</span>
-            <span class="setting-value" aria-labelledby="pending-label">{syncStatus()?.pending_updates || 0}</span>
+            <span class="setting-label" id="pending-label">
+              Pending Updates
+            </span>
+            <span class="setting-value" aria-labelledby="pending-label">
+              {syncStatus()?.pending_updates || 0}
+            </span>
           </div>
           <Show when={syncStatus()?.last_sync}>
             <div class="setting-item">
-              <span class="setting-label" id="last-sync-label">Last Sync</span>
+              <span class="setting-label" id="last-sync-label">
+                Last Sync
+              </span>
               <span class="setting-value" aria-labelledby="last-sync-label">
                 {new Date((syncStatus()?.last_sync || 0) * 1000).toLocaleString()}
               </span>
@@ -474,7 +556,9 @@ function Settings(props: SettingsProps) {
           </Show>
         </Show>
         <Show when={syncMessage()}>
-          <p class="sync-message" role="status" aria-live="polite">{syncMessage()}</p>
+          <p class="sync-message" role="status" aria-live="polite">
+            {syncMessage()}
+          </p>
         </Show>
         <div class="setting-buttons">
           <button
@@ -495,24 +579,52 @@ function Settings(props: SettingsProps) {
           Export your identity to back it up or transfer to another device.
         </p>
         <div class="setting-buttons" role="group" aria-describedby="backup-description">
-          <button class="secondary" onClick={() => setShowBackupDialog(true)} aria-label="Export a backup of your identity">Export Backup</button>
-          <button class="secondary" onClick={() => setShowImportDialog(true)} aria-label="Import a backup file">Import Backup</button>
+          <button
+            class="secondary"
+            onClick={() => setShowBackupDialog(true)}
+            aria-label="Export a backup of your identity"
+          >
+            Export Backup
+          </button>
+          <button
+            class="secondary"
+            onClick={() => setShowImportDialog(true)}
+            aria-label="Import a backup file"
+          >
+            Import Backup
+          </button>
         </div>
       </section>
 
       <section class="settings-section" aria-labelledby="help-section-title">
         <h2 id="help-section-title">Help & Support</h2>
         <div class="setting-buttons help-links" role="group" aria-label="Help and support links">
-          <button class="secondary link-btn" onClick={() => open('https://vauchi.app/user-guide')} aria-label="Open user guide in browser">
+          <button
+            class="secondary link-btn"
+            onClick={() => open('https://vauchi.app/user-guide')}
+            aria-label="Open user guide in browser"
+          >
             User Guide
           </button>
-          <button class="secondary link-btn" onClick={() => open('https://vauchi.app/faq')} aria-label="Open FAQ in browser">
+          <button
+            class="secondary link-btn"
+            onClick={() => open('https://vauchi.app/faq')}
+            aria-label="Open FAQ in browser"
+          >
             FAQ
           </button>
-          <button class="secondary link-btn" onClick={() => open('https://github.com/vauchi/issues')} aria-label="Report an issue on GitHub">
+          <button
+            class="secondary link-btn"
+            onClick={() => open('https://github.com/vauchi/issues')}
+            aria-label="Report an issue on GitHub"
+          >
             Report Issue
           </button>
-          <button class="secondary link-btn" onClick={() => open('https://vauchi.app/privacy')} aria-label="View privacy policy">
+          <button
+            class="secondary link-btn"
+            onClick={() => open('https://vauchi.app/privacy')}
+            aria-label="View privacy policy"
+          >
             Privacy Policy
           </button>
         </div>
@@ -521,12 +633,20 @@ function Settings(props: SettingsProps) {
       <section class="settings-section" aria-labelledby="about-section-title">
         <h2 id="about-section-title">About</h2>
         <div class="setting-item">
-          <span class="setting-label" id="version-label">Version</span>
-          <span class="setting-value" aria-labelledby="version-label">1.0.0 (build 1)</span>
+          <span class="setting-label" id="version-label">
+            Version
+          </span>
+          <span class="setting-value" aria-labelledby="version-label">
+            1.0.0 (build 1)
+          </span>
         </div>
         <div class="setting-item">
-          <span class="setting-label" id="app-label">Vauchi</span>
-          <span class="setting-value" aria-labelledby="app-label">Privacy-focused contact card exchange</span>
+          <span class="setting-label" id="app-label">
+            Vauchi
+          </span>
+          <span class="setting-value" aria-labelledby="app-label">
+            Privacy-focused contact card exchange
+          </span>
         </div>
       </section>
 
@@ -542,16 +662,38 @@ function Settings(props: SettingsProps) {
           >
             <h3 id="backup-dialog-title">Export Backup</h3>
 
-            <Show when={!backupData()} fallback={
-              <div class="backup-result">
-                <p class="success" role="status" aria-live="polite">Backup created successfully!</p>
-                <textarea readonly value={backupData()} rows={6} aria-label="Your encrypted backup data" />
-                <div class="dialog-actions">
-                  <button class="primary" onClick={copyBackup} aria-label="Copy backup data to clipboard">Copy to Clipboard</button>
-                  <button class="secondary" onClick={closeDialog} aria-label="Close backup dialog">Close</button>
+            <Show
+              when={!backupData()}
+              fallback={
+                <div class="backup-result">
+                  <p class="success" role="status" aria-live="polite">
+                    Backup created successfully!
+                  </p>
+                  <textarea
+                    readonly
+                    value={backupData()}
+                    rows={6}
+                    aria-label="Your encrypted backup data"
+                  />
+                  <div class="dialog-actions">
+                    <button
+                      class="primary"
+                      onClick={copyBackup}
+                      aria-label="Copy backup data to clipboard"
+                    >
+                      Copy to Clipboard
+                    </button>
+                    <button
+                      class="secondary"
+                      onClick={closeDialog}
+                      aria-label="Close backup dialog"
+                    >
+                      Close
+                    </button>
+                  </div>
                 </div>
-              </div>
-            }>
+              }
+            >
               <div class="backup-form">
                 <p id="backup-form-description">Enter a strong password to encrypt your backup.</p>
 
@@ -561,15 +703,25 @@ function Settings(props: SettingsProps) {
                   type="password"
                   value={backupPassword()}
                   onInput={(e) => {
-                    setBackupPassword(e.target.value)
-                    checkPassword()
+                    setBackupPassword(e.target.value);
+                    checkPassword();
                   }}
                   placeholder="Enter password"
-                  aria-describedby={`${passwordStrength() ? 'password-strength' : ''} ${backupError() ? 'backup-error' : ''}`.trim() || undefined}
+                  aria-describedby={
+                    `${passwordStrength() ? 'password-strength' : ''} ${backupError() ? 'backup-error' : ''}`.trim() ||
+                    undefined
+                  }
                   aria-invalid={backupError() ? 'true' : undefined}
                 />
                 <Show when={passwordStrength()}>
-                  <p id="password-strength" class="password-strength" role="status" aria-live="polite">Strength: {passwordStrength()}</p>
+                  <p
+                    id="password-strength"
+                    class="password-strength"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    Strength: {passwordStrength()}
+                  </p>
                 </Show>
 
                 <label for="backup-confirm-password">Confirm Password</label>
@@ -582,12 +734,22 @@ function Settings(props: SettingsProps) {
                 />
 
                 <Show when={backupError()}>
-                  <p id="backup-error" class="error" role="alert" aria-live="assertive">{backupError()}</p>
+                  <p id="backup-error" class="error" role="alert" aria-live="assertive">
+                    {backupError()}
+                  </p>
                 </Show>
 
                 <div class="dialog-actions">
-                  <button class="primary" onClick={handleExportBackup} aria-label="Create encrypted backup">Export</button>
-                  <button class="secondary" onClick={closeDialog} aria-label="Cancel backup">Cancel</button>
+                  <button
+                    class="primary"
+                    onClick={handleExportBackup}
+                    aria-label="Create encrypted backup"
+                  >
+                    Export
+                  </button>
+                  <button class="secondary" onClick={closeDialog} aria-label="Cancel backup">
+                    Cancel
+                  </button>
                 </div>
               </div>
             </Show>
@@ -609,16 +771,26 @@ function Settings(props: SettingsProps) {
 
             <Show when={importSuccess()}>
               <div class="import-result">
-                <p class="success" role="status" aria-live="polite">{importSuccess()}</p>
+                <p class="success" role="status" aria-live="polite">
+                  {importSuccess()}
+                </p>
                 <div class="dialog-actions">
-                  <button class="primary" onClick={closeImportDialog} aria-label="Close import dialog">Done</button>
+                  <button
+                    class="primary"
+                    onClick={closeImportDialog}
+                    aria-label="Close import dialog"
+                  >
+                    Done
+                  </button>
                 </div>
               </div>
             </Show>
 
             <Show when={!importSuccess()}>
               <div class="import-form">
-                <p id="import-form-description">Paste your backup data and enter the password used to encrypt it.</p>
+                <p id="import-form-description">
+                  Paste your backup data and enter the password used to encrypt it.
+                </p>
 
                 <label for="import-data">Backup Data</label>
                 <textarea
@@ -643,12 +815,22 @@ function Settings(props: SettingsProps) {
                 />
 
                 <Show when={importError()}>
-                  <p id="import-error" class="error" role="alert" aria-live="assertive">{importError()}</p>
+                  <p id="import-error" class="error" role="alert" aria-live="assertive">
+                    {importError()}
+                  </p>
                 </Show>
 
                 <div class="dialog-actions">
-                  <button class="primary" onClick={handleImportBackup} aria-label="Import and restore backup">Import</button>
-                  <button class="secondary" onClick={closeImportDialog} aria-label="Cancel import">Cancel</button>
+                  <button
+                    class="primary"
+                    onClick={handleImportBackup}
+                    aria-label="Import and restore backup"
+                  >
+                    Import
+                  </button>
+                  <button class="secondary" onClick={closeImportDialog} aria-label="Cancel import">
+                    Cancel
+                  </button>
                 </div>
               </div>
             </Show>
@@ -657,13 +839,29 @@ function Settings(props: SettingsProps) {
       </Show>
 
       <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
-        <button class="nav-btn" onClick={() => props.onNavigate('home')} aria-label="Go to Home">Home</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('contacts')} aria-label="Go to Contacts">Contacts</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('exchange')} aria-label="Go to Exchange">Exchange</button>
-        <button class="nav-btn active" aria-current="page" aria-label="Settings (current page)">Settings</button>
+        <button class="nav-btn" onClick={() => props.onNavigate('home')} aria-label="Go to Home">
+          Home
+        </button>
+        <button
+          class="nav-btn"
+          onClick={() => props.onNavigate('contacts')}
+          aria-label="Go to Contacts"
+        >
+          Contacts
+        </button>
+        <button
+          class="nav-btn"
+          onClick={() => props.onNavigate('exchange')}
+          aria-label="Go to Exchange"
+        >
+          Exchange
+        </button>
+        <button class="nav-btn active" aria-current="page" aria-label="Settings (current page)">
+          Settings
+        </button>
       </nav>
     </div>
-  )
+  );
 }
 
-export default Settings
+export default Settings;

@@ -1,114 +1,136 @@
-import { createResource, createSignal, For, Show } from 'solid-js'
-import { invoke } from '@tauri-apps/api/core'
+import { createResource, createSignal, For, Show } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
 
 interface DeviceInfo {
-  device_id: string
-  device_name: string
-  device_index: number
-  is_current: boolean
-  is_active: boolean
+  device_id: string;
+  device_name: string;
+  device_index: number;
+  is_current: boolean;
+  is_active: boolean;
 }
 
 interface JoinDeviceResult {
-  success: boolean
-  device_name: string
-  message: string
+  success: boolean;
+  device_name: string;
+  message: string;
 }
 
 interface DevicesProps {
-  onNavigate: (page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery') => void
+  onNavigate: (
+    page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery'
+  ) => void;
 }
 
 async function fetchDevices(): Promise<DeviceInfo[]> {
-  return await invoke('list_devices')
+  return await invoke('list_devices');
 }
 
 function Devices(props: DevicesProps) {
-  const [devices, { refetch }] = createResource(fetchDevices)
-  const [showLinkDialog, setShowLinkDialog] = createSignal(false)
-  const [showJoinDialog, setShowJoinDialog] = createSignal(false)
-  const [showRevokeConfirm, setShowRevokeConfirm] = createSignal<DeviceInfo | null>(null)
-  const [linkData, setLinkData] = createSignal('')
-  const [joinData, setJoinData] = createSignal('')
-  const [error, setError] = createSignal('')
-  const [joinMessage, setJoinMessage] = createSignal('')
-  const [isJoining, setIsJoining] = createSignal(false)
-  const [isRevoking, setIsRevoking] = createSignal(false)
+  const [devices, { refetch }] = createResource(fetchDevices);
+  const [showLinkDialog, setShowLinkDialog] = createSignal(false);
+  const [showJoinDialog, setShowJoinDialog] = createSignal(false);
+  const [showRevokeConfirm, setShowRevokeConfirm] = createSignal<DeviceInfo | null>(null);
+  const [linkData, setLinkData] = createSignal('');
+  const [joinData, setJoinData] = createSignal('');
+  const [error, setError] = createSignal('');
+  const [joinMessage, setJoinMessage] = createSignal('');
+  const [isJoining, setIsJoining] = createSignal(false);
+  const [isRevoking, setIsRevoking] = createSignal(false);
 
   const generateLink = async () => {
     try {
-      const data = await invoke('generate_device_link') as string
-      setLinkData(data)
-      setShowLinkDialog(true)
-      setError('')
+      const data = (await invoke('generate_device_link')) as string;
+      setLinkData(data);
+      setShowLinkDialog(true);
+      setError('');
     } catch (e) {
-      setError(String(e))
+      setError(String(e));
     }
-  }
+  };
 
   const copyLinkData = () => {
-    navigator.clipboard.writeText(linkData())
-  }
+    navigator.clipboard.writeText(linkData());
+  };
 
   const handleJoinDevice = async () => {
     if (!joinData().trim()) {
-      setJoinMessage('Please paste the device link data')
-      return
+      setJoinMessage('Please paste the device link data');
+      return;
     }
 
-    setIsJoining(true)
-    setJoinMessage('')
+    setIsJoining(true);
+    setJoinMessage('');
 
     try {
-      const result = await invoke('join_device', { linkData: joinData() }) as JoinDeviceResult
-      setJoinMessage(result.message)
+      const result = (await invoke('join_device', { linkData: joinData() })) as JoinDeviceResult;
+      setJoinMessage(result.message);
       if (result.success) {
-        refetch()
+        refetch();
         setTimeout(() => {
-          setShowJoinDialog(false)
-          setJoinData('')
-          setJoinMessage('')
-        }, 2000)
+          setShowJoinDialog(false);
+          setJoinData('');
+          setJoinMessage('');
+        }, 2000);
       }
     } catch (e) {
-      setJoinMessage(String(e))
+      setJoinMessage(String(e));
     }
 
-    setIsJoining(false)
-  }
+    setIsJoining(false);
+  };
 
   const handleRevokeDevice = async (device: DeviceInfo) => {
-    setIsRevoking(true)
-    setError('')
+    setIsRevoking(true);
+    setError('');
 
     try {
-      await invoke('revoke_device', { deviceId: device.device_id })
-      refetch()
-      setShowRevokeConfirm(null)
+      await invoke('revoke_device', { deviceId: device.device_id });
+      refetch();
+      setShowRevokeConfirm(null);
     } catch (e) {
-      setError(String(e))
+      setError(String(e));
     }
 
-    setIsRevoking(false)
-  }
+    setIsRevoking(false);
+  };
 
   return (
     <div class="page devices" role="main" aria-labelledby="devices-title">
       <header role="banner">
-        <button class="back-btn" onClick={() => props.onNavigate('home')} aria-label="Go back to home">← Back</button>
+        <button
+          class="back-btn"
+          onClick={() => props.onNavigate('home')}
+          aria-label="Go back to home"
+        >
+          ← Back
+        </button>
         <h1 id="devices-title">Devices</h1>
       </header>
 
       <Show when={error()}>
-        <p class="error" role="alert" aria-live="assertive">{error()}</p>
+        <p class="error" role="alert" aria-live="assertive">
+          {error()}
+        </p>
       </Show>
 
       <section class="devices-section" aria-labelledby="linked-devices-title">
         <div class="section-header">
           <h2 id="linked-devices-title">Linked Devices</h2>
           <div class="header-buttons" role="group" aria-label="Device actions">
-            <button class="small secondary" onClick={() => setShowJoinDialog(true)} aria-label="Join this device to another account">Join Another</button>
-            <button class="small primary" onClick={generateLink} aria-label="Generate link to add a new device">+ Link Device</button>
+            <button
+              class="small secondary"
+              onClick={() => setShowJoinDialog(true)}
+              aria-label="Join this device to another account"
+            >
+              Join Another
+            </button>
+            <button
+              class="small primary"
+              onClick={generateLink}
+              aria-label="Generate link to add a new device"
+            >
+              + Link Device
+            </button>
           </div>
         </div>
 
@@ -126,7 +148,11 @@ function Devices(props: DevicesProps) {
                 <div class="device-info">
                   <span class="device-name">
                     {device.device_name}
-                    {device.is_current && <span class="badge current" aria-label="Current device">This device</span>}
+                    {device.is_current && (
+                      <span class="badge current" aria-label="Current device">
+                        This device
+                      </span>
+                    )}
                   </span>
                   <span class="device-id">ID: {device.device_id.substring(0, 16)}...</span>
                   <span
@@ -150,7 +176,9 @@ function Devices(props: DevicesProps) {
           </For>
 
           {devices()?.length === 0 && (
-            <p class="empty-state" role="status">No devices found</p>
+            <p class="empty-state" role="status">
+              No devices found
+            </p>
           )}
         </div>
       </section>
@@ -173,17 +201,29 @@ function Devices(props: DevicesProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="link-dialog-title">Link New Device</h3>
-            <p id="link-dialog-description">Scan this code with your new device, or copy the data below:</p>
+            <p id="link-dialog-description">
+              Scan this code with your new device, or copy the data below:
+            </p>
 
             <div class="link-data" role="group" aria-label="Device link data">
               <code aria-label="Link data preview">{linkData().substring(0, 50)}...</code>
-              <button class="small" onClick={copyLinkData} aria-label="Copy link data to clipboard">Copy</button>
+              <button class="small" onClick={copyLinkData} aria-label="Copy link data to clipboard">
+                Copy
+              </button>
             </div>
 
-            <p class="warning" role="alert">This code expires in 10 minutes.</p>
+            <p class="warning" role="alert">
+              This code expires in 10 minutes.
+            </p>
 
             <div class="dialog-actions">
-              <button class="secondary" onClick={() => setShowLinkDialog(false)} aria-label="Close dialog">Close</button>
+              <button
+                class="secondary"
+                onClick={() => setShowLinkDialog(false)}
+                aria-label="Close dialog"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
@@ -191,13 +231,17 @@ function Devices(props: DevicesProps) {
 
       {/* Join Device Dialog */}
       <Show when={showJoinDialog()}>
-        <div class="dialog-overlay" onClick={() => {
-          if (!isJoining()) {
-            setShowJoinDialog(false)
-            setJoinData('')
-            setJoinMessage('')
-          }
-        }} role="presentation">
+        <div
+          class="dialog-overlay"
+          onClick={() => {
+            if (!isJoining()) {
+              setShowJoinDialog(false);
+              setJoinData('');
+              setJoinMessage('');
+            }
+          }}
+          role="presentation"
+        >
           <div
             class="dialog"
             role="dialog"
@@ -220,7 +264,9 @@ function Devices(props: DevicesProps) {
             />
 
             <Show when={joinMessage()}>
-              <p class="info-message" role="status" aria-live="polite">{joinMessage()}</p>
+              <p class="info-message" role="status" aria-live="polite">
+                {joinMessage()}
+              </p>
             </Show>
 
             <div class="dialog-actions">
@@ -236,9 +282,9 @@ function Devices(props: DevicesProps) {
               <button
                 class="secondary"
                 onClick={() => {
-                  setShowJoinDialog(false)
-                  setJoinData('')
-                  setJoinMessage('')
+                  setShowJoinDialog(false);
+                  setJoinData('');
+                  setJoinMessage('');
                 }}
                 disabled={isJoining()}
                 aria-label="Cancel joining"
@@ -252,9 +298,13 @@ function Devices(props: DevicesProps) {
 
       {/* Revoke Confirmation Dialog */}
       <Show when={showRevokeConfirm()}>
-        <div class="dialog-overlay" onClick={() => {
-          if (!isRevoking()) setShowRevokeConfirm(null)
-        }} role="presentation">
+        <div
+          class="dialog-overlay"
+          onClick={() => {
+            if (!isRevoking()) setShowRevokeConfirm(null);
+          }}
+          role="presentation"
+        >
           <div
             class="dialog"
             role="alertdialog"
@@ -264,8 +314,12 @@ function Devices(props: DevicesProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="revoke-dialog-title">Revoke Device</h3>
-            <p id="revoke-dialog-description">Are you sure you want to revoke <strong>{showRevokeConfirm()?.device_name}</strong>?</p>
-            <p class="warning" role="alert">This device will no longer be able to sync with your account.</p>
+            <p id="revoke-dialog-description">
+              Are you sure you want to revoke <strong>{showRevokeConfirm()?.device_name}</strong>?
+            </p>
+            <p class="warning" role="alert">
+              This device will no longer be able to sync with your account.
+            </p>
 
             <div class="dialog-actions">
               <button
@@ -273,7 +327,9 @@ function Devices(props: DevicesProps) {
                 onClick={() => handleRevokeDevice(showRevokeConfirm()!)}
                 disabled={isRevoking()}
                 aria-busy={isRevoking()}
-                aria-label={isRevoking() ? 'Revoking device' : `Revoke ${showRevokeConfirm()?.device_name}`}
+                aria-label={
+                  isRevoking() ? 'Revoking device' : `Revoke ${showRevokeConfirm()?.device_name}`
+                }
               >
                 {isRevoking() ? 'Revoking...' : 'Revoke Device'}
               </button>
@@ -291,13 +347,33 @@ function Devices(props: DevicesProps) {
       </Show>
 
       <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
-        <button class="nav-btn" onClick={() => props.onNavigate('home')} aria-label="Go to Home">Home</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('contacts')} aria-label="Go to Contacts">Contacts</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('exchange')} aria-label="Go to Exchange">Exchange</button>
-        <button class="nav-btn" onClick={() => props.onNavigate('settings')} aria-label="Go to Settings">Settings</button>
+        <button class="nav-btn" onClick={() => props.onNavigate('home')} aria-label="Go to Home">
+          Home
+        </button>
+        <button
+          class="nav-btn"
+          onClick={() => props.onNavigate('contacts')}
+          aria-label="Go to Contacts"
+        >
+          Contacts
+        </button>
+        <button
+          class="nav-btn"
+          onClick={() => props.onNavigate('exchange')}
+          aria-label="Go to Exchange"
+        >
+          Exchange
+        </button>
+        <button
+          class="nav-btn"
+          onClick={() => props.onNavigate('settings')}
+          aria-label="Go to Settings"
+        >
+          Settings
+        </button>
       </nav>
     </div>
-  )
+  );
 }
 
-export default Devices
+export default Devices;

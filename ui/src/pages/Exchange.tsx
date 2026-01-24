@@ -1,87 +1,89 @@
-import { createResource, createSignal, Show, createEffect, onCleanup } from 'solid-js'
-import { invoke } from '@tauri-apps/api/core'
-import QRCode from 'qrcode'
+import { createResource, createSignal, Show, createEffect, onCleanup } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
+import QRCode from 'qrcode';
 
 // QR code expires after 5 minutes (300 seconds)
-const QR_EXPIRATION_SECONDS = 300
+const QR_EXPIRATION_SECONDS = 300;
 
 interface ExchangeQRResponse {
-  data: string
-  display_name: string
-  qr_ascii: string
+  data: string;
+  display_name: string;
+  qr_ascii: string;
 }
 
 interface ExchangeResult {
-  success: boolean
-  contact_name: string
-  contact_id: string
-  message: string
+  success: boolean;
+  contact_name: string;
+  contact_id: string;
+  message: string;
 }
 
 interface ExchangeProps {
-  onNavigate: (page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery') => void
+  onNavigate: (
+    page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery'
+  ) => void;
 }
 
 async function generateQR(): Promise<ExchangeQRResponse> {
-  return await invoke('generate_qr')
+  return await invoke('generate_qr');
 }
 
 function Exchange(props: ExchangeProps) {
-  const [qrData, { refetch: refetchQR }] = createResource(generateQR)
-  const [scanData, setScanData] = createSignal('')
-  const [result, setResult] = createSignal<ExchangeResult | null>(null)
-  const [error, setError] = createSignal('')
-  const [qrImageUrl, setQrImageUrl] = createSignal('')
-  const [timeRemaining, setTimeRemaining] = createSignal(QR_EXPIRATION_SECONDS)
-  const [isExpired, setIsExpired] = createSignal(false)
+  const [qrData, { refetch: refetchQR }] = createResource(generateQR);
+  const [scanData, setScanData] = createSignal('');
+  const [result, setResult] = createSignal<ExchangeResult | null>(null);
+  const [error, setError] = createSignal('');
+  const [qrImageUrl, setQrImageUrl] = createSignal('');
+  const [timeRemaining, setTimeRemaining] = createSignal(QR_EXPIRATION_SECONDS);
+  const [isExpired, setIsExpired] = createSignal(false);
 
   // Timer for QR expiration
-  let timerInterval: number | undefined
+  let timerInterval: number | undefined;
 
   const startTimer = () => {
-    setTimeRemaining(QR_EXPIRATION_SECONDS)
-    setIsExpired(false)
+    setTimeRemaining(QR_EXPIRATION_SECONDS);
+    setIsExpired(false);
 
-    if (timerInterval) clearInterval(timerInterval)
+    if (timerInterval) clearInterval(timerInterval);
 
     timerInterval = setInterval(() => {
-      setTimeRemaining(prev => {
+      setTimeRemaining((prev) => {
         if (prev <= 1) {
-          setIsExpired(true)
-          if (timerInterval) clearInterval(timerInterval)
-          return 0
+          setIsExpired(true);
+          if (timerInterval) clearInterval(timerInterval);
+          return 0;
         }
-        return prev - 1
-      })
-    }, 1000) as unknown as number
-  }
+        return prev - 1;
+      });
+    }, 1000) as unknown as number;
+  };
 
   const refreshQR = async () => {
-    await refetchQR()
-    startTimer()
-  }
+    await refetchQR();
+    startTimer();
+  };
 
   const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Start timer when QR data loads
   createEffect(() => {
     if (qrData()) {
-      startTimer()
+      startTimer();
     }
-  })
+  });
 
   // Cleanup timer on unmount
   onCleanup(() => {
-    if (timerInterval) clearInterval(timerInterval)
-  })
+    if (timerInterval) clearInterval(timerInterval);
+  });
 
   // Generate QR code image when data is available
   createEffect(async () => {
-    const data = qrData()
+    const data = qrData();
     if (data?.data) {
       try {
         const url = await QRCode.toDataURL(data.data, {
@@ -89,39 +91,41 @@ function Exchange(props: ExchangeProps) {
           margin: 2,
           color: {
             dark: '#000000',
-            light: '#ffffff'
-          }
-        })
-        setQrImageUrl(url)
+            light: '#ffffff',
+          },
+        });
+        setQrImageUrl(url);
       } catch (e) {
-        console.error('Failed to generate QR image:', e)
+        console.error('Failed to generate QR image:', e);
       }
     }
-  })
+  });
 
   const handleComplete = async () => {
     if (!scanData().trim()) {
-      setError('Please enter the exchange data')
-      return
+      setError('Please enter the exchange data');
+      return;
     }
 
     try {
-      const exchangeResult = await invoke('complete_exchange', { data: scanData() }) as ExchangeResult
-      setResult(exchangeResult)
-      setError('')
-      setScanData('')
+      const exchangeResult = (await invoke('complete_exchange', {
+        data: scanData(),
+      })) as ExchangeResult;
+      setResult(exchangeResult);
+      setError('');
+      setScanData('');
     } catch (e) {
-      setError(String(e))
-      setResult(null)
+      setError(String(e));
+      setResult(null);
     }
-  }
+  };
 
   const copyToClipboard = async () => {
-    const data = qrData()?.data
+    const data = qrData()?.data;
     if (data) {
-      await navigator.clipboard.writeText(data)
+      await navigator.clipboard.writeText(data);
     }
-  }
+  };
 
   return (
     <div class="page exchange" role="main" aria-labelledby="exchange-title">
@@ -140,21 +144,34 @@ function Exchange(props: ExchangeProps) {
         <h2 id="qr-section-title">Your QR Code</h2>
         <p id="qr-description">Have someone scan this to add you as a contact</p>
 
-        <Show when={qrData()} fallback={
-          <div class="loading" role="status" aria-live="polite">Generating QR...</div>
-        }>
+        <Show
+          when={qrData()}
+          fallback={
+            <div class="loading" role="status" aria-live="polite">
+              Generating QR...
+            </div>
+          }
+        >
           <div class="qr-container" aria-describedby="qr-description">
-            <Show when={!isExpired()} fallback={
-              <div class="qr-expired" role="alert">
-                <p>QR Code Expired</p>
-                <button onClick={refreshQR} aria-label="Generate a new QR code">
-                  Generate New QR
-                </button>
-              </div>
-            }>
-              <Show when={qrImageUrl()} fallback={
-                <pre class="qr-ascii" aria-label="QR code in ASCII format">{qrData()?.qr_ascii}</pre>
-              }>
+            <Show
+              when={!isExpired()}
+              fallback={
+                <div class="qr-expired" role="alert">
+                  <p>QR Code Expired</p>
+                  <button onClick={refreshQR} aria-label="Generate a new QR code">
+                    Generate New QR
+                  </button>
+                </div>
+              }
+            >
+              <Show
+                when={qrImageUrl()}
+                fallback={
+                  <pre class="qr-ascii" aria-label="QR code in ASCII format">
+                    {qrData()?.qr_ascii}
+                  </pre>
+                }
+              >
                 <img
                   src={qrImageUrl()}
                   alt="Your contact exchange QR code. Show this to someone to let them scan and add you as a contact."
@@ -175,11 +192,7 @@ function Exchange(props: ExchangeProps) {
               <Show when={!isExpired()} fallback={<span>Expired</span>}>
                 <span>Expires in {formatTime(timeRemaining())}</span>
               </Show>
-              <button
-                class="refresh-btn small"
-                onClick={refreshQR}
-                aria-label="Refresh QR code"
-              >
+              <button class="refresh-btn small" onClick={refreshQR} aria-label="Refresh QR code">
                 ↻
               </button>
             </div>
@@ -190,7 +203,9 @@ function Exchange(props: ExchangeProps) {
           <p>Or share this data:</p>
           <div class="copy-input-group">
             <input type="text" readonly value={qrData()?.data || ''} />
-            <button class="copy-btn" onClick={copyToClipboard}>Copy</button>
+            <button class="copy-btn" onClick={copyToClipboard}>
+              Copy
+            </button>
           </div>
         </div>
       </section>
@@ -210,15 +225,13 @@ function Exchange(props: ExchangeProps) {
         />
 
         <Show when={error()}>
-          <p class="error" role="alert" aria-live="assertive">{error()}</p>
+          <p class="error" role="alert" aria-live="assertive">
+            {error()}
+          </p>
         </Show>
 
         <Show when={result()}>
-          <div
-            class={result()?.success ? 'success' : 'warning'}
-            role="status"
-            aria-live="polite"
-          >
+          <div class={result()?.success ? 'success' : 'warning'} role="status" aria-live="polite">
             <p>{result()?.message}</p>
             <Show when={result()?.success}>
               <p>Added: {result()?.contact_name}</p>
@@ -226,10 +239,7 @@ function Exchange(props: ExchangeProps) {
           </div>
         </Show>
 
-        <button
-          onClick={handleComplete}
-          aria-label="Complete the contact exchange"
-        >
+        <button onClick={handleComplete} aria-label="Complete the contact exchange">
           Complete Exchange
         </button>
       </section>
@@ -238,18 +248,26 @@ function Exchange(props: ExchangeProps) {
         <button class="nav-btn" onClick={() => props.onNavigate('home')} aria-label="Go to Home">
           Home
         </button>
-        <button class="nav-btn" onClick={() => props.onNavigate('contacts')} aria-label="Go to Contacts">
+        <button
+          class="nav-btn"
+          onClick={() => props.onNavigate('contacts')}
+          aria-label="Go to Contacts"
+        >
           Contacts
         </button>
         <button class="nav-btn active" aria-current="page" aria-label="Exchange (current page)">
           Exchange
         </button>
-        <button class="nav-btn" onClick={() => props.onNavigate('settings')} aria-label="Go to Settings">
+        <button
+          class="nav-btn"
+          onClick={() => props.onNavigate('settings')}
+          aria-label="Go to Settings"
+        >
           Settings
         </button>
       </nav>
     </div>
-  )
+  );
 }
 
-export default Exchange
+export default Exchange;
