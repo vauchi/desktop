@@ -1,8 +1,10 @@
 # CLAUDE.md - vauchi-desktop
 
+> **Inherits**: See [/CLAUDE.md](/CLAUDE.md) for project-wide rules.
+
 Tauri desktop application with SolidJS frontend.
 
-## Rules
+## Component-Specific Rules
 
 - Tauri backend in Rust, frontend in SolidJS/TypeScript
 - Depends on `vauchi-core`
