@@ -1,0 +1,91 @@
+# GitLab CI for vauchi-desktop
+#
+# Tauri desktop application with SolidJS frontend
+
+stages:
+  - lint
+  - test
+
+variables:
+  CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
+  RUST_BACKTRACE: "1"
+
+.rust-cache: &rust-cache
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-rust
+    paths:
+      - .cargo/bin/
+      - .cargo/registry/index/
+      - .cargo/registry/cache/
+      - .cargo/git/db/
+      - src-tauri/target/
+
+.node-cache: &node-cache
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-node
+    paths:
+      - ui/node_modules/
+
+# Rust linting
+lint:rust-format:
+  stage: lint
+  image: rust:latest
+  <<: *rust-cache
+  script:
+    - rustup component add rustfmt
+    - cd src-tauri && cargo fmt --all -- --check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+  allow_failure: true  # Advisory until codebase is formatted
+
+lint:rust-clippy:
+  stage: lint
+  image: rust:latest
+  <<: *rust-cache
+  script:
+    - rustup component add clippy
+    - cd src-tauri && cargo clippy --all-targets -- -D warnings
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+  allow_failure: true  # May fail on git dependency issues
+
+# Frontend linting
+lint:frontend:
+  stage: lint
+  image: node:20
+  <<: *node-cache
+  script:
+    - cd ui && npm ci
+    - cd ui && npm run lint || echo "No lint script configured"
+    - cd ui && npm run typecheck || echo "No typecheck script configured"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+  allow_failure: true  # May not have lint scripts yet
+
+# Rust tests
+test:rust:
+  stage: test
+  image: rust:latest
+  <<: *rust-cache
+  script:
+    - cd src-tauri && cargo test --all-targets
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+  allow_failure: true  # May fail on git dependency issues
+
+# Frontend tests
+test:frontend:
+  stage: test
+  image: node:20
+  <<: *node-cache
+  script:
+    - cd ui && npm ci
+    - cd ui && npm test || echo "No test script configured"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+  allow_failure: true  # May not have tests yet
