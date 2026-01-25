@@ -222,6 +222,7 @@ impl AppState {
 
     /// Open a storage instance for the given data directory.
     /// Used for creating storage in background threads.
+    #[allow(dead_code)]
     pub fn open_storage(data_dir: &Path) -> Result<Storage> {
         let db_path = data_dir.join("vauchi.db");
         let key = Self::load_or_create_storage_key(data_dir)?;
@@ -256,7 +257,10 @@ impl AppState {
 
     /// List all contacts.
     pub fn list_contacts(&self) -> Result<Vec<ContactInfo>> {
-        let contacts = self.storage.list_contacts().context("Failed to list contacts")?;
+        let contacts = self
+            .storage
+            .list_contacts()
+            .context("Failed to list contacts")?;
         Ok(contacts
             .into_iter()
             .map(|c| ContactInfo {

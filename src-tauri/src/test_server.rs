@@ -138,7 +138,10 @@ fn handle_connection(mut stream: TcpStream, state: Arc<Mutex<AppState>>) -> std:
                 }
                 Ok(None) => {
                     let display_name = state.display_name().unwrap_or("User");
-                    (200, serde_json::json!({"display_name": display_name, "fields": []}).to_string())
+                    (
+                        200,
+                        serde_json::json!({"display_name": display_name, "fields": []}).to_string(),
+                    )
                 }
                 Err(e) => (500, format!(r#"{{"error":"{}"}}"#, e)),
             }

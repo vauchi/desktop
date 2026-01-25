@@ -16,7 +16,7 @@ tauri-build = { version = "2", features = [] }
 # Core library - path dependency for local development
 # Switch to git dependency after repos are created on GitLab:
 # vauchi-core = { git = "https://gitlab.com/vauchi/core.git", tag = "v0.1.0" }
-vauchi-core = { path = "../../core/vauchi-core" }
+vauchi-core = { path = "../../core/vauchi-core", features = ["content-updates"] }
 
 # Tauri framework
 tauri = { version = "2", features = [] }
