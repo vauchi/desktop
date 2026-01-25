@@ -26,3 +26,4 @@ Thumbs.db
 *.deb
 *.rpm
 *.AppImage
+.cargo/
