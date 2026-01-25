@@ -63,7 +63,6 @@ lint:rust-clippy:
   script:
     - rustup component add clippy
     - cd src-tauri && cargo clippy --all-targets -- -D warnings
-  allow_failure: true  # May fail on missing system deps
 
 # Frontend linting
 lint:frontend:
@@ -73,7 +72,6 @@ lint:frontend:
     - cd ui && npm ci
     - cd ui && npm run lint || echo "No lint script configured"
     - cd ui && npm run typecheck || echo "No typecheck script configured"
-  allow_failure: true
 
 # ============================================================
 # Test Stage (MR only)
@@ -85,7 +83,6 @@ test:rust:
   stage: test
   script:
     - cd src-tauri && cargo test --all-targets
-  allow_failure: true  # May fail on missing system deps
 
 # Frontend tests
 test:frontend:
@@ -94,7 +91,6 @@ test:frontend:
   script:
     - cd ui && npm ci
     - cd ui && npm test || echo "No test script configured"
-  allow_failure: true
 
 # ============================================================
 # Security Stage (MR only)
@@ -107,7 +103,6 @@ security:audit:
   script:
     - cargo install cargo-audit || true
     - cd src-tauri && cargo audit
-  allow_failure: true
 
 # npm audit for frontend
 security:npm-audit:
@@ -121,4 +116,3 @@ security:npm-audit:
       changes:
         - "ui/package.json"
         - "ui/package-lock.json"
-  allow_failure: true
