@@ -1,6 +1,18 @@
-import { createResource, createSignal, Show, onMount } from 'solid-js';
+import { createResource, createSignal, Show, For, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-shell';
+import {
+  getAvailableThemes,
+  selectTheme,
+  getSelectedThemeId,
+  type Theme,
+} from '../services/themeService';
+import {
+  getAvailableLocales,
+  setLocale,
+  getSelectedLocale,
+  type LocaleInfo,
+} from '../services/i18nService';
 
 interface IdentityInfo {
   display_name: string;
@@ -43,7 +55,7 @@ interface ContentUpdateStatus {
 
 interface SettingsProps {
   onNavigate: (
-    page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery'
+    page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery' | 'help'
   ) => void;
 }
 
@@ -90,6 +102,12 @@ function Settings(props: SettingsProps) {
   const [highContrast, setHighContrast] = createSignal(false);
   const [largeTouchTargets, setLargeTouchTargets] = createSignal(false);
 
+  // Theme and locale state
+  const [availableThemes, setAvailableThemes] = createSignal<Theme[]>([]);
+  const [selectedThemeId, setSelectedThemeId] = createSignal<string>('');
+  const [availableLocales, setAvailableLocales] = createSignal<LocaleInfo[]>([]);
+  const [selectedLocaleCode, setSelectedLocaleCode] = createSignal<string>('en');
+
   // Apply accessibility settings to document
   const applyAccessibilitySettings = () => {
     document.documentElement.setAttribute('data-reduce-motion', String(reduceMotion()));
@@ -130,6 +148,24 @@ function Settings(props: SettingsProps) {
     setHighContrast(savedHighContrast);
     setLargeTouchTargets(savedLargeTouchTargets);
     applyAccessibilitySettings();
+
+    // Load themes and locales
+    try {
+      const themes = await getAvailableThemes();
+      setAvailableThemes(themes);
+      const currentThemeId = getSelectedThemeId() || 'default-dark';
+      setSelectedThemeId(currentThemeId);
+    } catch (e) {
+      console.error('Failed to load themes:', e);
+    }
+
+    try {
+      const locales = await getAvailableLocales();
+      setAvailableLocales(locales);
+      setSelectedLocaleCode(getSelectedLocale());
+    } catch (e) {
+      console.error('Failed to load locales:', e);
+    }
   });
 
   const toggleReduceMotion = () => {
@@ -151,6 +187,22 @@ function Settings(props: SettingsProps) {
     setLargeTouchTargets(newValue);
     localStorage.setItem('a11y-large-touch-targets', String(newValue));
     applyAccessibilitySettings();
+  };
+
+  const handleThemeChange = async (themeId: string) => {
+    try {
+      await selectTheme(themeId);
+      setSelectedThemeId(themeId);
+    } catch (e) {
+      console.error('Failed to change theme:', e);
+    }
+  };
+
+  const handleLocaleChange = (code: string) => {
+    setLocale(code);
+    setSelectedLocaleCode(code);
+    // Reload page to apply locale changes fully
+    window.location.reload();
   };
 
   const handleSync = async () => {
@@ -547,6 +599,53 @@ function Settings(props: SettingsProps) {
         </div>
       </section>
 
+      <section class="settings-section" aria-labelledby="appearance-section-title">
+        <h2 id="appearance-section-title">Appearance</h2>
+        <p class="setting-description" id="appearance-description">
+          Customize the look and language of the app.
+        </p>
+
+        <div class="setting-item">
+          <span class="setting-label" id="theme-label">
+            Theme
+          </span>
+          <select
+            class="setting-select"
+            value={selectedThemeId()}
+            onChange={(e) => handleThemeChange(e.target.value)}
+            aria-labelledby="theme-label"
+          >
+            <For each={availableThemes()}>
+              {(theme) => (
+                <option value={theme.id}>
+                  {theme.name} ({theme.mode})
+                </option>
+              )}
+            </For>
+          </select>
+        </div>
+
+        <div class="setting-item">
+          <span class="setting-label" id="language-label">
+            Language
+          </span>
+          <select
+            class="setting-select"
+            value={selectedLocaleCode()}
+            onChange={(e) => handleLocaleChange(e.target.value)}
+            aria-labelledby="language-label"
+          >
+            <For each={availableLocales()}>
+              {(locale) => (
+                <option value={locale.code}>
+                  {locale.name} ({locale.english_name})
+                </option>
+              )}
+            </For>
+          </select>
+        </div>
+      </section>
+
       <section class="settings-section" aria-labelledby="sync-section-title">
         <h2 id="sync-section-title">Sync</h2>
         <p class="setting-description" id="sync-description">
@@ -726,18 +825,18 @@ function Settings(props: SettingsProps) {
         <h2 id="help-section-title">Help & Support</h2>
         <div class="setting-buttons help-links" role="group" aria-label="Help and support links">
           <button
+            class="secondary"
+            onClick={() => props.onNavigate('help')}
+            aria-label="Open FAQ and help"
+          >
+            FAQ & Help
+          </button>
+          <button
             class="secondary link-btn"
             onClick={() => open('https://vauchi.app/user-guide')}
             aria-label="Open user guide in browser"
           >
             User Guide
-          </button>
-          <button
-            class="secondary link-btn"
-            onClick={() => open('https://vauchi.app/faq')}
-            aria-label="Open FAQ in browser"
-          >
-            FAQ
           </button>
           <button
             class="secondary link-btn"

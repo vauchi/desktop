@@ -126,6 +126,20 @@ pub fn run() {
             commands::content::set_content_updates_enabled,
             commands::content::set_content_url,
             commands::content::get_social_networks,
+            // Theme commands
+            commands::theme::get_available_themes,
+            commands::theme::get_theme,
+            commands::theme::get_default_theme_id,
+            // i18n commands
+            commands::i18n::get_locales,
+            commands::i18n::get_localized_string,
+            commands::i18n::get_localized_string_with_args,
+            // Help commands
+            commands::help::get_help_categories,
+            commands::help::get_all_faqs,
+            commands::help::get_category_faqs,
+            commands::help::get_faq,
+            commands::help::search_help,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
