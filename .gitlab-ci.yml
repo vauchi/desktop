@@ -43,6 +43,12 @@ variables:
 # Lint Stage (MR only)
 # ============================================================
 
+# Tauri requires GTK3 and WebKit2GTK for Linux builds
+.tauri-deps:
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+
 # Rust linting
 lint:rust-format:
   extends: [.rust-job, .validation-only]
@@ -52,12 +58,12 @@ lint:rust-format:
     - cd src-tauri && cargo fmt --all -- --check
 
 lint:rust-clippy:
-  extends: [.rust-job, .validation-only]
+  extends: [.rust-job, .validation-only, .tauri-deps]
   stage: lint
   script:
     - rustup component add clippy
     - cd src-tauri && cargo clippy --all-targets -- -D warnings
-  allow_failure: true  # May fail on git dependency issues
+  allow_failure: true  # May fail on missing system deps
 
 # Frontend linting
 lint:frontend:
@@ -75,11 +81,11 @@ lint:frontend:
 
 # Rust tests
 test:rust:
-  extends: [.rust-job, .validation-only]
+  extends: [.rust-job, .validation-only, .tauri-deps]
   stage: test
   script:
     - cd src-tauri && cargo test --all-targets
-  allow_failure: true  # May fail on git dependency issues
+  allow_failure: true  # May fail on missing system deps
 
 # Frontend tests
 test:frontend:
