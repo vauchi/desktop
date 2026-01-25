@@ -49,6 +49,18 @@ variables:
     - apt-get update -qq
     - apt-get install -y -qq libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
 
+# Build frontend first (needed for Tauri's generate_context!)
+build:frontend-dist:
+  extends: [.node-job, .validation-only]
+  stage: lint
+  script:
+    - cd ui && npm ci
+    - cd ui && npm run build
+  artifacts:
+    paths:
+      - ui/dist/
+    expire_in: 1 hour
+
 # Rust linting
 lint:rust-format:
   extends: [.rust-job, .validation-only]
@@ -60,6 +72,7 @@ lint:rust-format:
 lint:rust-clippy:
   extends: [.rust-job, .validation-only, .tauri-deps]
   stage: lint
+  needs: [build:frontend-dist]
   script:
     - rustup component add clippy
     - cd src-tauri && cargo clippy --all-targets -- -D warnings
@@ -81,6 +94,7 @@ lint:frontend:
 test:rust:
   extends: [.rust-job, .validation-only, .tauri-deps]
   stage: test
+  needs: [build:frontend-dist]
   script:
     - cd src-tauri && cargo test --all-targets
 
