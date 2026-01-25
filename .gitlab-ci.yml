@@ -2,19 +2,20 @@
 #
 # Tauri desktop application with SolidJS frontend
 #
-# GitLab Ultimate Features:
-#   - SAST: Static application security testing (Rust + JS)
-#   - Dependency Scanning: Cargo.lock + package-lock.json scanning
-#   - Secret Detection: Prevent credential leaks
-#   - License Compliance: Check dependency licenses
+# Pipeline strategy:
+#   - MR: Full validation (Rust + JS lint, test, security)
+#   - Main: No pipeline (validated via MR)
+#
+# Uses shared templates from vauchi/scripts for consistency.
 
-# GitLab Ultimate Templates
+# Include shared templates
 include:
-  - template: Security/SAST.gitlab-ci.yml
-  - template: Security/Dependency-Scanning.gitlab-ci.yml
-  - template: Security/Secret-Detection.gitlab-ci.yml
-  - template: Security/License-Scanning.gitlab-ci.yml
-  - template: Jobs/Code-Quality.gitlab-ci.yml
+  - project: 'vauchi/scripts'
+    ref: main
+    file:
+      - '/ci-templates/rust-base.yml'
+      - '/ci-templates/security.yml'
+      - '/ci-templates/mr-rules.yml'
 
 stages:
   - lint
@@ -22,179 +23,89 @@ stages:
   - security
 
 variables:
-  CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
-  RUST_BACKTRACE: "1"
-
-  # GitLab Ultimate Security Configuration
+  # Additional paths to exclude for desktop app
   SAST_EXCLUDED_PATHS: "target/, node_modules/, dist/"
   DS_EXCLUDED_PATHS: "target/, node_modules/"
   SECRET_DETECTION_EXCLUDED_PATHS: "target/, node_modules/"
 
-.rust-cache: &rust-cache
-  cache:
-    key: ${CI_COMMIT_REF_SLUG}-rust
-    paths:
-      - .cargo/bin/
-      - .cargo/registry/index/
-      - .cargo/registry/cache/
-      - .cargo/git/db/
-      - src-tauri/target/
-
-.node-cache: &node-cache
+# Node.js cache
+.node-cache:
   cache:
     key: ${CI_COMMIT_REF_SLUG}-node
     paths:
       - ui/node_modules/
 
-.rust-job:
-  image: rust:latest
-  <<: *rust-cache
-
 .node-job:
   image: node:20
-  <<: *node-cache
+  extends: .node-cache
 
 # ============================================================
-# Lint Stage
+# Lint Stage (MR only)
 # ============================================================
 
 # Rust linting
 lint:rust-format:
-  extends: .rust-job
+  extends: [.rust-job, .validation-only]
   stage: lint
   script:
     - rustup component add rustfmt
     - cd src-tauri && cargo fmt --all -- --check
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
 
 lint:rust-clippy:
-  extends: .rust-job
+  extends: [.rust-job, .validation-only]
   stage: lint
   script:
     - rustup component add clippy
     - cd src-tauri && cargo clippy --all-targets -- -D warnings
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
   allow_failure: true  # May fail on git dependency issues
 
 # Frontend linting
 lint:frontend:
-  extends: .node-job
+  extends: [.node-job, .validation-only]
   stage: lint
   script:
     - cd ui && npm ci
     - cd ui && npm run lint || echo "No lint script configured"
     - cd ui && npm run typecheck || echo "No typecheck script configured"
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
-  allow_failure: true  # May not have lint scripts yet
-
-# Code quality (GitLab Ultimate)
-code_quality:
-  stage: lint
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
-  artifacts:
-    reports:
-      codequality: gl-code-quality-report.json
-    expire_in: 1 week
+  allow_failure: true
 
 # ============================================================
-# Test Stage
+# Test Stage (MR only)
 # ============================================================
 
 # Rust tests
 test:rust:
-  extends: .rust-job
+  extends: [.rust-job, .validation-only]
   stage: test
   script:
     - cd src-tauri && cargo test --all-targets
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
   allow_failure: true  # May fail on git dependency issues
 
 # Frontend tests
 test:frontend:
-  extends: .node-job
+  extends: [.node-job, .validation-only]
   stage: test
   script:
     - cd ui && npm ci
     - cd ui && npm test || echo "No test script configured"
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
-  allow_failure: true  # May not have tests yet
+  allow_failure: true
 
 # ============================================================
-# Security Stage
+# Security Stage (MR only)
 # ============================================================
 
-# GitLab security templates configuration
-# Override child analyzer jobs (not parent stubs) to add tags and rules
-
-semgrep-sast:
-  tags: [docker]
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-
-# Gemnasium for JS dependencies (package-lock.json)
-gemnasium-dependency_scanning:
-  tags: [docker]
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-
-secret_detection:
-  tags: [docker]
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
-
-license_scanning:
-  tags: [docker]
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
-
-license_scanning:
-  stage: security
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        - "**/Cargo.toml"
-        - "**/Cargo.lock"
-        - "**/package.json"
-        - "**/package-lock.json"
-    - if: $CI_COMMIT_BRANCH == "main"
-
-# Rust-specific security
+# Rust security audit
 security:audit:
-  extends: .rust-job
+  extends: [.rust-job, .validation-cargo]
   stage: security
   script:
     - cargo install cargo-audit || true
     - cd src-tauri && cargo audit
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        - "src-tauri/Cargo.toml"
-        - "src-tauri/Cargo.lock"
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_PIPELINE_SOURCE == "schedule"
   allow_failure: true
 
 # npm audit for frontend
 security:npm-audit:
-  extends: .node-job
+  extends: [.node-job, .validation-only]
   stage: security
   script:
     - cd ui && npm ci
@@ -204,6 +115,4 @@ security:npm-audit:
       changes:
         - "ui/package.json"
         - "ui/package-lock.json"
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_PIPELINE_SOURCE == "schedule"
   allow_failure: true
