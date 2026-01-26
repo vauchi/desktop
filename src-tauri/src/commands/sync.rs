@@ -57,7 +57,9 @@ fn connect_to_relay(relay_url: &str) -> Result<WebSocket<MaybeTlsStream<TcpStrea
     // Parse URL to get host and port
     let url = Url::parse(relay_url).map_err(|e| format!("Invalid relay URL: {}", e))?;
     let host = url.host_str().ok_or("No host in relay URL")?;
-    let port = url.port().unwrap_or(if url.scheme() == "wss" { 443 } else { 80 });
+    let port = url
+        .port()
+        .unwrap_or(if url.scheme() == "wss" { 443 } else { 80 });
     let addr_str = format!("{}:{}", host, port);
 
     // Resolve address
@@ -537,7 +539,9 @@ fn apply_sync_item(storage: &Storage, item: &SyncItem) -> Result<(), String> {
             }
         }
         SyncItem::ContactRemoved { contact_id, .. } => {
-            storage.delete_contact(contact_id).map_err(|e| e.to_string())?;
+            storage
+                .delete_contact(contact_id)
+                .map_err(|e| e.to_string())?;
         }
         SyncItem::CardUpdated {
             field_label,
@@ -556,7 +560,10 @@ fn apply_sync_item(storage: &Storage, item: &SyncItem) -> Result<(), String> {
             is_visible,
             ..
         } => {
-            if let Some(mut contact) = storage.load_contact(contact_id).map_err(|e| e.to_string())? {
+            if let Some(mut contact) = storage
+                .load_contact(contact_id)
+                .map_err(|e| e.to_string())?
+            {
                 if *is_visible {
                     contact.visibility_rules_mut().set_everyone(field_label);
                 } else {
@@ -605,11 +612,11 @@ fn send_device_sync(
             Err(_) => continue,
         };
 
-        let encrypted =
-            match orchestrator.encrypt_for_device(&device.exchange_public_key, &payload) {
-                Ok(ct) => ct,
-                Err(_) => continue,
-            };
+        let encrypted = match orchestrator.encrypt_for_device(&device.exchange_public_key, &payload)
+        {
+            Ok(ct) => ct,
+            Err(_) => continue,
+        };
 
         // Create and send device sync message
         let target_device_id = hex::encode(device.device_id);

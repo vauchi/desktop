@@ -7,8 +7,11 @@ import Exchange from './pages/Exchange';
 import Settings from './pages/Settings';
 import Devices from './pages/Devices';
 import Recovery from './pages/Recovery';
+import Help from './pages/Help';
+import { initializeTheme } from './services/themeService';
+import { initializeLocale } from './services/i18nService';
 
-type Page = 'setup' | 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery';
+type Page = 'setup' | 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery' | 'help';
 
 async function checkIdentity(): Promise<boolean> {
   return await invoke('has_identity');
@@ -18,8 +21,9 @@ function App() {
   const [page, setPage] = createSignal<Page>('home');
   const [hasIdentity] = createResource(checkIdentity);
 
-  // Apply saved accessibility settings on app startup
-  onMount(() => {
+  // Apply saved settings on app startup
+  onMount(async () => {
+    // Accessibility settings
     const reduceMotion = localStorage.getItem('a11y-reduce-motion') === 'true';
     const highContrast = localStorage.getItem('a11y-high-contrast') === 'true';
     const largeTouchTargets = localStorage.getItem('a11y-large-touch-targets') === 'true';
@@ -27,6 +31,14 @@ function App() {
     document.documentElement.setAttribute('data-reduce-motion', String(reduceMotion));
     document.documentElement.setAttribute('data-high-contrast', String(highContrast));
     document.documentElement.setAttribute('data-large-touch-targets', String(largeTouchTargets));
+
+    // Initialize theme and locale
+    initializeLocale();
+    try {
+      await initializeTheme();
+    } catch (e) {
+      console.error('Failed to initialize theme:', e);
+    }
   });
 
   const currentPage = () => {
@@ -46,6 +58,8 @@ function App() {
         return <Devices onNavigate={setPage} />;
       case 'recovery':
         return <Recovery onNavigate={setPage} />;
+      case 'help':
+        return <Help onNavigate={setPage} />;
       default:
         return <Home onNavigate={setPage} />;
     }

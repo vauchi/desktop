@@ -798,3 +798,163 @@ textarea {
 .copy-btn {
   flex-shrink: 0;
 }
+
+/* ============================================================
+   Help Page Styles
+   ============================================================ */
+
+.help-search {
+  padding: 1rem;
+}
+
+.search-input-wrapper {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.search-input-wrapper input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.search-btn {
+  padding: 0.75rem 1rem;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.search-btn:disabled {
+  opacity: 0.5;
+}
+
+.help-categories {
+  padding: 0 1rem;
+}
+
+.category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.category-chip {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all var(--transition-duration);
+}
+
+.category-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.category-chip.active {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: var(--accent);
+}
+
+.search-status {
+  padding: 0.5rem 1rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.faq-list {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.faq-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.faq-item.expanded {
+  border-color: var(--accent);
+}
+
+.faq-question {
+  width: 100%;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border: none;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.faq-question:hover {
+  background: var(--bg-tertiary);
+}
+
+.faq-category-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-radius: 4px;
+  text-transform: capitalize;
+}
+
+.faq-question-text {
+  flex: 1;
+  font-weight: 500;
+}
+
+.faq-toggle {
+  font-size: 1.25rem;
+  color: var(--text-secondary);
+}
+
+.faq-answer {
+  padding: 1rem;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border);
+}
+
+.faq-answer p {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+.faq-answer p:last-child {
+  margin-bottom: 0;
+}
+
+/* ============================================================
+   Appearance Settings Styles
+   ============================================================ */
+
+.setting-select {
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  min-width: 200px;
+  cursor: pointer;
+}
+
+.setting-select:focus {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
