@@ -6,8 +6,13 @@
 #
 # Tauri desktop application with SolidJS frontend
 #
+# Performance optimizations:
+#   - Change-based rules: Jobs run only when relevant files change
+#   - Timeouts: Prevent runaway jobs from blocking runners
+#   - Read-only cache for lint jobs
+#
 # Pipeline strategy:
-#   - MR: Full validation (Rust + JS lint, test, security)
+#   - MR: Validation on relevant file changes
 #   - Main: No pipeline (validated via MR)
 #
 # Uses shared templates from vauchi/scripts for consistency.
@@ -44,7 +49,7 @@ variables:
   extends: .node-cache
 
 # ============================================================
-# Lint Stage (MR only)
+# Lint Stage (change-based)
 # ============================================================
 
 # Tauri requires GTK3 and WebKit2GTK for Linux builds
@@ -55,7 +60,7 @@ variables:
 
 # Build frontend first (needed for Tauri's generate_context!)
 build:frontend-dist:
-  extends: [.node-job, .validation-only]
+  extends: [.node-job, .timeout-quick]
   stage: lint
   script:
     - cd ui && npm ci && npm run build
@@ -63,65 +68,114 @@ build:frontend-dist:
     paths:
       - ui/dist/
     expire_in: 1 hour
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "ui/**/*"
+        - "src-tauri/**/*"
+        - ".gitlab-ci.yml"
 
-# Rust linting
+# Rust linting (runs on Rust code changes)
 lint:rust-format:
-  extends: [.rust-job, .validation-only]
+  extends: [.rust-job, .timeout-quick]
   stage: lint
+  cache:
+    policy: pull  # Read-only cache for lint
   script:
     - rustup component add rustfmt
     - cd src-tauri && cargo fmt --all -- --check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "src-tauri/**/*.rs"
+        - "src-tauri/Cargo.toml"
+        - ".gitlab-ci.yml"
 
 lint:rust-clippy:
-  extends: [.rust-job, .validation-only, .tauri-deps]
+  extends: [.rust-job, .tauri-deps, .timeout-standard]
   stage: lint
   needs: [build:frontend-dist]
+  cache:
+    policy: pull  # Read-only cache for lint
   script:
     - rustup component add clippy
     - cd src-tauri && cargo clippy --all-targets -- -D warnings
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "src-tauri/**/*.rs"
+        - "src-tauri/Cargo.toml"
+        - "ui/**/*"
+        - ".gitlab-ci.yml"
 
-# Frontend linting
+# Frontend linting (runs on frontend code changes)
 lint:frontend:
-  extends: [.node-job, .validation-only]
+  extends: [.node-job, .timeout-quick]
   stage: lint
+  cache:
+    policy: pull  # Read-only cache for lint
   script:
     - cd ui && npm ci && npm run lint || echo "No lint script configured"
     - npm run typecheck || echo "No typecheck script configured"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "ui/**/*"
+        - ".gitlab-ci.yml"
 
 # ============================================================
-# Test Stage (MR only)
+# Test Stage (change-based)
 # ============================================================
 
 # Rust tests
 test:rust:
-  extends: [.rust-job, .validation-only, .tauri-deps]
+  extends: [.rust-job, .tauri-deps, .timeout-standard]
   stage: test
   needs: [build:frontend-dist]
   script:
     - cd src-tauri && cargo test --all-targets
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "src-tauri/**/*"
+        - "ui/**/*"
+        - ".gitlab-ci.yml"
 
 # Frontend tests
 test:frontend:
-  extends: [.node-job, .validation-only]
+  extends: [.node-job, .timeout-standard]
   stage: test
   script:
     - cd ui && npm ci && npm test || echo "No test script configured"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "ui/**/*"
+        - ".gitlab-ci.yml"
 
 # ============================================================
-# Security Stage (MR only)
+# Security Stage (change-based)
 # ============================================================
 
-# Rust security audit
+# Rust security audit (runs on dependency changes)
 security:audit:
-  extends: [.rust-job, .validation-cargo]
+  extends: [.rust-job, .timeout-quick]
   stage: security
+  cache:
+    policy: pull  # Read-only cache
   script:
     - cargo install cargo-audit || true
     - cd src-tauri && cargo audit
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "src-tauri/Cargo.toml"
+        - "src-tauri/Cargo.lock"
+        - ".gitlab-ci.yml"
 
-# npm audit for frontend
+# npm audit for frontend (runs on package changes)
 security:npm-audit:
-  extends: [.node-job, .validation-only]
+  extends: [.node-job, .timeout-quick]
   stage: security
   script:
     - cd ui && npm ci && npm audit --audit-level=moderate || true
@@ -130,3 +184,4 @@ security:npm-audit:
       changes:
         - "ui/package.json"
         - "ui/package-lock.json"
+        - ".gitlab-ci.yml"
