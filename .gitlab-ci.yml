@@ -49,16 +49,6 @@ variables:
   extends: .node-cache
 
 # ============================================================
-# Local Template Definitions (until scripts MR is merged)
-# ============================================================
-
-.timeout-quick:
-  timeout: 10 minutes
-
-.timeout-standard:
-  timeout: 30 minutes
-
-# ============================================================
 # Lint Stage (change-based)
 # ============================================================
 
