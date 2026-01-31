@@ -63,6 +63,7 @@ variables:
 build:frontend-dist:
   extends: [.node-job, .timeout-quick]
   stage: lint
+  needs: []
   script:
     - cd ui && npm ci && npm run build
   artifacts:
@@ -72,14 +73,17 @@ build:frontend-dist:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        - "ui/**/*"
-        - "src-tauri/**/*"
-        - ".gitlab-ci.yml"
+        compare_to: refs/heads/main
+        paths:
+          - "ui/**/*"
+          - "src-tauri/**/*"
+          - ".gitlab-ci.yml"
 
 # Rust linting (runs on Rust code changes)
 lint:rust-format:
   extends: [.rust-job, .timeout-quick]
   stage: lint
+  needs: []
   cache:
     policy: pull  # Read-only cache for lint
   script:
@@ -88,9 +92,11 @@ lint:rust-format:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        - "src-tauri/**/*.rs"
-        - "src-tauri/Cargo.toml"
-        - ".gitlab-ci.yml"
+        compare_to: refs/heads/main
+        paths:
+          - "src-tauri/**/*.rs"
+          - "src-tauri/Cargo.toml"
+          - ".gitlab-ci.yml"
 
 lint:rust-clippy:
   extends: [.rust-job, .tauri-deps, .timeout-standard]
@@ -104,15 +110,18 @@ lint:rust-clippy:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        - "src-tauri/**/*.rs"
-        - "src-tauri/Cargo.toml"
-        - "ui/**/*"
-        - ".gitlab-ci.yml"
+        compare_to: refs/heads/main
+        paths:
+          - "src-tauri/**/*.rs"
+          - "src-tauri/Cargo.toml"
+          - "ui/**/*"
+          - ".gitlab-ci.yml"
 
 # Frontend linting (runs on frontend code changes)
 lint:frontend:
   extends: [.node-job, .timeout-quick]
   stage: lint
+  needs: []
   cache:
     policy: pull  # Read-only cache for lint
   script:
@@ -121,8 +130,10 @@ lint:frontend:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        - "ui/**/*"
-        - ".gitlab-ci.yml"
+        compare_to: refs/heads/main
+        paths:
+          - "ui/**/*"
+          - ".gitlab-ci.yml"
 
 # ============================================================
 # Test Stage (change-based)
@@ -138,21 +149,26 @@ test:rust:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        - "src-tauri/**/*"
-        - "ui/**/*"
-        - ".gitlab-ci.yml"
+        compare_to: refs/heads/main
+        paths:
+          - "src-tauri/**/*"
+          - "ui/**/*"
+          - ".gitlab-ci.yml"
 
 # Frontend tests
 test:frontend:
   extends: [.node-job, .timeout-standard]
   stage: test
+  needs: []
   script:
     - cd ui && npm ci && npm test || echo "No test script configured"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        - "ui/**/*"
-        - ".gitlab-ci.yml"
+        compare_to: refs/heads/main
+        paths:
+          - "ui/**/*"
+          - ".gitlab-ci.yml"
 
 # ============================================================
 # Security Stage (change-based)
@@ -162,6 +178,7 @@ test:frontend:
 security:audit:
   extends: [.rust-job, .timeout-quick]
   stage: security
+  needs: []
   cache:
     policy: pull  # Read-only cache
   script:
@@ -170,19 +187,24 @@ security:audit:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        - "src-tauri/Cargo.toml"
-        - "src-tauri/Cargo.lock"
-        - ".gitlab-ci.yml"
+        compare_to: refs/heads/main
+        paths:
+          - "src-tauri/Cargo.toml"
+          - "src-tauri/Cargo.lock"
+          - ".gitlab-ci.yml"
 
 # npm audit for frontend (runs on package changes)
 security:npm-audit:
   extends: [.node-job, .timeout-quick]
   stage: security
+  needs: []
   script:
     - cd ui && npm ci && npm audit --audit-level=moderate || true
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        - "ui/package.json"
-        - "ui/package-lock.json"
-        - ".gitlab-ci.yml"
+        compare_to: refs/heads/main
+        paths:
+          - "ui/package.json"
+          - "ui/package-lock.json"
+          - ".gitlab-ci.yml"
