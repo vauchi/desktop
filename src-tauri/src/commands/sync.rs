@@ -576,6 +576,12 @@ fn apply_sync_item(storage: &Storage, item: &SyncItem) -> Result<(), String> {
                 storage.save_contact(&contact).map_err(|e| e.to_string())?;
             }
         }
+        SyncItem::LabelChange { .. } => {
+            // Label changes are handled by the label manager during full sync
+        }
+        _ => {
+            // Unknown sync items are silently ignored for forward compatibility
+        }
     }
     Ok(())
 }
