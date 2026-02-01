@@ -138,6 +138,7 @@ pub fn run() {
             commands::i18n::get_locales,
             commands::i18n::get_localized_string,
             commands::i18n::get_localized_string_with_args,
+            commands::i18n::get_locale_strings,
             // Help commands
             commands::help::get_help_categories,
             commands::help::get_all_faqs,

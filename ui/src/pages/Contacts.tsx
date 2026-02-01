@@ -4,6 +4,7 @@
 
 import { createResource, createSignal, createMemo, For, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
+import { t, tArgs } from '../services/i18nService';
 
 interface ContactInfo {
   id: string;
@@ -222,15 +223,15 @@ function Contacts(props: ContactsProps) {
           onClick={() => props.onNavigate('home')}
           aria-label="Go back to home"
         >
-          ← Back
+          {t('action.back')}
         </button>
-        <h1 id="contacts-title">Contacts</h1>
+        <h1 id="contacts-title">{t('contacts.title')}</h1>
       </header>
 
       <div class="search-bar" role="search">
         <input
           type="text"
-          placeholder="Search contacts..."
+          placeholder={t('contacts.search')}
           value={searchQuery()}
           onInput={(e) => setSearchQuery(e.target.value)}
           aria-label="Search contacts by name"
@@ -259,7 +260,7 @@ function Contacts(props: ContactsProps) {
               <div class="contact-info">
                 <span class="contact-name">{contact.display_name}</span>
                 <span class="contact-status">
-                  {contact.verified ? '✓ Verified' : 'Not verified'}
+                  {contact.verified ? t('contacts.verified') : t('contacts.not_verified')}
                 </span>
               </div>
             </div>
@@ -281,8 +282,8 @@ function Contacts(props: ContactsProps) {
             role="status"
             aria-label="No contacts yet. Exchange cards with someone to add contacts."
           >
-            <p>No contacts yet</p>
-            <button onClick={() => props.onNavigate('exchange')}>Exchange with someone</button>
+            <p>{t('contacts.empty')}</p>
+            <button onClick={() => props.onNavigate('exchange')}>{t('exchange.title')}</button>
           </div>
         )}
       </div>
@@ -306,7 +307,7 @@ function Contacts(props: ContactsProps) {
                   aria-labelledby="delete-confirm-title"
                   aria-describedby="delete-confirm-description"
                 >
-                  <h3 id="delete-confirm-title">Delete Contact?</h3>
+                  <h3 id="delete-confirm-title">{t('action.delete')}?</h3>
                   <p id="delete-confirm-description">
                     Are you sure you want to delete {selectedContact()?.display_name}?
                   </p>
@@ -319,10 +320,10 @@ function Contacts(props: ContactsProps) {
                       onClick={handleDelete}
                       aria-label={`Delete ${selectedContact()?.display_name}`}
                     >
-                      Delete
+                      {t('action.delete')}
                     </button>
                     <button class="secondary" onClick={() => setShowDeleteConfirm(false)}>
-                      Cancel
+                      {t('action.cancel')}
                     </button>
                   </div>
                 </div>
@@ -338,7 +339,7 @@ function Contacts(props: ContactsProps) {
                   role="status"
                   aria-label={`Verification status: ${selectedContact()?.verified ? 'verified' : 'not verified'}`}
                 >
-                  {selectedContact()?.verified ? '✓ Verified' : 'Not verified'}
+                  {selectedContact()?.verified ? t('contacts.verified') : t('contacts.not_verified')}
                 </span>
                 <Show when={!selectedContact()?.verified}>
                   <button
@@ -357,7 +358,7 @@ function Contacts(props: ContactsProps) {
                 </p>
               </Show>
 
-              <div class="contact-fields" role="list" aria-label="Contact information fields">
+              <div class="contact-fields" role="list" aria-label={t('contacts.detail')}>
                 <Show when={selectedContact()?.fields.length === 0}>
                   <p class="empty-fields" role="status">
                     No contact information shared yet.
@@ -460,14 +461,14 @@ function Contacts(props: ContactsProps) {
                       disabled={isVerifying()}
                       aria-label="Cancel verification"
                     >
-                      Cancel
+                      {t('action.cancel')}
                     </button>
                   </div>
                 </div>
               </Show>
 
               {/* Visibility Section */}
-              <div class="visibility-section" role="region" aria-label="Field visibility settings">
+              <div class="visibility-section" role="region" aria-label={t('visibility.title')}>
                 <Show
                   when={!showVisibility()}
                   fallback={
@@ -522,7 +523,7 @@ function Contacts(props: ContactsProps) {
                   onClick={() => setShowDeleteConfirm(true)}
                   aria-label={`Delete ${selectedContact()?.display_name} from contacts`}
                 >
-                  Delete Contact
+                  {t('action.delete')}
                 </button>
               </div>
             </Show>
@@ -535,7 +536,7 @@ function Contacts(props: ContactsProps) {
           Home
         </button>
         <button class="nav-btn active" aria-current="page" aria-label="Contacts (current page)">
-          Contacts
+          {t('contacts.title')}
         </button>
         <button
           class="nav-btn"

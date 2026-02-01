@@ -4,6 +4,7 @@
 
 import { createSignal, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
+import { t } from '../services/i18nService';
 
 interface _RecoverySettingsInfo {
   recovery_threshold: number;
@@ -104,9 +105,9 @@ function Recovery(props: RecoveryProps) {
           }}
           aria-label={mode() === 'menu' ? 'Go back to home' : 'Go back to recovery menu'}
         >
-          ← Back
+          {t('action.back')}
         </button>
-        <h1 id="recovery-title">Recovery</h1>
+        <h1 id="recovery-title">{t('recovery.title')}</h1>
       </header>
 
       <Show when={error()}>
@@ -136,7 +137,7 @@ function Recovery(props: RecoveryProps) {
               🔑
             </div>
             <div class="menu-content">
-              <h3>Create Recovery Claim</h3>
+              <h3>{t('recovery.create_claim')}</h3>
               <p>Lost your device? Start the recovery process.</p>
             </div>
           </div>
@@ -153,20 +154,20 @@ function Recovery(props: RecoveryProps) {
               ✅
             </div>
             <div class="menu-content">
-              <h3>Vouch for Contact</h3>
+              <h3>{t('recovery.vouch')}</h3>
               <p>Help a contact recover their identity.</p>
             </div>
           </div>
         </section>
 
         <section class="info-section" aria-labelledby="how-recovery-works-title">
-          <h3 id="how-recovery-works-title">How Recovery Works</h3>
+          <h3 id="how-recovery-works-title">{t('recovery.how_it_works')}</h3>
           <ol aria-label="Recovery process steps">
-            <li>Create a new identity on a new device</li>
-            <li>Generate a recovery claim with your OLD public key</li>
-            <li>Meet with 3+ trusted contacts in person</li>
-            <li>Have them vouch for your recovery</li>
-            <li>Collect vouchers and share your recovery proof</li>
+            <li>{t('recovery.step1')}</li>
+            <li>{t('recovery.step2')}</li>
+            <li>{t('recovery.step3')}</li>
+            <li>{t('recovery.step4')}</li>
+            <li>{t('recovery.step5')}</li>
           </ol>
         </section>
       </Show>
@@ -174,7 +175,7 @@ function Recovery(props: RecoveryProps) {
       {/* Create Claim Mode */}
       <Show when={mode() === 'claim'}>
         <section class="recovery-form" aria-labelledby="create-claim-title">
-          <h2 id="create-claim-title">Create Recovery Claim</h2>
+          <h2 id="create-claim-title">{t('recovery.create_claim')}</h2>
           <p id="create-claim-description">Enter the public key from your lost identity:</p>
 
           <div class="form" role="form" aria-describedby="create-claim-description">
@@ -195,7 +196,7 @@ function Recovery(props: RecoveryProps) {
 
           <Show when={claimData()}>
             <div class="result-box" role="region" aria-labelledby="claim-result-title">
-              <h3 id="claim-result-title">Your Recovery Claim</h3>
+              <h3 id="claim-result-title">{t('recovery.claim_active')}</h3>
               <p>Share this with your contacts:</p>
               <code class="claim-data" aria-label="Recovery claim data">
                 {claimData()}
@@ -215,7 +216,7 @@ function Recovery(props: RecoveryProps) {
       {/* Vouch Mode */}
       <Show when={mode() === 'vouch'}>
         <section class="recovery-form" aria-labelledby="vouch-title">
-          <h2 id="vouch-title">Vouch for Contact</h2>
+          <h2 id="vouch-title">{t('recovery.vouch')}</h2>
           <p id="vouch-description">Paste the recovery claim from your contact:</p>
 
           <div class="form" role="form" aria-describedby="vouch-description">

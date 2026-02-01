@@ -15,6 +15,7 @@ import {
   getAvailableLocales,
   setLocale,
   getSelectedLocale,
+  t,
   type LocaleInfo,
 } from '../services/i18nService';
 
@@ -457,16 +458,16 @@ function Settings(props: SettingsProps) {
           onClick={() => props.onNavigate('home')}
           aria-label="Go back to home"
         >
-          ← Back
+          {`← ${t('action.back')}`}
         </button>
-        <h1 id="settings-title">Settings</h1>
+        <h1 id="settings-title">{t('settings.title')}</h1>
       </header>
 
       <section class="settings-section" aria-labelledby="identity-section-title">
-        <h2 id="identity-section-title">Identity</h2>
+        <h2 id="identity-section-title">{t('settings.identity')}</h2>
         <div class="setting-item">
           <span class="setting-label" id="display-name-label">
-            Display Name
+            {t('settings.display_name')}
           </span>
           <Show
             when={editingName()}
@@ -476,7 +477,7 @@ function Settings(props: SettingsProps) {
                   {identity()?.display_name}
                 </span>
                 <button class="small" onClick={startEditingName} aria-label="Edit display name">
-                  Edit
+                  {t('action.edit')}
                 </button>
               </div>
             }
@@ -497,14 +498,14 @@ function Settings(props: SettingsProps) {
                   onClick={handleUpdateName}
                   aria-label="Save display name"
                 >
-                  Save
+                  {t('action.save')}
                 </button>
                 <button
                   class="small secondary"
                   onClick={cancelEditingName}
                   aria-label="Cancel editing"
                 >
-                  Cancel
+                  {t('action.cancel')}
                 </button>
               </div>
               <Show when={nameError()}>
@@ -517,7 +518,7 @@ function Settings(props: SettingsProps) {
         </div>
         <div class="setting-item">
           <span class="setting-label" id="public-id-label">
-            Public ID
+            {t('home.public_id')}
           </span>
           <span class="setting-value mono" aria-labelledby="public-id-label">
             {identity()?.public_id}
@@ -526,21 +527,21 @@ function Settings(props: SettingsProps) {
       </section>
 
       <section class="settings-section" aria-labelledby="devices-section-title">
-        <h2 id="devices-section-title">Devices & Recovery</h2>
+        <h2 id="devices-section-title">{t('devices.title')}</h2>
         <div class="setting-buttons" role="group" aria-label="Device and recovery options">
           <button
             class="secondary"
             onClick={() => props.onNavigate('devices')}
             aria-label="Manage linked devices"
           >
-            Manage Devices
+            {t('devices.title')}
           </button>
           <button
             class="secondary"
             onClick={() => props.onNavigate('recovery')}
             aria-label="Configure recovery options"
           >
-            Recovery Options
+            {t('recovery.title')}
           </button>
         </div>
       </section>
@@ -604,14 +605,14 @@ function Settings(props: SettingsProps) {
       </section>
 
       <section class="settings-section" aria-labelledby="appearance-section-title">
-        <h2 id="appearance-section-title">Appearance</h2>
+        <h2 id="appearance-section-title">{t('settings.appearance')}</h2>
         <p class="setting-description" id="appearance-description">
           Customize the look and language of the app.
         </p>
 
         <div class="setting-item">
           <span class="setting-label" id="theme-label">
-            Theme
+            {t('settings.theme')}
           </span>
           <select
             class="setting-select"
@@ -631,7 +632,7 @@ function Settings(props: SettingsProps) {
 
         <div class="setting-item">
           <span class="setting-label" id="language-label">
-            Language
+            {t('settings.language')}
           </span>
           <select
             class="setting-select"
@@ -651,14 +652,14 @@ function Settings(props: SettingsProps) {
       </section>
 
       <section class="settings-section" aria-labelledby="sync-section-title">
-        <h2 id="sync-section-title">Sync</h2>
+        <h2 id="sync-section-title">{t('sync.title')}</h2>
         <p class="setting-description" id="sync-description">
           Synchronize your contact cards with the relay server.
         </p>
 
         <div class="setting-item">
           <span class="setting-label" id="relay-label">
-            Relay Server
+            {t('settings.relay')}
           </span>
           <Show
             when={editingRelay()}
@@ -672,7 +673,7 @@ function Settings(props: SettingsProps) {
                   onClick={startEditingRelay}
                   aria-label="Edit relay server URL"
                 >
-                  Edit
+                  {t('action.edit')}
                 </button>
               </div>
             }
@@ -693,14 +694,14 @@ function Settings(props: SettingsProps) {
                   onClick={handleUpdateRelay}
                   aria-label="Save relay URL"
                 >
-                  Save
+                  {t('action.save')}
                 </button>
                 <button
                   class="small secondary"
                   onClick={cancelEditingRelay}
                   aria-label="Cancel editing"
                 >
-                  Cancel
+                  {t('action.cancel')}
                 </button>
               </div>
               <Show when={relayError()}>
@@ -803,7 +804,7 @@ function Settings(props: SettingsProps) {
       </section>
 
       <section class="settings-section" aria-labelledby="backup-section-title">
-        <h2 id="backup-section-title">Backup</h2>
+        <h2 id="backup-section-title">{t('backup.title')}</h2>
         <p class="setting-description" id="backup-description">
           Export your identity to back it up or transfer to another device.
         </p>
@@ -826,7 +827,7 @@ function Settings(props: SettingsProps) {
       </section>
 
       <section class="settings-section" aria-labelledby="help-section-title">
-        <h2 id="help-section-title">Help & Support</h2>
+        <h2 id="help-section-title">{t('settings.help_support')}</h2>
         <div class="setting-buttons help-links" role="group" aria-label="Help and support links">
           <button
             class="secondary"
@@ -860,7 +861,7 @@ function Settings(props: SettingsProps) {
       </section>
 
       <section class="settings-section" aria-labelledby="about-section-title">
-        <h2 id="about-section-title">About</h2>
+        <h2 id="about-section-title">{t('settings.about')}</h2>
         <div class="setting-item">
           <span class="setting-label" id="version-label">
             Version
@@ -977,7 +978,7 @@ function Settings(props: SettingsProps) {
                     Export
                   </button>
                   <button class="secondary" onClick={closeDialog} aria-label="Cancel backup">
-                    Cancel
+                    {t('action.cancel')}
                   </button>
                 </div>
               </div>
@@ -1058,7 +1059,7 @@ function Settings(props: SettingsProps) {
                     Import
                   </button>
                   <button class="secondary" onClick={closeImportDialog} aria-label="Cancel import">
-                    Cancel
+                    {t('action.cancel')}
                   </button>
                 </div>
               </div>
@@ -1069,24 +1070,24 @@ function Settings(props: SettingsProps) {
 
       <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
         <button class="nav-btn" onClick={() => props.onNavigate('home')} aria-label="Go to Home">
-          Home
+          {t('nav.home')}
         </button>
         <button
           class="nav-btn"
           onClick={() => props.onNavigate('contacts')}
           aria-label="Go to Contacts"
         >
-          Contacts
+          {t('nav.contacts')}
         </button>
         <button
           class="nav-btn"
           onClick={() => props.onNavigate('exchange')}
           aria-label="Go to Exchange"
         >
-          Exchange
+          {t('nav.exchange')}
         </button>
         <button class="nav-btn active" aria-current="page" aria-label="Settings (current page)">
-          Settings
+          {t('nav.settings')}
         </button>
       </nav>
     </div>

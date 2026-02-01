@@ -4,6 +4,7 @@
 
 import { createResource, For, createSignal, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
+import { t, tArgs } from '../services/i18nService';
 
 interface FieldInfo {
   id: string;
@@ -192,24 +193,24 @@ function Home(props: HomeProps) {
   return (
     <div class="page home" role="main" aria-labelledby="home-title">
       <header role="banner">
-        <h1 id="home-title">Hello, {card()?.display_name || 'User'}!</h1>
+        <h1 id="home-title">{tArgs('home.greeting', { name: card()?.display_name || 'User' })}</h1>
         <p
           class="public-id"
           aria-label={`Your public ID: ${identity()?.public_id.substring(0, 16)}`}
         >
-          ID: {identity()?.public_id.substring(0, 16)}...
+          {t('home.public_id') + ':'} {identity()?.public_id.substring(0, 16)}...
         </p>
       </header>
 
       <section class="card-section" aria-labelledby="card-section-title">
         <div class="section-header">
-          <h2 id="card-section-title">Your Card</h2>
+          <h2 id="card-section-title">{t('card.title')}</h2>
           <button
             class="icon-btn"
             onClick={() => setShowAddField(true)}
             aria-label="Add a new field to your card"
           >
-            + Add Field
+            {t('card.add_field')}
           </button>
         </div>
 
@@ -232,7 +233,7 @@ function Home(props: HomeProps) {
                   }}
                   aria-label={`Edit ${field.label}`}
                 >
-                  edit
+                  {t('action.edit')}
                 </button>
                 <button
                   class="visibility-btn"
@@ -242,7 +243,7 @@ function Home(props: HomeProps) {
                   }}
                   aria-label={`Manage who can see ${field.label}`}
                 >
-                  visibility
+                  {t('visibility.title')}
                 </button>
                 <button
                   class="delete-btn"
@@ -260,7 +261,7 @@ function Home(props: HomeProps) {
 
           {card()?.fields.length === 0 && (
             <p class="empty-state" role="status">
-              No fields yet. Add your first field!
+              {t('home.no_fields')}
             </p>
           )}
         </div>
@@ -268,28 +269,28 @@ function Home(props: HomeProps) {
 
       <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
         <button class="nav-btn active" aria-current="page" aria-label="Home (current page)">
-          Home
+          {t('nav.home')}
         </button>
         <button
           class="nav-btn"
           onClick={() => props.onNavigate('contacts')}
           aria-label="Go to Contacts"
         >
-          Contacts
+          {t('nav.contacts')}
         </button>
         <button
           class="nav-btn"
           onClick={() => props.onNavigate('exchange')}
           aria-label="Go to Exchange"
         >
-          Exchange
+          {t('nav.exchange')}
         </button>
         <button
           class="nav-btn"
           onClick={() => props.onNavigate('settings')}
           aria-label="Go to Settings"
         >
-          Settings
+          {t('nav.settings')}
         </button>
       </nav>
 
@@ -373,7 +374,7 @@ function Home(props: HomeProps) {
                 onClick={closeVisibilityDialog}
                 aria-label="Close visibility settings"
               >
-                Done
+                {t('action.done')}
               </button>
             </div>
           </div>
@@ -396,10 +397,10 @@ function Home(props: HomeProps) {
             aria-labelledby="edit-dialog-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 id="edit-dialog-title">Edit {editingField()?.label}</h3>
+            <h3 id="edit-dialog-title">{t('card.edit_field')} {editingField()?.label}</h3>
 
             <div class="form">
-              <label for="edit-field-type">Current Type</label>
+              <label for="edit-field-type">{t('card.field_type')}</label>
               <input
                 id="edit-field-type"
                 type="text"
@@ -408,13 +409,13 @@ function Home(props: HomeProps) {
                 aria-readonly="true"
               />
 
-              <label for="edit-field-value">Value</label>
+              <label for="edit-field-value">{t('card.value')}</label>
               <input
                 id="edit-field-value"
                 type="text"
                 value={editValue()}
                 onInput={(e) => setEditValue(e.target.value)}
-                placeholder="Enter new value"
+                placeholder={t('card.enter_value')}
                 disabled={isEditSaving()}
                 aria-describedby={editError() ? 'edit-error' : undefined}
                 aria-invalid={editError() ? 'true' : undefined}
@@ -434,7 +435,7 @@ function Home(props: HomeProps) {
                   aria-busy={isEditSaving()}
                   aria-label={isEditSaving() ? 'Saving changes' : 'Save changes'}
                 >
-                  {isEditSaving() ? 'Saving...' : 'Save'}
+                  {isEditSaving() ? 'Saving...' : t('action.save')}
                 </button>
                 <button
                   class="secondary"
@@ -442,7 +443,7 @@ function Home(props: HomeProps) {
                   disabled={isEditSaving()}
                   aria-label="Cancel editing"
                 >
-                  Cancel
+                  {t('action.cancel')}
                 </button>
               </div>
             </div>
@@ -491,10 +492,10 @@ function AddFieldDialog(props: AddFieldDialogProps) {
         aria-labelledby="add-field-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 id="add-field-title">Add Field</h3>
+        <h3 id="add-field-title">{t('card.add_field')}</h3>
 
         <div class="form">
-          <label for="add-field-type">Type</label>
+          <label for="add-field-type">{t('card.field_type')}</label>
           <select
             id="add-field-type"
             value={fieldType()}
@@ -509,21 +510,21 @@ function AddFieldDialog(props: AddFieldDialogProps) {
             <option value="custom">Custom</option>
           </select>
 
-          <label for="add-field-label">Label</label>
+          <label for="add-field-label">{t('card.label')}</label>
           <input
             id="add-field-label"
             type="text"
-            placeholder="e.g., Work, Personal"
+            placeholder={t('card.enter_label')}
             value={label()}
             onInput={(e) => setLabel(e.target.value)}
             aria-required="true"
           />
 
-          <label for="add-field-value">Value</label>
+          <label for="add-field-value">{t('card.value')}</label>
           <input
             id="add-field-value"
             type="text"
-            placeholder="Enter value"
+            placeholder={t('card.enter_value')}
             value={value()}
             onInput={(e) => setValue(e.target.value)}
             aria-required="true"
@@ -539,10 +540,10 @@ function AddFieldDialog(props: AddFieldDialogProps) {
 
           <div class="dialog-actions">
             <button class="secondary" onClick={props.onClose} aria-label="Cancel adding field">
-              Cancel
+              {t('action.cancel')}
             </button>
             <button onClick={handleAdd} aria-label="Add this field to your card">
-              Add
+              {t('card.add_field')}
             </button>
           </div>
         </div>

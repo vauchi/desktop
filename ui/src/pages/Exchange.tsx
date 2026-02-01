@@ -5,6 +5,7 @@
 import { createResource, createSignal, Show, createEffect, onCleanup } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import QRCode from 'qrcode';
+import { t, tArgs } from '../services/i18nService';
 
 // QR code expires after 5 minutes (300 seconds)
 const QR_EXPIRATION_SECONDS = 300;
@@ -139,14 +140,14 @@ function Exchange(props: ExchangeProps) {
           onClick={() => props.onNavigate('home')}
           aria-label="Go back to home"
         >
-          ← Back
+          {t('action.back')}
         </button>
-        <h1 id="exchange-title">Exchange</h1>
+        <h1 id="exchange-title">{t('exchange.title')}</h1>
       </header>
 
       <section class="qr-section" aria-labelledby="qr-section-title">
-        <h2 id="qr-section-title">Your QR Code</h2>
-        <p id="qr-description">Have someone scan this to add you as a contact</p>
+        <h2 id="qr-section-title">{t('exchange.your_qr')}</h2>
+        <p id="qr-description">{t('exchange.instruction')}</p>
 
         <Show
           when={qrData()}
@@ -161,9 +162,9 @@ function Exchange(props: ExchangeProps) {
               when={!isExpired()}
               fallback={
                 <div class="qr-expired" role="alert">
-                  <p>QR Code Expired</p>
+                  <p>{t('exchange.expired')}</p>
                   <button onClick={refreshQR} aria-label="Generate a new QR code">
-                    Generate New QR
+                    {t('exchange.refreshed')}
                   </button>
                 </div>
               }
@@ -193,8 +194,8 @@ function Exchange(props: ExchangeProps) {
               aria-live="polite"
               aria-atomic="true"
             >
-              <Show when={!isExpired()} fallback={<span>Expired</span>}>
-                <span>Expires in {formatTime(timeRemaining())}</span>
+              <Show when={!isExpired()} fallback={<span>{t('exchange.expired')}</span>}>
+                <span>{tArgs('exchange.expires_in', { time: formatTime(timeRemaining()) })}</span>
               </Show>
               <button class="refresh-btn small" onClick={refreshQR} aria-label="Refresh QR code">
                 ↻
@@ -215,7 +216,7 @@ function Exchange(props: ExchangeProps) {
       </section>
 
       <section class="scan-section" aria-labelledby="scan-section-title">
-        <h2 id="scan-section-title">Complete Exchange</h2>
+        <h2 id="scan-section-title">{t('exchange.title')}</h2>
         <p id="scan-description">Paste the exchange data from another user</p>
 
         <input
@@ -244,7 +245,7 @@ function Exchange(props: ExchangeProps) {
         </Show>
 
         <button onClick={handleComplete} aria-label="Complete the contact exchange">
-          Complete Exchange
+          {t('exchange.title')}
         </button>
       </section>
 
@@ -260,7 +261,7 @@ function Exchange(props: ExchangeProps) {
           Contacts
         </button>
         <button class="nav-btn active" aria-current="page" aria-label="Exchange (current page)">
-          Exchange
+          {t('exchange.title')}
         </button>
         <button
           class="nav-btn"

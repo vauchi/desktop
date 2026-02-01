@@ -4,6 +4,7 @@
 
 import { createSignal } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
+import { t } from '../services/i18nService';
 
 interface SetupProps {
   onComplete: () => void;
@@ -16,7 +17,7 @@ function Setup(props: SetupProps) {
 
   const handleCreate = async () => {
     if (!name().trim()) {
-      setError('Please enter your name');
+      setError(t('error.validation'));
       return;
     }
 
@@ -36,8 +37,8 @@ function Setup(props: SetupProps) {
   return (
     <main class="page setup" role="main" aria-labelledby="setup-title">
       <div class="setup-container">
-        <h1 id="setup-title">Welcome to Vauchi</h1>
-        <p id="setup-description">Privacy-focused contact card exchange</p>
+        <h1 id="setup-title">{t('welcome.title')}</h1>
+        <p id="setup-description">{t('app.tagline')}</p>
 
         <form
           class="form"
@@ -47,11 +48,11 @@ function Setup(props: SetupProps) {
           }}
           aria-describedby="setup-description"
         >
-          <label for="name">Your Display Name</label>
+          <label for="name">{t('settings.display_name')}</label>
           <input
             id="name"
             type="text"
-            placeholder="Enter your name"
+            placeholder={t('setup.enter_name')}
             value={name()}
             onInput={(e) => setName(e.target.value)}
             disabled={loading()}
@@ -71,10 +72,10 @@ function Setup(props: SetupProps) {
             disabled={loading()}
             aria-busy={loading()}
             aria-label={
-              loading() ? 'Creating your identity' : 'Get started and create your identity'
+              loading() ? t('setup.creating') : t('setup.get_started')
             }
           >
-            {loading() ? 'Creating...' : 'Get Started'}
+            {loading() ? t('setup.creating') : t('setup.get_started')}
           </button>
         </form>
       </div>

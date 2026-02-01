@@ -11,6 +11,7 @@ import {
   type FaqItem,
   type HelpCategory,
 } from '../services/helpService';
+import { t } from '../services/i18nService';
 
 interface HelpProps {
   onNavigate: (
@@ -82,9 +83,9 @@ function Help(props: HelpProps) {
           onClick={() => props.onNavigate('settings')}
           aria-label="Go back to settings"
         >
-          ← Back
+          {t('action.back')}
         </button>
-        <h1 id="help-title">Help & FAQ</h1>
+        <h1 id="help-title">{t('help.title')}</h1>
       </header>
 
       <section class="help-search" aria-label="Search FAQs">
@@ -184,28 +185,28 @@ function Help(props: HelpProps) {
 
       <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
         <button class="nav-btn" onClick={() => props.onNavigate('home')} aria-label="Go to Home">
-          Home
+          {t('nav.home')}
         </button>
         <button
           class="nav-btn"
           onClick={() => props.onNavigate('contacts')}
           aria-label="Go to Contacts"
         >
-          Contacts
+          {t('nav.contacts')}
         </button>
         <button
           class="nav-btn"
           onClick={() => props.onNavigate('exchange')}
           aria-label="Go to Exchange"
         >
-          Exchange
+          {t('nav.exchange')}
         </button>
         <button
           class="nav-btn"
           onClick={() => props.onNavigate('settings')}
           aria-label="Go to Settings"
         >
-          Settings
+          {t('nav.settings')}
         </button>
       </nav>
     </div>

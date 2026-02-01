@@ -4,6 +4,7 @@
 
 import { createResource, createSignal, For, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
+import { t } from '../services/i18nService';
 
 interface DeviceInfo {
   device_id: string;
@@ -106,9 +107,9 @@ function Devices(props: DevicesProps) {
           onClick={() => props.onNavigate('home')}
           aria-label="Go back to home"
         >
-          ← Back
+          {t('action.back')}
         </button>
-        <h1 id="devices-title">Devices</h1>
+        <h1 id="devices-title">{t('devices.title')}</h1>
       </header>
 
       <Show when={error()}>
@@ -119,7 +120,7 @@ function Devices(props: DevicesProps) {
 
       <section class="devices-section" aria-labelledby="linked-devices-title">
         <div class="section-header">
-          <h2 id="linked-devices-title">Linked Devices</h2>
+          <h2 id="linked-devices-title">{t('devices.linked')}</h2>
           <div class="header-buttons" role="group" aria-label="Device actions">
             <button
               class="small secondary"
@@ -133,7 +134,7 @@ function Devices(props: DevicesProps) {
               onClick={generateLink}
               aria-label="Generate link to add a new device"
             >
-              + Link Device
+              {t('devices.generate_link')}
             </button>
           </div>
         </div>
@@ -172,7 +173,7 @@ function Devices(props: DevicesProps) {
                     onClick={() => setShowRevokeConfirm(device)}
                     aria-label={`Revoke ${device.device_name}`}
                   >
-                    Revoke
+                    {t('devices.revoke')}
                   </button>
                 </Show>
               </div>
@@ -204,7 +205,7 @@ function Devices(props: DevicesProps) {
             aria-describedby="link-dialog-description"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 id="link-dialog-title">Link New Device</h3>
+            <h3 id="link-dialog-title">{t('devices.generate_link')}</h3>
             <p id="link-dialog-description">
               Scan this code with your new device, or copy the data below:
             </p>
@@ -293,7 +294,7 @@ function Devices(props: DevicesProps) {
                 disabled={isJoining()}
                 aria-label="Cancel joining"
               >
-                Cancel
+                {t('action.cancel')}
               </button>
             </div>
           </div>
@@ -317,7 +318,7 @@ function Devices(props: DevicesProps) {
             aria-describedby="revoke-dialog-description"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 id="revoke-dialog-title">Revoke Device</h3>
+            <h3 id="revoke-dialog-title">{t('devices.revoke')}</h3>
             <p id="revoke-dialog-description">
               Are you sure you want to revoke <strong>{showRevokeConfirm()?.device_name}</strong>?
             </p>
@@ -343,7 +344,7 @@ function Devices(props: DevicesProps) {
                 disabled={isRevoking()}
                 aria-label="Cancel revocation"
               >
-                Cancel
+                {t('action.cancel')}
               </button>
             </div>
           </div>

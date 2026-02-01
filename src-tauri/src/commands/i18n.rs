@@ -9,7 +9,8 @@
 use serde::Serialize;
 use std::collections::HashMap;
 use vauchi_core::i18n::{
-    get_available_locales, get_locale_info, get_string, get_string_with_args, Locale,
+    get_all_strings, get_available_locales, get_locale_info, get_string, get_string_with_args,
+    Locale,
 };
 
 /// Locale information for the frontend.
@@ -55,6 +56,13 @@ pub fn get_localized_string_with_args(
     let locale = parse_locale(&locale_code);
     let args_vec: Vec<(&str, &str)> = args.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
     get_string_with_args(locale, &key, &args_vec)
+}
+
+/// Get all localized strings for a locale.
+#[tauri::command]
+pub fn get_locale_strings(locale_code: String) -> HashMap<String, String> {
+    let locale = parse_locale(&locale_code);
+    get_all_strings(locale)
 }
 
 /// Parse a locale code to a Locale enum.

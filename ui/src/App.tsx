@@ -36,8 +36,12 @@ function App() {
     document.documentElement.setAttribute('data-high-contrast', String(highContrast));
     document.documentElement.setAttribute('data-large-touch-targets', String(largeTouchTargets));
 
-    // Initialize theme and locale
-    initializeLocale();
+    // Initialize locale (loads all strings) and theme
+    try {
+      await initializeLocale();
+    } catch (e) {
+      console.error('Failed to initialize locale:', e);
+    }
     try {
       await initializeTheme();
     } catch (e) {
