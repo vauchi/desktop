@@ -161,7 +161,32 @@ test:frontend:
   stage: test
   needs: []
   script:
-    - cd ui && npm ci && npm test || echo "No test script configured"
+    - cd ui && npm ci
+    - npx playwright install --with-deps
+    - npx playwright test --grep-invert @visual
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        compare_to: refs/heads/main
+        paths:
+          - "ui/**/*"
+          - ".gitlab-ci.yml"
+
+# Visual regression tests (Playwright screenshot comparison)
+test:visual-regression:
+  extends: [.node-job, .timeout-standard]
+  stage: test
+  needs: [build:frontend-dist]
+  script:
+    - cd ui && npm ci
+    - npx playwright install --with-deps chromium
+    - npx playwright test --grep @visual --project visual-chromium --reporter=html
+  artifacts:
+    when: always
+    paths:
+      - ui/playwright-report/
+      - ui/e2e/test-results/
+    expire_in: 7 days
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:

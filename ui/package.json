@@ -10,13 +10,17 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write src/",
-    "format:check": "prettier --check src/"
+    "format:check": "prettier --check src/",
+    "test": "npx playwright test",
+    "test:visual": "npx playwright test --grep @visual",
+    "test:update-snapshots": "npx playwright test --grep @visual --update-snapshots"
   },
   "dependencies": {
     "qrcode": "^1.5.3",
     "solid-js": "^1.8.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.50.0",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-shell": "^2.0.0",
     "@typescript-eslint/eslint-plugin": "^8.53.1",

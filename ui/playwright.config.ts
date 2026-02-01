@@ -30,12 +30,19 @@ export default defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
-    
+
     /* Take screenshot on failure */
     screenshot: 'only-on-failure',
-    
+
     /* Record video on failure */
     video: 'retain-on-failure',
+
+    /* Visual regression settings */
+    toHaveScreenshot: {
+      maxDiffPixelRatio: 0.002,
+      threshold: 0.2,
+      animations: 'disabled',
+    },
   },
 
   /* Configure projects for major browsers */
@@ -63,6 +70,16 @@ export default defineConfig({
     {
       name: 'Mobile Safari',
       use: { ...devices['iPhone 12'] },
+    },
+
+    /* Visual regression testing — fixed viewport for consistent snapshots */
+    {
+      name: 'visual-chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 720 },
+      },
+      testMatch: /visual\.spec\.ts/,
     },
   ],
 
