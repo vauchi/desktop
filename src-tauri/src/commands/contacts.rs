@@ -46,6 +46,53 @@ pub fn list_contacts(state: State<'_, Mutex<AppState>>) -> Result<Vec<ContactInf
         .collect())
 }
 
+/// List contacts with pagination.
+#[tauri::command]
+pub fn list_contacts_paginated(
+    offset: u32,
+    limit: u32,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<Vec<ContactInfo>, String> {
+    let state = state.lock().unwrap();
+
+    let contacts = state
+        .storage
+        .list_contacts_paginated(offset as usize, limit as usize)
+        .map_err(|e| e.to_string())?;
+
+    Ok(contacts
+        .into_iter()
+        .map(|c| ContactInfo {
+            id: c.id().to_string(),
+            display_name: c.display_name().to_string(),
+            verified: c.is_fingerprint_verified(),
+        })
+        .collect())
+}
+
+/// Search contacts using SQL-level search.
+#[tauri::command]
+pub fn search_contacts(
+    query: String,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<Vec<ContactInfo>, String> {
+    let state = state.lock().unwrap();
+
+    let contacts = state
+        .storage
+        .search_contacts(&query)
+        .map_err(|e| e.to_string())?;
+
+    Ok(contacts
+        .into_iter()
+        .map(|c| ContactInfo {
+            id: c.id().to_string(),
+            display_name: c.display_name().to_string(),
+            verified: c.is_fingerprint_verified(),
+        })
+        .collect())
+}
+
 /// Get a specific contact.
 #[tauri::command]
 pub fn get_contact(

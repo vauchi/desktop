@@ -81,6 +81,8 @@ pub fn run() {
             commands::card::remove_field,
             commands::card::update_field,
             commands::contacts::list_contacts,
+            commands::contacts::list_contacts_paginated,
+            commands::contacts::search_contacts,
             commands::contacts::get_contact,
             commands::contacts::remove_contact,
             commands::contacts::get_contact_fingerprint,

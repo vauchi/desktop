@@ -63,6 +63,10 @@ async function fetchContacts(): Promise<ContactInfo[]> {
   return await invoke('list_contacts');
 }
 
+async function searchContactsBackend(query: string): Promise<ContactInfo[]> {
+  return await invoke('search_contacts', { query });
+}
+
 function Contacts(props: ContactsProps) {
   const [contacts, { refetch }] = createResource(fetchContacts);
   const [selectedContact, setSelectedContact] = createSignal<ContactDetails | null>(null);
@@ -75,13 +79,34 @@ function Contacts(props: ContactsProps) {
   const [error, setError] = createSignal('');
   const [searchQuery, setSearchQuery] = createSignal('');
 
-  // Filter contacts based on search query
-  const filteredContacts = createMemo(() => {
-    const query = searchQuery().toLowerCase().trim();
-    if (!query) return contacts() || [];
+  const [searchResults, setSearchResults] = createSignal<ContactInfo[] | null>(null);
 
-    return (contacts() || []).filter((c) => c.display_name.toLowerCase().includes(query));
+  // Use backend search when query is present, otherwise show all contacts
+  const filteredContacts = createMemo(() => {
+    if (searchQuery().trim()) {
+      return searchResults() || [];
+    }
+    return contacts() || [];
   });
+
+  // Debounced backend search
+  let searchTimeout: ReturnType<typeof setTimeout>;
+  const handleSearchInput = (value: string) => {
+    setSearchQuery(value);
+    clearTimeout(searchTimeout);
+    if (!value.trim()) {
+      setSearchResults(null);
+      return;
+    }
+    searchTimeout = setTimeout(async () => {
+      try {
+        const results = await searchContactsBackend(value.trim());
+        setSearchResults(results);
+      } catch (e) {
+        setError(String(e));
+      }
+    }, 300);
+  };
 
   const openContactDetail = async (contactId: string) => {
     try {
@@ -233,11 +258,11 @@ function Contacts(props: ContactsProps) {
           type="text"
           placeholder={t('contacts.search')}
           value={searchQuery()}
-          onInput={(e) => setSearchQuery(e.target.value)}
+          onInput={(e) => handleSearchInput(e.target.value)}
           aria-label="Search contacts by name"
         />
         <Show when={searchQuery()}>
-          <button class="clear-search" onClick={() => setSearchQuery('')} aria-label="Clear search">
+          <button class="clear-search" onClick={() => { setSearchQuery(''); setSearchResults(null); }} aria-label="Clear search">
             ×
           </button>
         </Show>
