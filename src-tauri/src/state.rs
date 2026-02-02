@@ -136,6 +136,13 @@ impl AppState {
 
         #[cfg(not(feature = "secure-storage"))]
         {
+            eprintln!(
+                "WARNING: secure-storage feature is disabled. \
+                 Using file-based key storage with a per-install random key. \
+                 This is NOT recommended for production use. \
+                 Enable the secure-storage feature for OS keychain support."
+            );
+
             let fallback_key = load_or_generate_fallback_key(data_dir)?;
 
             let key_dir = data_dir.join("keys");
@@ -636,6 +643,55 @@ mod tests {
             .expect("Failed to update name");
 
         assert_eq!(state.display_name(), Some("Alice S."));
+    }
+
+    // === Fallback Key Storage Tests ===
+    // Trace: Phase 2 security hardening — hardcoded key removal
+
+    /// Verify fallback key generation produces consistent keys from same data dir
+    #[cfg(not(feature = "secure-storage"))]
+    #[test]
+    fn test_fallback_key_is_random_not_hardcoded() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+
+        // Generate key twice — should be identical (same .fallback-key file)
+        let key1 = load_or_generate_fallback_key(temp_dir.path()).expect("Failed to generate key");
+        let key2 = load_or_generate_fallback_key(temp_dir.path()).expect("Failed to generate key");
+
+        assert_eq!(
+            key1.as_bytes(),
+            key2.as_bytes(),
+            "Same data dir must produce same key"
+        );
+
+        // Verify it's NOT the old hardcoded key
+        let old_hardcoded: [u8; 32] = [
+            0x57, 0x65, 0x62, 0x42, 0x6f, 0x6f, 0x6b, 0x44, 0x65, 0x73, 0x6b, 0x74, 0x6f, 0x70,
+            0x4b, 0x65, 0x79, 0x46, 0x61, 0x6c, 0x6c, 0x62, 0x61, 0x63, 0x6b, 0x56, 0x31, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+        ];
+        assert_ne!(
+            key1.as_bytes(),
+            &old_hardcoded,
+            "Must not use old hardcoded key"
+        );
+    }
+
+    /// Verify different installations produce different keys
+    #[cfg(not(feature = "secure-storage"))]
+    #[test]
+    fn test_fallback_key_differs_per_install() {
+        let temp1 = TempDir::new().expect("Failed to create temp dir");
+        let temp2 = TempDir::new().expect("Failed to create temp dir");
+
+        let key1 = load_or_generate_fallback_key(temp1.path()).expect("Failed to generate key");
+        let key2 = load_or_generate_fallback_key(temp2.path()).expect("Failed to generate key");
+
+        assert_ne!(
+            key1.as_bytes(),
+            key2.as_bytes(),
+            "Different installs must produce different keys"
+        );
     }
 
     // === Update without identity fails ===
