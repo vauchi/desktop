@@ -48,7 +48,7 @@ pub fn schedule_account_deletion(
     state: State<'_, Mutex<AppState>>,
 ) -> Result<DeletionInfo, String> {
     let state = state.lock().unwrap();
-    let mut manager = vauchi_core::api::DeletionManager::new(&state.storage);
+    let manager = vauchi_core::api::DeletionManager::new(&state.storage);
 
     manager
         .schedule_deletion()
@@ -65,7 +65,7 @@ pub fn schedule_account_deletion(
 #[tauri::command]
 pub fn cancel_account_deletion(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
     let state = state.lock().unwrap();
-    let mut manager = vauchi_core::api::DeletionManager::new(&state.storage);
+    let manager = vauchi_core::api::DeletionManager::new(&state.storage);
     manager
         .cancel_deletion()
         .map_err(|e| format!("Cancel failed: {}", e))
