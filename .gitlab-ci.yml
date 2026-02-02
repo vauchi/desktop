@@ -182,13 +182,12 @@ test:visual-regression:
   script:
     - cd ui && npm ci
     - npx playwright install --with-deps chromium
-    - npx playwright test --grep @visual --project visual-chromium --reporter=html --update-snapshots
+    - npx playwright test --grep @visual --project visual-chromium --reporter=html
   artifacts:
     when: always
     paths:
       - ui/playwright-report/
       - ui/e2e/test-results/
-      - ui/e2e/tests/visual.spec.ts-snapshots/
     expire_in: 7 days
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
