@@ -85,9 +85,9 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'npm run tauri dev',
+    command: 'npx vite --port 1420',
     url: 'http://localhost:1420',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: 30 * 1000,
   },
 });
