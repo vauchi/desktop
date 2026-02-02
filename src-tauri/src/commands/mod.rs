@@ -13,6 +13,7 @@ pub mod contacts;
 pub mod content;
 pub mod devices;
 pub mod exchange;
+pub mod gdpr;
 pub mod help;
 pub mod i18n;
 pub mod identity;

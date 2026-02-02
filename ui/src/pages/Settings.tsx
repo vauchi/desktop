@@ -58,6 +58,21 @@ interface ContentUpdateStatus {
   error: string | null;
 }
 
+interface DeletionInfo {
+  state: string;
+  scheduled_at: number;
+  execute_at: number;
+  days_remaining: number;
+}
+
+interface ConsentRecordInfo {
+  id: string;
+  consent_type: string;
+  granted: boolean;
+  timestamp: number;
+  policy_version: string | null;
+}
+
 interface SettingsProps {
   onNavigate: (
     page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery' | 'help'
@@ -106,6 +121,11 @@ function Settings(props: SettingsProps) {
   const [reduceMotion, setReduceMotion] = createSignal(false);
   const [highContrast, setHighContrast] = createSignal(false);
   const [largeTouchTargets, setLargeTouchTargets] = createSignal(false);
+
+  // GDPR state
+  const [deletionState, setDeletionState] = createSignal<DeletionInfo | null>(null);
+  const [consentRecords, setConsentRecords] = createSignal<ConsentRecordInfo[]>([]);
+  const [gdprMessage, setGdprMessage] = createSignal('');
 
   // Theme and locale state
   const [availableThemes, setAvailableThemes] = createSignal<Theme[]>([]);
@@ -170,6 +190,20 @@ function Settings(props: SettingsProps) {
       setSelectedLocaleCode(getSelectedLocale());
     } catch (e) {
       console.error('Failed to load locales:', e);
+    }
+
+    // Load GDPR state
+    try {
+      const deletion = (await invoke('get_deletion_state')) as DeletionInfo;
+      setDeletionState(deletion);
+    } catch (e) {
+      console.error('Failed to load deletion state:', e);
+    }
+    try {
+      const records = (await invoke('get_consent_records')) as ConsentRecordInfo[];
+      setConsentRecords(records);
+    } catch (e) {
+      console.error('Failed to load consent records:', e);
     }
   });
 
@@ -448,6 +482,63 @@ function Settings(props: SettingsProps) {
     }
 
     setIsCheckingContent(false);
+  };
+
+  const handleExportGdprData = async () => {
+    try {
+      const json = (await invoke('export_gdpr_data')) as string;
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'vauchi-gdpr-export.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      setGdprMessage(t('privacy.export_success'));
+    } catch (e) {
+      setGdprMessage(`Export failed: ${e}`);
+    }
+  };
+
+  const handleScheduleDeletion = async () => {
+    try {
+      const info = (await invoke('schedule_account_deletion')) as DeletionInfo;
+      setDeletionState(info);
+      setGdprMessage(t('privacy.deletion_scheduled_msg'));
+    } catch (e) {
+      setGdprMessage(`Failed: ${e}`);
+    }
+  };
+
+  const handleCancelDeletion = async () => {
+    try {
+      await invoke('cancel_account_deletion');
+      const info = (await invoke('get_deletion_state')) as DeletionInfo;
+      setDeletionState(info);
+      setGdprMessage(t('privacy.deletion_cancelled'));
+    } catch (e) {
+      setGdprMessage(`Cancel failed: ${e}`);
+    }
+  };
+
+  const handleGrantConsent = async (consentType: string) => {
+    try {
+      await invoke('grant_consent', { consentType });
+      const records = (await invoke('get_consent_records')) as ConsentRecordInfo[];
+      setConsentRecords(records);
+    } catch (e) {
+      setGdprMessage(`Grant failed: ${e}`);
+    }
+  };
+
+  const handleRevokeConsent = async (consentType: string) => {
+    try {
+      await invoke('revoke_consent', { consentType });
+      const records = (await invoke('get_consent_records')) as ConsentRecordInfo[];
+      setConsentRecords(records);
+    } catch (e) {
+      setGdprMessage(`Revoke failed: ${e}`);
+    }
   };
 
   return (
@@ -824,6 +915,66 @@ function Settings(props: SettingsProps) {
             Import Backup
           </button>
         </div>
+      </section>
+
+      <section class="settings-section" aria-labelledby="privacy-section-title">
+        <h2 id="privacy-section-title">{t('privacy.title')}</h2>
+
+        <div class="setting-item">
+          <button class="secondary" onClick={handleExportGdprData} aria-label="Export all personal data">
+            {t('privacy.export_data')}
+          </button>
+          <span class="setting-description">{t('privacy.export_description')}</span>
+        </div>
+
+        <div class="setting-item">
+          <Show
+            when={deletionState()?.state === 'scheduled'}
+            fallback={
+              <button class="secondary danger" onClick={handleScheduleDeletion} aria-label="Schedule account deletion">
+                {t('privacy.delete_account')}
+              </button>
+            }
+          >
+            <div>
+              <span class="setting-value warning">
+                {t('privacy.deletion_scheduled').replace('{days}', String(deletionState()?.days_remaining ?? 0))}
+              </span>
+              <button class="secondary" onClick={handleCancelDeletion} aria-label="Cancel account deletion">
+                {t('privacy.cancel_deletion')}
+              </button>
+            </div>
+          </Show>
+          <span class="setting-description">{t('privacy.deletion_grace_period')}</span>
+        </div>
+
+        <div class="setting-item">
+          <span class="setting-label">{t('privacy.consent')}</span>
+          <div class="consent-toggles">
+            <For each={['data_processing', 'contact_sharing', 'analytics', 'recovery_vouching'] as const}>
+              {(type) => {
+                const record = () => consentRecords().find((r) => r.consent_type === `${type.charAt(0).toUpperCase()}${type.slice(1).replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())}`);
+                const isGranted = () => record()?.granted ?? false;
+                const label = () => t(`privacy.consent_${type}`);
+                return (
+                  <label class="consent-toggle">
+                    <input
+                      type="checkbox"
+                      checked={isGranted()}
+                      onChange={() => isGranted() ? handleRevokeConsent(type) : handleGrantConsent(type)}
+                      aria-label={`${label()} consent`}
+                    />
+                    {label()}
+                  </label>
+                );
+              }}
+            </For>
+          </div>
+        </div>
+
+        <Show when={gdprMessage()}>
+          <div class="setting-message" aria-live="polite">{gdprMessage()}</div>
+        </Show>
       </section>
 
       <section class="settings-section" aria-labelledby="help-section-title">
