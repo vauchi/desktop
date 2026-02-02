@@ -106,7 +106,7 @@ lint:rust-clippy:
     policy: pull  # Read-only cache for lint
   script:
     - rustup component add clippy
-    - cd src-tauri && cargo clippy --all-targets -- -D warnings
+    - cd src-tauri && cargo clippy --all-targets --no-default-features --features custom-protocol -- -D warnings
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
@@ -145,7 +145,7 @@ test:rust:
   stage: test
   needs: [build:frontend-dist]
   script:
-    - cd src-tauri && cargo test --all-targets
+    - cd src-tauri && cargo test --all-targets --no-default-features --features custom-protocol
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
