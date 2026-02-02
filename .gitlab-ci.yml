@@ -225,6 +225,8 @@ security:npm-audit:
   extends: [.node-job, .timeout-quick]
   stage: security
   needs: []
+  cache:
+    policy: pull
   script:
     - cd ui && npm ci && npm audit --audit-level=moderate || true
   rules:
