@@ -55,7 +55,7 @@ tungstenite = { version = "0.24", features = ["native-tls"] }
 native-tls = "0.2"
 
 [features]
-default = ["custom-protocol"]
+default = ["custom-protocol", "secure-storage"]
 custom-protocol = ["tauri/custom-protocol"]
 secure-storage = ["vauchi-core/secure-storage"]
 

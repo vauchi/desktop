@@ -59,6 +59,47 @@ pub struct AppState {
     pub pending_device_link_qr: Option<String>,
 }
 
+/// Loads or generates a per-installation random fallback key from `data_dir/.fallback-key`.
+///
+/// Used only when the `secure-storage` feature is disabled. Each installation
+/// gets a unique random key instead of a hardcoded constant.
+#[cfg(not(feature = "secure-storage"))]
+fn load_or_generate_fallback_key(data_dir: &Path) -> Result<SymmetricKey> {
+    let key_path = data_dir.join(".fallback-key");
+
+    if key_path.exists() {
+        let bytes = std::fs::read(&key_path).context("Failed to read fallback key")?;
+        if bytes.len() != 32 {
+            anyhow::bail!(
+                "Invalid fallback key length ({}), expected 32. Delete {} to regenerate.",
+                bytes.len(),
+                key_path.display()
+            );
+        }
+        let mut arr = [0u8; 32];
+        arr.copy_from_slice(&bytes);
+        return Ok(SymmetricKey::from_bytes(arr));
+    }
+
+    // Generate a new random key
+    let key = SymmetricKey::generate();
+
+    // Ensure parent directory exists
+    std::fs::create_dir_all(data_dir).context("Failed to create data directory")?;
+
+    std::fs::write(&key_path, key.as_bytes()).context("Failed to write fallback key")?;
+
+    // Set restrictive permissions on Unix
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600))
+            .context("Failed to set fallback key permissions")?;
+    }
+
+    Ok(key)
+}
+
 impl AppState {
     /// Loads or creates the storage encryption key using SecureStorage.
     ///
@@ -95,12 +136,7 @@ impl AppState {
 
         #[cfg(not(feature = "secure-storage"))]
         {
-            let fallback_key = SymmetricKey::from_bytes([
-                0x57, 0x65, 0x62, 0x42, 0x6f, 0x6f, 0x6b, 0x44, // "VauchiD"
-                0x65, 0x73, 0x6b, 0x74, 0x6f, 0x70, 0x4b, 0x65, // "esktopKe"
-                0x79, 0x46, 0x61, 0x6c, 0x6c, 0x62, 0x61, 0x63, // "yFallbac"
-                0x6b, 0x56, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, // "kV1\0\0\0\0\0"
-            ]);
+            let fallback_key = load_or_generate_fallback_key(data_dir)?;
 
             let key_dir = data_dir.join("keys");
             let storage = FileKeyStorage::new(key_dir, fallback_key);
