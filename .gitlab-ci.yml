@@ -220,6 +220,20 @@ security:audit:
           - "src-tauri/Cargo.lock"
           - ".gitlab-ci.yml"
 
+# Full cargo-deny check: advisories, licenses, bans, sources
+security:deny:
+  extends: [.rust-job, .timeout-quick]
+  stage: security
+  needs: []
+  cache:
+    policy: pull
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - cargo binstall cargo-deny --no-confirm 2>/dev/null || cargo install cargo-deny || true
+    - cd src-tauri && cargo deny check
+
 # npm audit for frontend (runs on package changes)
 security:npm-audit:
   extends: [.node-job, .timeout-quick]
