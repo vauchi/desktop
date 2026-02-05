@@ -5,6 +5,12 @@
 import { createResource, createSignal, createMemo, For, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { t, tArgs } from '../services/i18nService';
+import {
+  getFieldValidationStatus,
+  validateField,
+  revokeFieldValidation,
+  type ValidationStatus,
+} from '../services/validationService';
 
 interface ContactInfo {
   id: string;
@@ -80,6 +86,8 @@ function Contacts(props: ContactsProps) {
   const [searchQuery, setSearchQuery] = createSignal('');
 
   const [searchResults, setSearchResults] = createSignal<ContactInfo[] | null>(null);
+  const [fieldValidations, setFieldValidations] = createSignal<Record<string, ValidationStatus>>({});
+  const [validationLoading, setValidationLoading] = createSignal<string | null>(null);
 
   // Use backend search when query is present, otherwise show all contacts
   const filteredContacts = createMemo(() => {
@@ -108,11 +116,51 @@ function Contacts(props: ContactsProps) {
     }, 300);
   };
 
+  const loadFieldValidations = async (contactId: string, fields: FieldInfo[]) => {
+    const statuses: Record<string, ValidationStatus> = {};
+    for (const field of fields) {
+      try {
+        statuses[field.id] = await getFieldValidationStatus(contactId, field.id, field.value);
+      } catch {
+        // Validation status unavailable — show as unverified
+      }
+    }
+    setFieldValidations(statuses);
+  };
+
+  const handleValidateField = async (field: FieldInfo) => {
+    const contact = selectedContact();
+    if (!contact) return;
+    setValidationLoading(field.id);
+    try {
+      await validateField(contact.id, field.id, field.value);
+      await loadFieldValidations(contact.id, contact.fields);
+    } catch (e) {
+      setError(String(e));
+    }
+    setValidationLoading(null);
+  };
+
+  const handleRevokeValidation = async (field: FieldInfo) => {
+    const contact = selectedContact();
+    if (!contact) return;
+    setValidationLoading(field.id);
+    try {
+      await revokeFieldValidation(contact.id, field.id);
+      await loadFieldValidations(contact.id, contact.fields);
+    } catch (e) {
+      setError(String(e));
+    }
+    setValidationLoading(null);
+  };
+
   const openContactDetail = async (contactId: string) => {
     try {
       const details = (await invoke('get_contact', { id: contactId })) as ContactDetails;
       setSelectedContact(details);
+      setFieldValidations({});
       setError('');
+      loadFieldValidations(contactId, details.fields);
     } catch (e) {
       setError(String(e));
     }
@@ -124,6 +172,7 @@ function Contacts(props: ContactsProps) {
     setShowVisibility(false);
     setShowVerification(false);
     setVisibilityRules([]);
+    setFieldValidations({});
     setFingerprint(null);
     setError('');
   };
@@ -405,6 +454,43 @@ function Contacts(props: ContactsProps) {
                       <div class="field-content">
                         <span class="field-label">{field.label}</span>
                         <span class="field-value">{field.value}</span>
+                        <Show when={fieldValidations()[field.id]}>
+                          <span
+                            class={`validation-badge trust-${fieldValidations()[field.id]?.color || 'grey'}`}
+                            title={fieldValidations()[field.id]?.display_text}
+                            aria-label={`Trust level: ${fieldValidations()[field.id]?.trust_level}. ${fieldValidations()[field.id]?.display_text}`}
+                          >
+                            {fieldValidations()[field.id]?.count > 0
+                              ? `✓ ${fieldValidations()[field.id]?.count}`
+                              : fieldValidations()[field.id]?.trust_level}
+                          </span>
+                        </Show>
+                      </div>
+                      <div class="field-validation-actions" onClick={(e) => e.stopPropagation()}>
+                        <Show when={fieldValidations()[field.id]}>
+                          <Show
+                            when={fieldValidations()[field.id]?.validated_by_me}
+                            fallback={
+                              <button
+                                class="validate-btn small"
+                                onClick={() => handleValidateField(field)}
+                                disabled={validationLoading() === field.id}
+                                aria-label={`Validate ${field.label}`}
+                              >
+                                {validationLoading() === field.id ? '...' : 'Validate'}
+                              </button>
+                            }
+                          >
+                            <button
+                              class="revoke-btn small"
+                              onClick={() => handleRevokeValidation(field)}
+                              disabled={validationLoading() === field.id}
+                              aria-label={`Revoke validation for ${field.label}`}
+                            >
+                              {validationLoading() === field.id ? '...' : 'Revoke'}
+                            </button>
+                          </Show>
+                        </Show>
                       </div>
                       <span class="field-action" aria-hidden="true">
                         →
