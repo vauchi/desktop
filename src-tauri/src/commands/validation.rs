@@ -244,12 +244,8 @@ mod tests {
         let my_id = hex::encode(identity.signing_public_key());
 
         // Create a validation directly via storage
-        let validation = ProfileValidation::create_signed(
-            identity,
-            "email",
-            "alice@example.com",
-            "contact-123",
-        );
+        let validation =
+            ProfileValidation::create_signed(identity, "email", "alice@example.com", "contact-123");
 
         state
             .storage
@@ -293,12 +289,8 @@ mod tests {
         assert_eq!(status.trust_level, TrustLevel::Unverified);
 
         // 1 validation = LowConfidence
-        let validation = ProfileValidation::create_signed(
-            identity,
-            "phone",
-            "+1234567890",
-            "contact-123",
-        );
+        let validation =
+            ProfileValidation::create_signed(identity, "phone", "+1234567890", "contact-123");
         state
             .storage
             .save_validation(&validation)
@@ -376,8 +368,7 @@ mod tests {
         // Create validations for different fields
         let v1 =
             ProfileValidation::create_signed(identity, "email", "bob@example.com", "contact-1");
-        let v2 =
-            ProfileValidation::create_signed(identity, "phone", "+9876543210", "contact-2");
+        let v2 = ProfileValidation::create_signed(identity, "phone", "+9876543210", "contact-2");
 
         state.storage.save_validation(&v1).expect("Failed to save");
         state.storage.save_validation(&v2).expect("Failed to save");
