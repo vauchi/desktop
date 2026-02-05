@@ -26,7 +26,7 @@ pub struct BackupResult {
 
 /// Export the identity as an encrypted backup.
 ///
-/// The backup is encrypted with the provided password using PBKDF2.
+/// The backup is encrypted with the provided password using Argon2id.
 /// Requires a strong password (zxcvbn score >= 3).
 #[tauri::command]
 pub fn export_backup(password: String, state: State<'_, Mutex<AppState>>) -> BackupResult {

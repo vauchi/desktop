@@ -19,7 +19,7 @@ use vauchi_core::crypto::ratchet::DoubleRatchetState;
 use vauchi_core::exchange::{EncryptedExchangeMessage, X3DHKeyPair};
 use vauchi_core::network::simple_message::{
     create_device_sync_ack, create_device_sync_message, create_simple_ack, create_simple_envelope,
-    decode_simple_message, encode_simple_message, LegacyExchangeMessage, SimpleAckStatus,
+    decode_simple_message, encode_simple_message, SimpleAckStatus,
     SimpleDeviceSyncMessage, SimpleEncryptedUpdate, SimpleHandshake, SimplePayload,
 };
 use vauchi_core::sync::{DeviceSyncOrchestrator, SyncItem};
@@ -120,7 +120,6 @@ fn send_handshake(
 
 /// Received messages from relay.
 struct ReceivedMessages {
-    legacy_exchange: Vec<LegacyExchangeMessage>,
     encrypted_exchange: Vec<Vec<u8>>,
     card_updates: Vec<(String, Vec<u8>)>,
     device_sync_messages: Vec<SimpleDeviceSyncMessage>,
@@ -130,7 +129,6 @@ struct ReceivedMessages {
 fn receive_pending(
     socket: &mut WebSocket<MaybeTlsStream<TcpStream>>,
 ) -> Result<ReceivedMessages, String> {
-    let mut legacy_exchange = Vec::new();
     let mut encrypted_exchange = Vec::new();
     let mut card_updates = Vec::new();
     let mut device_sync_messages = Vec::new();
@@ -147,13 +145,7 @@ fn receive_pending(
                     match envelope.payload {
                         SimplePayload::EncryptedUpdate(update) => {
                             // Classify the message
-                            if LegacyExchangeMessage::is_exchange(&update.ciphertext) {
-                                if let Some(exchange) =
-                                    LegacyExchangeMessage::from_bytes(&update.ciphertext)
-                                {
-                                    legacy_exchange.push(exchange);
-                                }
-                            } else if EncryptedExchangeMessage::from_bytes(&update.ciphertext)
+                            if EncryptedExchangeMessage::from_bytes(&update.ciphertext)
                                 .is_ok()
                             {
                                 encrypted_exchange.push(update.ciphertext);
@@ -201,93 +193,10 @@ fn receive_pending(
     }
 
     Ok(ReceivedMessages {
-        legacy_exchange,
         encrypted_exchange,
         card_updates,
         device_sync_messages,
     })
-}
-
-/// Parse a hex-encoded 32-byte key.
-fn parse_hex_key(hex_str: &str) -> Option<[u8; 32]> {
-    let bytes = hex::decode(hex_str).ok()?;
-    if bytes.len() != 32 {
-        return None;
-    }
-    let mut arr = [0u8; 32];
-    arr.copy_from_slice(&bytes);
-    Some(arr)
-}
-
-/// Process legacy plaintext exchange messages.
-fn process_legacy_exchanges(
-    identity: &Identity,
-    storage: &Storage,
-    messages: Vec<LegacyExchangeMessage>,
-    relay_url: &str,
-) -> Result<u32, String> {
-    let mut added = 0u32;
-    let our_x3dh = identity.x3dh_keypair();
-
-    for exchange in messages {
-        let identity_key = match parse_hex_key(&exchange.identity_public_key) {
-            Some(key) => key,
-            None => continue,
-        };
-
-        let public_id = hex::encode(identity_key);
-
-        // Handle response (update contact name)
-        if exchange.is_response {
-            if let Ok(Some(mut contact)) = storage.load_contact(&public_id) {
-                if contact.display_name() != exchange.display_name
-                    && contact.set_display_name(&exchange.display_name).is_ok()
-                {
-                    let _ = storage.save_contact(&contact);
-                }
-            }
-            continue;
-        }
-
-        // Check if contact exists
-        if storage
-            .load_contact(&public_id)
-            .map_err(|e| e.to_string())?
-            .is_some()
-        {
-            continue;
-        }
-
-        let ephemeral_key = match parse_hex_key(&exchange.ephemeral_public_key) {
-            Some(key) => key,
-            None => continue,
-        };
-
-        // Perform X3DH
-        let shared_secret =
-            match vauchi_core::exchange::X3DH::respond(&our_x3dh, &identity_key, &ephemeral_key) {
-                Ok(secret) => secret,
-                Err(_) => continue,
-            };
-
-        // Create contact
-        let card = ContactCard::new(&exchange.display_name);
-        let contact = Contact::from_exchange(identity_key, card, shared_secret.clone());
-        let contact_id = contact.id().to_string();
-        storage.save_contact(&contact).map_err(|e| e.to_string())?;
-
-        // Initialize ratchet
-        let ratchet_dh = X3DHKeyPair::from_bytes(our_x3dh.secret_bytes());
-        let ratchet = DoubleRatchetState::initialize_responder(&shared_secret, ratchet_dh);
-        let _ = storage.save_ratchet_state(&contact_id, &ratchet, true);
-
-        added += 1;
-
-        // Send response
-        let _ = send_exchange_response(identity, &public_id, &ephemeral_key, relay_url);
-    }
-
-    Ok(added)
 }
 
 /// Process encrypted exchange messages.
@@ -678,14 +587,6 @@ pub fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
     // Receive pending messages
     let received = receive_pending(&mut socket)?;
 
-    // Process legacy exchange messages
-    let legacy_added = process_legacy_exchanges(
-        identity,
-        &state.storage,
-        received.legacy_exchange,
-        relay_url,
-    )?;
-
     // Process encrypted exchange messages
     let encrypted_added = process_encrypted_exchanges(
         identity,
@@ -694,7 +595,7 @@ pub fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
         relay_url,
     )?;
 
-    let contacts_added = legacy_added + encrypted_added;
+    let contacts_added = encrypted_added;
 
     // Process card updates
     let cards_updated = process_card_updates(&state.storage, received.card_updates)?;
