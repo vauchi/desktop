@@ -18,7 +18,8 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 # Core library - use git dependency for CI, patched to local path via .cargo/config.toml
-vauchi-core = { git = "https://gitlab.com/vauchi/core.git", branch = "main", features = ["content-updates"] }
+# TODO: Revert to branch = "main" after vauchi/core!87 merges
+vauchi-core = { git = "https://gitlab.com/vauchi/core.git", branch = "feature/runtime-i18n", features = ["content-updates"] }
 
 # Tauri framework
 tauri = { version = "2", features = [] }

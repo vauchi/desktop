@@ -43,7 +43,10 @@ pub fn run() {
                 .map(|d| d.join("locales"))
                 .unwrap_or_else(|_| data_dir.join("locales"));
             if let Err(e) = vauchi_core::i18n::init(&resource_dir) {
-                eprintln!("Warning: Failed to load locale files from {:?}: {}", resource_dir, e);
+                eprintln!(
+                    "Warning: Failed to load locale files from {:?}: {}",
+                    resource_dir, e
+                );
             }
 
             // Initialize app state
