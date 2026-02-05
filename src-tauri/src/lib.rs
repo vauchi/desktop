@@ -155,6 +155,12 @@ pub fn run() {
             commands::aha::check_aha_moment,
             commands::aha::check_aha_moment_with_context,
             commands::aha::check_aha_moment_localized,
+            // Validation commands
+            commands::validation::validate_contact_field,
+            commands::validation::get_field_validation_status,
+            commands::validation::revoke_field_validation,
+            commands::validation::get_field_validation_count,
+            commands::validation::list_my_validations,
             // GDPR commands
             commands::gdpr::export_gdpr_data,
             commands::gdpr::schedule_account_deletion,
