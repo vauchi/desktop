@@ -153,6 +153,14 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
+    fn ensure_init() {
+        if !vauchi_core::i18n::is_initialized() {
+            let locales_dir =
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/locales");
+            let _ = vauchi_core::i18n::init(&locales_dir);
+        }
+    }
+
     #[test]
     fn test_check_aha_moment_triggers_once() {
         let temp = TempDir::new().unwrap();
@@ -191,6 +199,7 @@ mod tests {
 
     #[test]
     fn test_localized_moment() {
+        ensure_init();
         let temp = TempDir::new().unwrap();
         let mut tracker = load_tracker(temp.path());
         let moment = tracker
