@@ -313,6 +313,23 @@ export function tauriMockScript(): string {
         ],
         search_help: () => [],
 
+        // Aha moments
+        check_aha_moment_localized: () => null,
+        check_aha_moment_with_context: () => null,
+
+        // Field validation
+        validate_contact_field: () => ({ field_id: 'f-1', validator_name: 'Test', trust_level: 'low_confidence', timestamp: Date.now() }),
+        get_field_validation_status: () => ({ trust_level: 'unverified', validation_count: 0, validations: [] }),
+        revoke_field_validation: () => true,
+        get_field_validation_count: () => 0,
+        list_my_validations: () => [],
+
+        // Localized help
+        get_all_faqs_localized: () => [
+          { id: '1', category: 'Getting Started', question: 'How do I start?', answer: 'Create your identity.' },
+        ],
+        search_help_localized: () => [],
+
         open_contact_field: () => ({ opened: true }),
         get_field_action: () => ({ action: 'open', url: '' }),
       };
