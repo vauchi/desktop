@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import { createSignal } from 'solid-js';
+import { createSignal, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { t } from '../services/i18nService';
+import { checkAhaMoment, type AhaMoment } from '../services/ahaService';
 
 interface SetupProps {
   onComplete: () => void;
@@ -14,6 +15,7 @@ function Setup(props: SetupProps) {
   const [name, setName] = createSignal('');
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal('');
+  const [ahaMoment, setAhaMoment] = createSignal<AhaMoment | null>(null);
 
   const handleCreate = async () => {
     if (!name().trim()) {
@@ -26,7 +28,16 @@ function Setup(props: SetupProps) {
 
     try {
       await invoke('create_identity', { name: name() });
-      props.onComplete();
+      const moment = await checkAhaMoment('card_creation_complete');
+      if (moment) {
+        setAhaMoment(moment);
+        setTimeout(() => {
+          setAhaMoment(null);
+          props.onComplete();
+        }, 3000);
+      } else {
+        props.onComplete();
+      }
     } catch (e) {
       setError(String(e));
     } finally {
@@ -79,6 +90,13 @@ function Setup(props: SetupProps) {
           </button>
         </form>
       </div>
+
+      <Show when={ahaMoment()}>
+        <div class="aha-moment" role="status" aria-live="polite">
+          <h2>{ahaMoment()!.title}</h2>
+          <p>{ahaMoment()!.message}</p>
+        </div>
+      </Show>
     </main>
   );
 }

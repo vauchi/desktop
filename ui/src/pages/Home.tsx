@@ -5,6 +5,7 @@
 import { createResource, For, createSignal, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { t, tArgs } from '../services/i18nService';
+import { checkAhaMoment, type AhaMoment } from '../services/ahaService';
 
 interface FieldInfo {
   id: string;
@@ -60,6 +61,15 @@ function Home(props: HomeProps) {
   const [editValue, setEditValue] = createSignal('');
   const [editError, setEditError] = createSignal('');
   const [isEditSaving, setIsEditSaving] = createSignal(false);
+  const [ahaMoment, setAhaMoment] = createSignal<AhaMoment | null>(null);
+
+  const triggerAhaMoment = async (momentType: string) => {
+    const moment = await checkAhaMoment(momentType);
+    if (moment) {
+      setAhaMoment(moment);
+      setTimeout(() => setAhaMoment(null), 4000);
+    }
+  };
 
   const openVisibilityDialog = async (field: FieldInfo) => {
     setSelectedFieldId(field.id);
@@ -167,6 +177,7 @@ function Home(props: HomeProps) {
       await invoke('update_field', { fieldId: field.id, newValue });
       refetchCard();
       closeEditDialog();
+      triggerAhaMoment('first_edit');
     } catch (e) {
       setEditError(String(e));
     }
@@ -267,6 +278,13 @@ function Home(props: HomeProps) {
         </div>
       </section>
 
+      <Show when={ahaMoment()}>
+        <div class="aha-moment" role="status" aria-live="polite">
+          <h2>{ahaMoment()!.title}</h2>
+          <p>{ahaMoment()!.message}</p>
+        </div>
+      </Show>
+
       <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
         <button class="nav-btn active" aria-current="page" aria-label="Home (current page)">
           {t('nav.home')}
@@ -300,6 +318,7 @@ function Home(props: HomeProps) {
           onAdd={() => {
             refetchCard();
             setShowAddField(false);
+            triggerAhaMoment('first_edit');
           }}
         />
       )}

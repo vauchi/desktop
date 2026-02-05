@@ -6,6 +6,7 @@ import { createResource, createSignal, Show, createEffect, onCleanup } from 'sol
 import { invoke } from '@tauri-apps/api/core';
 import QRCode from 'qrcode';
 import { t, tArgs } from '../services/i18nService';
+import { checkAhaMomentWithContext, type AhaMoment } from '../services/ahaService';
 
 // QR code expires after 5 minutes (300 seconds)
 const QR_EXPIRATION_SECONDS = 300;
@@ -41,6 +42,7 @@ function Exchange(props: ExchangeProps) {
   const [qrImageUrl, setQrImageUrl] = createSignal('');
   const [timeRemaining, setTimeRemaining] = createSignal(QR_EXPIRATION_SECONDS);
   const [isExpired, setIsExpired] = createSignal(false);
+  const [ahaMoment, setAhaMoment] = createSignal<AhaMoment | null>(null);
 
   // Timer for QR expiration
   let timerInterval: number | undefined;
@@ -119,6 +121,16 @@ function Exchange(props: ExchangeProps) {
       setResult(exchangeResult);
       setError('');
       setScanData('');
+      if (exchangeResult.success) {
+        const moment = await checkAhaMomentWithContext(
+          'first_contact_added',
+          exchangeResult.contact_name
+        );
+        if (moment) {
+          setAhaMoment(moment);
+          setTimeout(() => setAhaMoment(null), 4000);
+        }
+      }
     } catch (e) {
       setError(String(e));
       setResult(null);
@@ -248,6 +260,13 @@ function Exchange(props: ExchangeProps) {
           {t('exchange.title')}
         </button>
       </section>
+
+      <Show when={ahaMoment()}>
+        <div class="aha-moment" role="status" aria-live="polite">
+          <h2>{ahaMoment()!.title}</h2>
+          <p>{ahaMoment()!.message}</p>
+        </div>
+      </Show>
 
       <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
         <button class="nav-btn" onClick={() => props.onNavigate('home')} aria-label="Go to Home">
