@@ -16,6 +16,7 @@ interface ContactInfo {
   id: string;
   display_name: string;
   verified: boolean;
+  recovery_trusted: boolean;
 }
 
 interface FieldInfo {
@@ -36,6 +37,7 @@ interface ContactDetails {
   id: string;
   display_name: string;
   verified: boolean;
+  recovery_trusted: boolean;
   fields: FieldInfo[];
 }
 
@@ -82,6 +84,7 @@ function Contacts(props: ContactsProps) {
   const [visibilityRules, setVisibilityRules] = createSignal<FieldVisibilityInfo[]>([]);
   const [fingerprint, setFingerprint] = createSignal<FingerprintInfo | null>(null);
   const [isVerifying, setIsVerifying] = createSignal(false);
+  const [isTogglingTrust, setIsTogglingTrust] = createSignal(false);
   const [error, setError] = createSignal('');
   const [searchQuery, setSearchQuery] = createSignal('');
 
@@ -204,6 +207,27 @@ function Contacts(props: ContactsProps) {
       setError(String(e));
     }
     setIsVerifying(false);
+  };
+
+  const handleToggleRecoveryTrust = async () => {
+    const contact = selectedContact();
+    if (!contact) return;
+
+    setIsTogglingTrust(true);
+    try {
+      if (contact.recovery_trusted) {
+        await invoke('untrust_contact', { id: contact.id });
+      } else {
+        await invoke('trust_contact', { id: contact.id });
+      }
+      // Refresh the contact details
+      const details = (await invoke('get_contact', { id: contact.id })) as ContactDetails;
+      setSelectedContact(details);
+      refetch();
+    } catch (e) {
+      setError(String(e));
+    }
+    setIsTogglingTrust(false);
   };
 
   const loadVisibilityRules = async (contactId: string) => {
@@ -335,6 +359,7 @@ function Contacts(props: ContactsProps) {
                 <span class="contact-name">{contact.display_name}</span>
                 <span class="contact-status">
                   {contact.verified ? t('contacts.verified') : t('contacts.not_verified')}
+                  {contact.recovery_trusted && ' · Recovery Trusted'}
                 </span>
               </div>
             </div>
@@ -424,6 +449,31 @@ function Contacts(props: ContactsProps) {
                     Verify Identity
                   </button>
                 </Show>
+                <Show when={selectedContact()?.recovery_trusted}>
+                  <span class="recovery-trusted" role="status" aria-label="Recovery trusted">
+                    Recovery Trusted
+                  </span>
+                </Show>
+              </div>
+
+              <div class="recovery-trust-section" role="region" aria-label="Recovery trust">
+                <button
+                  class={selectedContact()?.recovery_trusted ? 'secondary small' : 'small primary'}
+                  onClick={handleToggleRecoveryTrust}
+                  disabled={isTogglingTrust()}
+                  aria-busy={isTogglingTrust()}
+                  aria-label={
+                    selectedContact()?.recovery_trusted
+                      ? `Remove recovery trust from ${selectedContact()?.display_name}`
+                      : `Trust ${selectedContact()?.display_name} for recovery`
+                  }
+                >
+                  {isTogglingTrust()
+                    ? '...'
+                    : selectedContact()?.recovery_trusted
+                      ? 'Remove Recovery Trust'
+                      : 'Trust for Recovery'}
+                </button>
               </div>
 
               <Show when={error()}>

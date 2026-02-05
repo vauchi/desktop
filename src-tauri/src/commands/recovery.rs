@@ -31,6 +31,7 @@ pub struct RecoveryStatus {
 pub struct RecoverySettingsInfo {
     pub recovery_threshold: u32,
     pub verification_threshold: u32,
+    pub trusted_contact_count: u32,
 }
 
 /// Voucher info for display.
@@ -52,11 +53,19 @@ pub struct VerificationInfo {
 
 /// Get current recovery settings.
 #[tauri::command]
-pub fn get_recovery_settings() -> Result<RecoverySettingsInfo, String> {
+pub fn get_recovery_settings(
+    state: State<'_, Mutex<AppState>>,
+) -> Result<RecoverySettingsInfo, String> {
     let settings = RecoverySettings::default();
+    let trusted_count = {
+        let state = state.lock().unwrap();
+        let contacts = state.storage.list_contacts().unwrap_or_default();
+        contacts.iter().filter(|c| c.is_recovery_trusted()).count() as u32
+    };
     Ok(RecoverySettingsInfo {
         recovery_threshold: settings.recovery_threshold(),
         verification_threshold: settings.verification_threshold(),
+        trusted_contact_count: trusted_count,
     })
 }
 
