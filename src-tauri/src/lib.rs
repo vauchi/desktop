@@ -147,6 +147,14 @@ pub fn run() {
             commands::help::get_category_faqs,
             commands::help::get_faq,
             commands::help::search_help,
+            commands::help::get_all_faqs_localized,
+            commands::help::get_category_faqs_localized,
+            commands::help::get_faq_localized,
+            commands::help::search_help_localized,
+            // Aha moment commands
+            commands::aha::check_aha_moment,
+            commands::aha::check_aha_moment_with_context,
+            commands::aha::check_aha_moment_localized,
             // GDPR commands
             commands::gdpr::export_gdpr_data,
             commands::gdpr::schedule_account_deletion,

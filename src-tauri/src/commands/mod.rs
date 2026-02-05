@@ -7,6 +7,7 @@
 //! IPC commands exposed to the frontend.
 
 pub mod actions;
+pub mod aha;
 pub mod backup;
 pub mod card;
 pub mod contacts;
