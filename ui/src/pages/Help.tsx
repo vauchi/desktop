@@ -5,13 +5,12 @@
 import { createSignal, createResource, For, Show, onMount } from 'solid-js';
 import {
   getHelpCategories,
-  getAllFaqs,
-  getFaqsByCategory,
-  searchFaqs,
+  getAllFaqsLocalized,
+  searchFaqsLocalized,
   type FaqItem,
   type HelpCategory,
 } from '../services/helpService';
-import { t } from '../services/i18nService';
+import { t, getSelectedLocale } from '../services/i18nService';
 
 interface HelpProps {
   onNavigate: (
@@ -21,7 +20,7 @@ interface HelpProps {
 
 function Help(props: HelpProps) {
   const [categories] = createResource(getHelpCategories);
-  const [allFaqs] = createResource(getAllFaqs);
+  const [allFaqs] = createResource(() => getAllFaqsLocalized(getSelectedLocale()));
   const [selectedCategory, setSelectedCategory] = createSignal<string | null>(null);
   const [searchQuery, setSearchQuery] = createSignal('');
   const [searchResults, setSearchResults] = createSignal<FaqItem[] | null>(null);
@@ -36,7 +35,7 @@ function Help(props: HelpProps) {
     }
     setIsSearching(true);
     try {
-      const results = await searchFaqs(query);
+      const results = await searchFaqsLocalized(query, getSelectedLocale());
       setSearchResults(results);
       setSelectedCategory(null);
     } catch (e) {

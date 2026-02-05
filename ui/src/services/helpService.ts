@@ -57,3 +57,30 @@ export async function getFaq(faqId: string): Promise<FaqItem | null> {
 export async function searchFaqs(query: string): Promise<FaqItem[]> {
   return await invoke<FaqItem[]>('search_help', { query });
 }
+
+/**
+ * Get all FAQ items in the specified locale.
+ */
+export async function getAllFaqsLocalized(localeCode: string): Promise<FaqItem[]> {
+  return await invoke<FaqItem[]>('get_all_faqs_localized', { localeCode });
+}
+
+/**
+ * Get FAQs for a specific category in the specified locale.
+ */
+export async function getFaqsByCategoryLocalized(
+  category: string,
+  localeCode: string
+): Promise<FaqItem[]> {
+  return await invoke<FaqItem[]>('get_category_faqs_localized', { category, localeCode });
+}
+
+/**
+ * Search FAQs by query in the specified locale.
+ */
+export async function searchFaqsLocalized(
+  query: string,
+  localeCode: string
+): Promise<FaqItem[]> {
+  return await invoke<FaqItem[]>('search_help_localized', { query, localeCode });
+}
