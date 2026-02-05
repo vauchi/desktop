@@ -13,7 +13,7 @@
 #
 # Pipeline strategy:
 #   - MR: Validation on relevant file changes
-#   - Main: No pipeline (validated via MR)
+#   - Upstream trigger: Verify compatibility when core merges to main
 #
 # Uses shared templates from vauchi/scripts for consistency.
 
@@ -25,12 +25,14 @@ include:
       - '/ci-templates/rust-base.yml'
       - '/ci-templates/security.yml'
       - '/ci-templates/mr-rules.yml'
+      - '/ci-templates/downstream.yml'
       - '/ci-templates/reuse.yml'
 
 stages:
   - lint
   - test
   - security
+  - verify
 
 variables:
   # Additional paths to exclude for desktop app
@@ -78,6 +80,8 @@ build:frontend-dist:
           - "ui/**/*"
           - "src-tauri/**/*"
           - ".gitlab-ci.yml"
+    # Also run on upstream triggers (needed by verify:upstream-compat)
+    - if: $CI_PIPELINE_SOURCE == "pipeline" || $CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "api"
 
 # Rust linting (runs on Rust code changes)
 lint:rust-format:
@@ -251,3 +255,18 @@ security:npm-audit:
           - "ui/package.json"
           - "ui/package-lock.json"
           - ".gitlab-ci.yml"
+
+# ============================================================
+# Verify Stage (upstream trigger only)
+# ============================================================
+# Runs when core merges to main and triggers this repo via
+# verify:downstream-rust. Verifies the Tauri backend builds and
+# tests pass against the updated vauchi-core.
+# Requires build:frontend-dist (Tauri's generate_context! needs ui/dist/).
+
+verify:upstream-compat:
+  extends: [.rust-job, .tauri-deps, .verify-on-upstream, .timeout-standard]
+  stage: verify
+  needs: [build:frontend-dist]
+  script:
+    - cd src-tauri && cargo test --all-targets --no-default-features --features custom-protocol
