@@ -36,6 +36,16 @@ pub fn run() {
                         .join("vauchi")
                 });
 
+            // Initialize i18n from bundled resource files
+            let resource_dir = app
+                .path()
+                .resource_dir()
+                .map(|d| d.join("locales"))
+                .unwrap_or_else(|_| data_dir.join("locales"));
+            if let Err(e) = vauchi_core::i18n::init(&resource_dir) {
+                eprintln!("Warning: Failed to load locale files from {:?}: {}", resource_dir, e);
+            }
+
             // Initialize app state
             let app_state = AppState::new(&data_dir).expect("Failed to initialize app state");
 
