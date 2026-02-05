@@ -18,7 +18,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 # Core library - use git dependency for CI, patched to local path via .cargo/config.toml
-vauchi-core = { git = "https://gitlab.com/vauchi/core.git", branch = "main", features = ["content-updates"] }
+vauchi-core = { git = "https://gitlab.com/vauchi/core.git", branch = "feature/uniffi-localized-help", features = ["content-updates"] }
 
 # Tauri framework
 tauri = { version = "2", features = [] }
