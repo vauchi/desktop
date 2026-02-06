@@ -280,6 +280,8 @@ pub fn finish_join_device(
 /// Complete a device link request on the existing device.
 ///
 /// This is called on the device that generated the link QR to approve the new device.
+// TODO: Migrate to prepare_confirmation() + confirm_link() API
+#[allow(deprecated)]
 #[tauri::command]
 pub fn complete_device_link(
     request_data: String,
