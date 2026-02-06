@@ -178,7 +178,7 @@ pub fn join_device(
     };
 
     // Create responder and generate request
-    let responder = DeviceLinkResponder::from_qr(qr, device_name.clone())
+    let mut responder = DeviceLinkResponder::from_qr(qr, device_name.clone())
         .map_err(|e| format!("Failed to create responder: {:?}", e))?;
 
     let encrypted_request = responder

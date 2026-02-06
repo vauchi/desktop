@@ -4,14 +4,17 @@
 
 //! Exchange Commands
 //!
-//! Handles contact exchange via QR codes using X3DH key agreement.
+//! Handles contact exchange via the ExchangeSession state machine.
+//! Uses ManualConfirmationVerifier since desktop doesn't have ultrasonic audio.
 
 use std::sync::Mutex;
 
 use serde::Serialize;
 use tauri::State;
-use vauchi_core::exchange::{ExchangeQR as CoreExchangeQR, X3DH};
-use vauchi_core::{Contact, ContactCard};
+use vauchi_core::contact_card::ContactCard;
+use vauchi_core::exchange::{
+    ExchangeEvent, ExchangeQR, ExchangeSession, ExchangeState, ManualConfirmationVerifier,
+};
 
 use crate::state::AppState;
 
@@ -39,22 +42,46 @@ pub struct ExchangeResult {
     pub message: String,
 }
 
-/// Generate QR code data for exchange.
+/// Start an exchange as the initiator (display QR).
+///
+/// Creates an ExchangeSession with ManualConfirmationVerifier,
+/// generates a QR code, and stores the session in AppState.
 #[tauri::command]
-pub fn generate_qr(state: State<'_, Mutex<AppState>>) -> Result<ExchangeQRResponse, String> {
-    let state = state.lock().unwrap();
+pub fn start_exchange(state: State<'_, Mutex<AppState>>) -> Result<ExchangeQRResponse, String> {
+    let mut state = state.lock().unwrap();
+
+    if !state.has_identity() {
+        return Err("No identity found. Please create an identity first.".to_string());
+    }
 
     let identity = state
-        .identity
-        .as_ref()
-        .ok_or("No identity found. Please create an identity first.")?;
+        .create_owned_identity()
+        .map_err(|e| format!("Failed to load identity: {}", e))?;
 
-    // Generate proper ExchangeQR with X3DH keys
-    let qr = CoreExchangeQR::generate(identity);
+    let our_card = state
+        .storage
+        .load_own_card()
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| ContactCard::new(identity.display_name()));
 
     let display_name = identity.display_name().to_string();
-    let data = qr.to_data_string();
-    let qr_ascii = qr.to_qr_image_string();
+
+    let verifier = ManualConfirmationVerifier::new();
+    verifier.confirm(); // Pre-confirm for desktop (visual fingerprint comparison)
+    let mut session = ExchangeSession::new_initiator(identity, our_card, verifier);
+
+    // Generate QR
+    session
+        .apply(ExchangeEvent::GenerateQR)
+        .map_err(|e| format!("Failed to generate QR: {:?}", e))?;
+
+    let (data, qr_ascii) = match session.qr() {
+        Some(qr) => (qr.to_data_string(), qr.to_qr_image_string()),
+        None => return Err("QR code not generated".to_string()),
+    };
+
+    state.exchange_session = Some(session);
 
     Ok(ExchangeQRResponse {
         data,
@@ -63,34 +90,95 @@ pub fn generate_qr(state: State<'_, Mutex<AppState>>) -> Result<ExchangeQRRespon
     })
 }
 
-/// Complete an exchange with scanned QR data.
+/// Process a scanned QR code.
 ///
-/// Performs X3DH key agreement and creates a new contact.
+/// Creates a responder ExchangeSession, processes the QR,
+/// and stores the session in AppState.
 #[tauri::command]
-pub fn complete_exchange(
-    data: String,
-    state: State<'_, Mutex<AppState>>,
-) -> Result<ExchangeResult, String> {
-    let state = state.lock().unwrap();
+pub fn process_scanned_qr(data: String, state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+    let mut state = state.lock().unwrap();
 
-    // Get our identity for X3DH key agreement
+    if !state.has_identity() {
+        return Err("No identity found. Please create an identity first.".to_string());
+    }
+
     let identity = state
-        .identity
-        .as_ref()
-        .ok_or("No identity found. Please create an identity first.")?;
+        .create_owned_identity()
+        .map_err(|e| format!("Failed to load identity: {}", e))?;
 
-    // Parse the QR data (validates signature internally)
+    let our_card = state
+        .storage
+        .load_own_card()
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| ContactCard::new(identity.display_name()));
+
     let qr =
-        CoreExchangeQR::from_data_string(&data).map_err(|e| format!("Invalid QR code: {:?}", e))?;
+        ExchangeQR::from_data_string(&data).map_err(|e| format!("Invalid QR code: {:?}", e))?;
 
-    // Check if QR code has expired
     if qr.is_expired() {
         return Err("This QR code has expired. Please ask them to generate a new one.".to_string());
     }
 
-    // Get their public key (identity) for contact ID
-    let their_public_key = *qr.public_key();
-    let their_exchange_key = *qr.exchange_key();
+    let verifier = ManualConfirmationVerifier::new();
+    verifier.confirm(); // Pre-confirm for desktop
+    let mut session = ExchangeSession::new_responder(identity, our_card, verifier);
+
+    session
+        .apply(ExchangeEvent::ProcessQR(qr))
+        .map_err(|e| format!("Failed to process QR: {:?}", e))?;
+
+    state.exchange_session = Some(session);
+
+    Ok(())
+}
+
+/// Confirm proximity verification.
+///
+/// For desktop, this is a no-op since ManualConfirmationVerifier is pre-confirmed.
+/// The frontend shows the QR fingerprint for manual user confirmation.
+#[tauri::command]
+pub fn confirm_proximity(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+    let mut state = state.lock().unwrap();
+
+    let session = state
+        .exchange_session
+        .as_mut()
+        .ok_or("No exchange session active")?;
+
+    session
+        .apply(ExchangeEvent::VerifyProximity)
+        .map_err(|e| format!("Proximity verification failed: {:?}", e))?;
+
+    Ok(())
+}
+
+/// Complete the exchange.
+///
+/// Performs key agreement, exchanges cards, saves the contact.
+#[tauri::command]
+pub fn complete_exchange(state: State<'_, Mutex<AppState>>) -> Result<ExchangeResult, String> {
+    let mut state = state.lock().unwrap();
+
+    // Take the session out of state so we can use state.storage later
+    let mut session = state
+        .exchange_session
+        .take()
+        .ok_or("No exchange session active")?;
+
+    // Perform key agreement
+    session
+        .apply(ExchangeEvent::PerformKeyAgreement)
+        .map_err(|e| format!("Key agreement failed: {:?}", e))?;
+
+    // Get their public key for the contact ID
+    let their_public_key = match session.state() {
+        ExchangeState::AwaitingCardExchange {
+            their_public_key, ..
+        } => *their_public_key,
+        _ => return Err("Session not in expected state after key agreement".to_string()),
+    };
+
     let contact_id = hex::encode(their_public_key);
 
     // Check if we already have this contact
@@ -109,28 +197,30 @@ pub fn complete_exchange(
         });
     }
 
-    // Perform X3DH key agreement as initiator
-    let our_x3dh = identity.x3dh_keypair();
-    let (shared_secret, _ephemeral_public) = X3DH::initiate(&our_x3dh, &their_exchange_key)
-        .map_err(|e| format!("Key agreement failed: {:?}", e))?;
-
-    // Create a placeholder contact card
-    // The real name will be received via relay sync
+    // Complete exchange with placeholder card
     let placeholder_name = format!("Contact {}", &contact_id[..8]);
     let card = ContactCard::new(&placeholder_name);
 
-    // Create the contact with the shared secret
-    let contact = Contact::from_exchange(their_public_key, card, shared_secret);
+    session
+        .apply(ExchangeEvent::CompleteExchange(card))
+        .map_err(|e| format!("Card exchange failed: {:?}", e))?;
 
-    // Save the contact to storage
+    // Extract contact and save
+    let contact = match session.state() {
+        ExchangeState::Complete { contact } => contact.clone(),
+        _ => return Err("Session not in Complete state".to_string()),
+    };
+
     state
         .storage
         .save_contact(&contact)
         .map_err(|e| format!("Failed to save contact: {:?}", e))?;
 
+    let contact_name = contact.display_name().to_string();
+
     Ok(ExchangeResult {
         success: true,
-        contact_name: placeholder_name,
+        contact_name,
         contact_id,
         message: "Contact added! Run sync to receive their contact card.".to_string(),
     })

@@ -9,6 +9,7 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use vauchi_core::exchange::{ExchangeSession, ManualConfirmationVerifier};
 use vauchi_core::{Identity, IdentityBackup, Storage, SymmetricKey};
 
 #[cfg(feature = "secure-storage")]
@@ -57,6 +58,8 @@ pub struct AppState {
     pub pending_device_join: Option<String>,
     /// Pending device link QR data for completing link requests.
     pub pending_device_link_qr: Option<String>,
+    /// Active exchange session (if an exchange is in progress).
+    pub exchange_session: Option<ExchangeSession<ManualConfirmationVerifier>>,
 }
 
 /// Loads or generates a per-installation random fallback key from `data_dir/.fallback-key`.
@@ -218,12 +221,26 @@ impl AppState {
             data_dir: data_dir.to_path_buf(),
             pending_device_join: None,
             pending_device_link_qr: None,
+            exchange_session: None,
         })
     }
 
     /// Check if identity exists.
     pub fn has_identity(&self) -> bool {
         self.identity.is_some() || self.backup_data.is_some()
+    }
+
+    /// Create a fresh owned Identity for use in contexts that need ownership.
+    ///
+    /// Reconstructs the identity from the stored backup data.
+    pub fn create_owned_identity(&self) -> Result<Identity> {
+        if let Some(ref backup_data) = self.backup_data {
+            let backup = IdentityBackup::new(backup_data.clone());
+            Identity::import_backup(&backup, LOCAL_STORAGE_PASSWORD)
+                .map_err(|e| anyhow::anyhow!("Failed to import identity: {:?}", e))
+        } else {
+            anyhow::bail!("No identity backup data available")
+        }
     }
 
     /// Create a new identity.
