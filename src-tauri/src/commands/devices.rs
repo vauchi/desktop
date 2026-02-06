@@ -320,6 +320,7 @@ pub fn complete_device_link(
         .decode(&request_data)
         .map_err(|_| "Invalid request data (not valid base64)".to_string())?;
 
+    #[allow(deprecated)] // TODO: Migrate to prepare_confirmation() + confirm_link()
     let (encrypted_response, updated_registry, _new_device) = initiator
         .process_request(&encrypted_request)
         .map_err(|e| format!("Failed to process request: {:?}", e))?;
