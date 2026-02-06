@@ -19,8 +19,8 @@ use vauchi_core::crypto::ratchet::DoubleRatchetState;
 use vauchi_core::exchange::{EncryptedExchangeMessage, X3DHKeyPair};
 use vauchi_core::network::simple_message::{
     create_device_sync_ack, create_device_sync_message, create_simple_ack, create_simple_envelope,
-    decode_simple_message, encode_simple_message, SimpleAckStatus,
-    SimpleDeviceSyncMessage, SimpleEncryptedUpdate, SimpleHandshake, SimplePayload,
+    decode_simple_message, encode_simple_message, SimpleAckStatus, SimpleDeviceSyncMessage,
+    SimpleEncryptedUpdate, SimpleHandshake, SimplePayload,
 };
 use vauchi_core::sync::{DeviceSyncOrchestrator, SyncItem};
 use vauchi_core::{Contact, ContactCard, Identity, Storage};
@@ -145,9 +145,7 @@ fn receive_pending(
                     match envelope.payload {
                         SimplePayload::EncryptedUpdate(update) => {
                             // Classify the message
-                            if EncryptedExchangeMessage::from_bytes(&update.ciphertext)
-                                .is_ok()
-                            {
+                            if EncryptedExchangeMessage::from_bytes(&update.ciphertext).is_ok() {
                                 encrypted_exchange.push(update.ciphertext);
                             } else {
                                 card_updates.push((update.sender_id, update.ciphertext));
