@@ -16,9 +16,6 @@ use vauchi_core::Identity;
 
 use crate::state::AppState;
 
-/// Internal password for local identity storage.
-const LOCAL_STORAGE_PASSWORD: &str = "vauchi-local-storage";
-
 /// Device info for the frontend.
 #[derive(Serialize)]
 pub struct DeviceInfo {
@@ -251,8 +248,11 @@ pub fn finish_join_device(
     let device_index = identity.device_info().device_index();
 
     // Save identity backup to storage
+    let password = state
+        .backup_password()
+        .map_err(|e| format!("Failed to get backup password: {:?}", e))?;
     let backup = identity
-        .export_backup(LOCAL_STORAGE_PASSWORD)
+        .export_backup(&password)
         .map_err(|e| format!("Failed to export backup: {:?}", e))?;
 
     state

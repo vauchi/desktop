@@ -19,8 +19,8 @@ use vauchi_core::crypto::ratchet::DoubleRatchetState;
 use vauchi_core::exchange::{EncryptedExchangeMessage, X3DHKeyPair};
 use vauchi_core::network::simple_message::{
     create_device_sync_ack, create_device_sync_message, create_simple_ack, create_simple_envelope,
-    decode_simple_message, encode_simple_message, SimpleAckStatus, SimpleDeviceSyncMessage,
-    SimpleEncryptedUpdate, SimpleHandshake, SimplePayload,
+    create_signed_handshake, decode_simple_message, encode_simple_message, SimpleAckStatus,
+    SimpleDeviceSyncMessage, SimpleEncryptedUpdate, SimplePayload,
 };
 use vauchi_core::sync::{DeviceSyncOrchestrator, SyncItem};
 use vauchi_core::{Contact, ContactCard, Identity, Storage};
@@ -100,16 +100,13 @@ fn connect_to_relay(relay_url: &str) -> Result<WebSocket<MaybeTlsStream<TcpStrea
     Ok(socket)
 }
 
-/// Send handshake to relay.
+/// Send authenticated handshake to relay.
 fn send_handshake(
     socket: &mut WebSocket<MaybeTlsStream<TcpStream>>,
-    client_id: &str,
+    identity: &Identity,
     device_id: Option<&str>,
 ) -> Result<(), String> {
-    let handshake = SimpleHandshake {
-        client_id: client_id.to_string(),
-        device_id: device_id.map(|s| s.to_string()),
-    };
+    let handshake = create_signed_handshake(identity, device_id.map(|s| s.to_string()));
     let envelope = create_simple_envelope(SimplePayload::Handshake(handshake));
     let data = encode_simple_message(&envelope).map_err(|e| format!("Encode error: {}", e))?;
     socket
@@ -258,9 +255,9 @@ fn send_exchange_response(
 ) -> Result<(), String> {
     let mut socket = connect_to_relay(relay_url)?;
 
-    let our_id = identity.public_id();
-    send_handshake(&mut socket, &our_id, None)?;
+    send_handshake(&mut socket, identity, None)?;
 
+    let our_id = identity.public_id();
     let our_x3dh = identity.x3dh_keypair();
     let (encrypted_msg, _) = EncryptedExchangeMessage::create(
         &our_x3dh,
@@ -576,8 +573,8 @@ pub fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
     // Connect to relay with timeout
     let mut socket = connect_to_relay(relay_url)?;
 
-    // Send handshake with device_id for inter-device sync
-    send_handshake(&mut socket, &client_id, Some(&device_id_hex))?;
+    // Send authenticated handshake with device_id for inter-device sync
+    send_handshake(&mut socket, identity, Some(&device_id_hex))?;
 
     // Brief wait for server to send pending messages (reduced from 500ms)
     std::thread::sleep(Duration::from_millis(100));

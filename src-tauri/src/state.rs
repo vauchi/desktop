@@ -18,8 +18,8 @@ use vauchi_core::storage::secure::{PlatformKeyring, SecureStorage};
 #[cfg(not(feature = "secure-storage"))]
 use vauchi_core::storage::secure::{FileKeyStorage, SecureStorage};
 
-/// Internal password for local identity storage.
-const LOCAL_STORAGE_PASSWORD: &str = "vauchi-local-storage";
+/// Legacy hardcoded password used before per-installation backup passwords.
+const LEGACY_BACKUP_PASSWORD: &str = "vauchi-local-storage";
 
 /// Default relay URL.
 const DEFAULT_RELAY_URL: &str = "wss://relay.vauchi.app";
@@ -103,7 +103,54 @@ fn load_or_generate_fallback_key(data_dir: &Path) -> Result<SymmetricKey> {
     Ok(key)
 }
 
+/// Loads or generates a per-installation random backup password from `data_dir/.backup-password`.
+///
+/// Each installation gets a unique random password (32 random bytes, hex-encoded)
+/// instead of the old hardcoded `"vauchi-local-storage"` constant.
+fn load_or_generate_backup_password(data_dir: &Path) -> Result<String> {
+    let password_path = data_dir.join(".backup-password");
+
+    if password_path.exists() {
+        let content =
+            std::fs::read_to_string(&password_path).context("Failed to read backup password")?;
+        let trimmed = content.trim().to_string();
+        if trimmed.len() != 64 {
+            anyhow::bail!(
+                "Invalid backup password length ({}), expected 64 hex chars. Delete {} to regenerate.",
+                trimmed.len(),
+                password_path.display()
+            );
+        }
+        return Ok(trimmed);
+    }
+
+    // Generate a new random password (32 random bytes, hex-encoded = 64 chars)
+    let key = SymmetricKey::generate();
+    let password: String = key
+        .as_bytes()
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect();
+
+    std::fs::create_dir_all(data_dir).context("Failed to create data directory")?;
+    std::fs::write(&password_path, &password).context("Failed to write backup password")?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&password_path, std::fs::Permissions::from_mode(0o600))
+            .context("Failed to set backup password permissions")?;
+    }
+
+    Ok(password)
+}
+
 impl AppState {
+    /// Returns the per-installation backup password.
+    pub fn backup_password(&self) -> Result<String> {
+        load_or_generate_backup_password(&self.data_dir)
+    }
+
     /// Loads or creates the storage encryption key using SecureStorage.
     ///
     /// When the `secure-storage` feature is enabled, uses the OS keychain.
@@ -186,12 +233,30 @@ impl AppState {
 
         let storage = Storage::open(&db_path, key).context("Failed to open storage")?;
 
-        // Try to load existing identity
+        // Try to load existing identity with migration from legacy password
+        let backup_password = load_or_generate_backup_password(data_dir)?;
         let (identity, backup_data, display_name) =
             if let Ok(Some((backup, name))) = storage.load_identity() {
                 let backup_obj = IdentityBackup::new(backup.clone());
-                let identity = Identity::import_backup(&backup_obj, LOCAL_STORAGE_PASSWORD).ok();
-                (identity, Some(backup), Some(name))
+                match Identity::import_backup(&backup_obj, &backup_password) {
+                    Ok(id) => (Some(id), Some(backup), Some(name)),
+                    Err(_) => {
+                        // Try legacy hardcoded password for migration
+                        match Identity::import_backup(&backup_obj, LEGACY_BACKUP_PASSWORD) {
+                            Ok(id) => {
+                                // Re-export with per-installation password
+                                if let Ok(new_backup) = id.export_backup(&backup_password) {
+                                    let new_data = new_backup.as_bytes().to_vec();
+                                    let _ = storage.save_identity(&new_data, &name);
+                                    (Some(id), Some(new_data), Some(name))
+                                } else {
+                                    (Some(id), Some(backup), Some(name))
+                                }
+                            }
+                            Err(_) => (None, Some(backup), Some(name)),
+                        }
+                    }
+                }
             } else {
                 (None, None, None)
             };
@@ -235,9 +300,16 @@ impl AppState {
     /// Reconstructs the identity from the stored backup data.
     pub fn create_owned_identity(&self) -> Result<Identity> {
         if let Some(ref backup_data) = self.backup_data {
+            let password = self.backup_password()?;
             let backup = IdentityBackup::new(backup_data.clone());
-            Identity::import_backup(&backup, LOCAL_STORAGE_PASSWORD)
-                .map_err(|e| anyhow::anyhow!("Failed to import identity: {:?}", e))
+            match Identity::import_backup(&backup, &password) {
+                Ok(id) => Ok(id),
+                Err(_) => {
+                    // Fall back to legacy password for un-migrated data
+                    Identity::import_backup(&backup, LEGACY_BACKUP_PASSWORD)
+                        .map_err(|e| anyhow::anyhow!("Failed to import identity: {:?}", e))
+                }
+            }
         } else {
             anyhow::bail!("No identity backup data available")
         }
@@ -245,9 +317,10 @@ impl AppState {
 
     /// Create a new identity.
     pub fn create_identity(&mut self, name: &str) -> Result<()> {
+        let password = self.backup_password()?;
         let identity = Identity::create(name);
         let backup = identity
-            .export_backup(LOCAL_STORAGE_PASSWORD)
+            .export_backup(&password)
             .map_err(|e| anyhow::anyhow!("Failed to create backup: {:?}", e))?;
         let backup_data = backup.as_bytes().to_vec();
 
@@ -372,8 +445,9 @@ impl AppState {
         self.display_name = Some(name.to_string());
 
         // Re-save identity backup
+        let password = self.backup_password()?;
         let backup = identity
-            .export_backup(LOCAL_STORAGE_PASSWORD)
+            .export_backup(&password)
             .map_err(|e| anyhow::anyhow!("Failed to export backup: {:?}", e))?;
         self.storage
             .save_identity(backup.as_bytes(), name)
