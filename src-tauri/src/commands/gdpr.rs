@@ -134,6 +134,181 @@ pub fn get_consent_records(
         .collect())
 }
 
+/// Shred report information for the frontend.
+#[derive(Serialize)]
+pub struct ShredReportInfo {
+    pub contacts_notified: usize,
+    pub relay_purge_sent: bool,
+    pub smk_destroyed: bool,
+    pub sqlite_destroyed: bool,
+    pub all_clear: bool,
+}
+
+/// Creates a SecureStorage instance for shred operations.
+#[allow(unused_variables)]
+fn create_secure_storage(
+    data_dir: &std::path::Path,
+) -> Result<Box<dyn vauchi_core::storage::secure::SecureStorage>, String> {
+    #[cfg(feature = "secure-storage")]
+    {
+        Ok(Box::new(
+            vauchi_core::storage::secure::PlatformKeyring::new("vauchi-desktop"),
+        ))
+    }
+
+    #[cfg(not(feature = "secure-storage"))]
+    {
+        let fallback_key = crate::state::load_or_generate_fallback_key(data_dir)
+            .map_err(|e| format!("Failed to load fallback key: {}", e))?;
+        let key_dir = data_dir.join("keys");
+        Ok(Box::new(
+            vauchi_core::storage::secure::FileKeyStorage::new(key_dir, fallback_key),
+        ))
+    }
+}
+
+/// Creates a connected RelayClient for shred operations.
+fn create_shred_relay_client(
+    relay_url: &str,
+    identity_id: &str,
+) -> Result<
+    vauchi_core::network::RelayClient<vauchi_core::network::WebSocketTransport>,
+    String,
+> {
+    use vauchi_core::network::{
+        RelayClient, RelayClientConfig, TransportConfig, WebSocketTransport,
+    };
+    let transport_config = TransportConfig {
+        server_url: relay_url.to_string(),
+        ..TransportConfig::default()
+    };
+    let config = RelayClientConfig {
+        transport: transport_config,
+        ..RelayClientConfig::default()
+    };
+    let transport = WebSocketTransport::new();
+    let mut client = RelayClient::new(transport, config, identity_id.to_string());
+    client
+        .connect()
+        .map_err(|e| format!("Failed to connect to relay: {}", e))?;
+    Ok(client)
+}
+
+/// Execute a scheduled account deletion after the grace period.
+#[tauri::command]
+pub fn execute_account_deletion(
+    state: State<'_, Mutex<AppState>>,
+) -> Result<ShredReportInfo, String> {
+    let state = state.lock().unwrap();
+    let identity = state
+        .identity
+        .as_ref()
+        .ok_or("No identity loaded")?;
+
+    let manager = vauchi_core::api::DeletionManager::new(&state.storage);
+    let deletion_state = manager
+        .deletion_state()
+        .map_err(|e| format!("Failed to get deletion state: {}", e))?;
+
+    let token = match deletion_state {
+        vauchi_core::storage::DeletionState::Scheduled {
+            scheduled_at,
+            execute_at,
+        } => {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            if now < execute_at {
+                return Err("Grace period has not elapsed yet".to_string());
+            }
+            vauchi_core::api::ShredToken::from_created_at(scheduled_at)
+        }
+        vauchi_core::storage::DeletionState::None => {
+            return Err("No deletion scheduled".to_string());
+        }
+        vauchi_core::storage::DeletionState::Executed { .. } => {
+            return Err("Account already deleted".to_string());
+        }
+    };
+
+    let secure_storage =
+        create_secure_storage(state.data_dir()).map_err(|e| format!("Secure storage: {}", e))?;
+    let identity_id = hex::encode(identity.signing_public_key());
+    let shred_manager = vauchi_core::api::ShredManager::new(
+        &state.storage,
+        secure_storage.as_ref(),
+        identity,
+        state.data_dir(),
+    );
+
+    let mut purge_client = create_shred_relay_client(state.relay_url(), &identity_id)?;
+    let mut revocation_client = create_shred_relay_client(state.relay_url(), &identity_id)?;
+
+    let report = shred_manager
+        .hard_shred(
+            token,
+            Some(&mut purge_client),
+            Some(&mut revocation_client),
+        )
+        .map_err(|e| format!("Shred failed: {}", e))?;
+
+    let verification = shred_manager.verify_shred();
+
+    Ok(ShredReportInfo {
+        contacts_notified: report.contacts_notified,
+        relay_purge_sent: report.relay_purge_sent,
+        smk_destroyed: report.smk_destroyed,
+        sqlite_destroyed: report.sqlite_destroyed,
+        all_clear: verification.all_clear,
+    })
+}
+
+/// Emergency immediate deletion — no grace period.
+#[tauri::command]
+pub fn panic_shred(state: State<'_, Mutex<AppState>>) -> Result<ShredReportInfo, String> {
+    let state = state.lock().unwrap();
+    let identity = state
+        .identity
+        .as_ref()
+        .ok_or("No identity loaded")?;
+
+    let secure_storage =
+        create_secure_storage(state.data_dir()).map_err(|e| format!("Secure storage: {}", e))?;
+    let identity_id = hex::encode(identity.signing_public_key());
+    let shred_manager = vauchi_core::api::ShredManager::new(
+        &state.storage,
+        secure_storage.as_ref(),
+        identity,
+        state.data_dir(),
+    );
+
+    // Best-effort relay connections
+    let mut purge_client = create_shred_relay_client(state.relay_url(), &identity_id).ok();
+    let mut revocation_client = create_shred_relay_client(state.relay_url(), &identity_id).ok();
+
+    let report = shred_manager
+        .panic_shred(
+            purge_client
+                .as_mut()
+                .map(|c| c as &mut dyn vauchi_core::api::PurgeSender),
+            revocation_client
+                .as_mut()
+                .map(|c| c as &mut dyn vauchi_core::api::RevocationSender),
+        )
+        .map_err(|e| format!("Panic shred failed: {}", e))?;
+
+    let verification = shred_manager.verify_shred();
+
+    Ok(ShredReportInfo {
+        contacts_notified: report.contacts_notified,
+        relay_purge_sent: report.relay_purge_sent,
+        smk_destroyed: report.smk_destroyed,
+        sqlite_destroyed: report.sqlite_destroyed,
+        all_clear: verification.all_clear,
+    })
+}
+
 fn deletion_state_to_info(state: &vauchi_core::storage::DeletionState) -> DeletionInfo {
     match state {
         vauchi_core::storage::DeletionState::None => DeletionInfo {
