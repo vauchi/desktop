@@ -444,8 +444,9 @@ impl AppState {
         // Update local display name
         self.display_name = Some(name.to_string());
 
-        // Re-save identity backup
+        // Re-save identity backup (get password before reborrowing identity)
         let password = self.backup_password()?;
+        let identity = self.identity.as_mut().context("No identity to update")?;
         let backup = identity
             .export_backup(&password)
             .map_err(|e| anyhow::anyhow!("Failed to export backup: {:?}", e))?;

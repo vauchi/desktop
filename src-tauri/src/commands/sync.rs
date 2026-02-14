@@ -18,8 +18,8 @@ use tungstenite::{Message, WebSocket};
 use vauchi_core::crypto::ratchet::DoubleRatchetState;
 use vauchi_core::exchange::{EncryptedExchangeMessage, X3DHKeyPair};
 use vauchi_core::network::simple_message::{
-    create_device_sync_ack, create_device_sync_message, create_simple_ack, create_simple_envelope,
-    create_signed_handshake, decode_simple_message, encode_simple_message, SimpleAckStatus,
+    create_device_sync_ack, create_device_sync_message, create_signed_handshake, create_simple_ack,
+    create_simple_envelope, decode_simple_message, encode_simple_message, SimpleAckStatus,
     SimpleDeviceSyncMessage, SimpleEncryptedUpdate, SimplePayload,
 };
 use vauchi_core::sync::{DeviceSyncOrchestrator, SyncItem};
@@ -567,7 +567,6 @@ pub fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
         .ok_or("No identity found. Please create an identity first.")?;
 
     let relay_url = state.relay_url();
-    let client_id = identity.public_id();
     let device_id_hex = hex::encode(identity.device_id());
 
     // Connect to relay with timeout
