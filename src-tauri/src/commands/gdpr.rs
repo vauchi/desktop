@@ -161,9 +161,10 @@ fn create_secure_storage(
         let fallback_key = crate::state::load_or_generate_fallback_key(data_dir)
             .map_err(|e| format!("Failed to load fallback key: {}", e))?;
         let key_dir = data_dir.join("keys");
-        Ok(Box::new(
-            vauchi_core::storage::secure::FileKeyStorage::new(key_dir, fallback_key),
-        ))
+        Ok(Box::new(vauchi_core::storage::secure::FileKeyStorage::new(
+            key_dir,
+            fallback_key,
+        )))
     }
 }
 
@@ -171,10 +172,7 @@ fn create_secure_storage(
 fn create_shred_relay_client(
     relay_url: &str,
     identity_id: &str,
-) -> Result<
-    vauchi_core::network::RelayClient<vauchi_core::network::WebSocketTransport>,
-    String,
-> {
+) -> Result<vauchi_core::network::RelayClient<vauchi_core::network::WebSocketTransport>, String> {
     use vauchi_core::network::{
         RelayClient, RelayClientConfig, TransportConfig, WebSocketTransport,
     };
@@ -200,10 +198,7 @@ pub fn execute_account_deletion(
     state: State<'_, Mutex<AppState>>,
 ) -> Result<ShredReportInfo, String> {
     let state = state.lock().unwrap();
-    let identity = state
-        .identity
-        .as_ref()
-        .ok_or("No identity loaded")?;
+    let identity = state.identity.as_ref().ok_or("No identity loaded")?;
 
     let manager = vauchi_core::api::DeletionManager::new(&state.storage);
     let deletion_state = manager
@@ -246,11 +241,7 @@ pub fn execute_account_deletion(
     let mut revocation_client = create_shred_relay_client(state.relay_url(), &identity_id)?;
 
     let report = shred_manager
-        .hard_shred(
-            token,
-            Some(&mut purge_client),
-            Some(&mut revocation_client),
-        )
+        .hard_shred(token, Some(&mut purge_client), Some(&mut revocation_client))
         .map_err(|e| format!("Shred failed: {}", e))?;
 
     let verification = shred_manager.verify_shred();
@@ -268,10 +259,7 @@ pub fn execute_account_deletion(
 #[tauri::command]
 pub fn panic_shred(state: State<'_, Mutex<AppState>>) -> Result<ShredReportInfo, String> {
     let state = state.lock().unwrap();
-    let identity = state
-        .identity
-        .as_ref()
-        .ok_or("No identity loaded")?;
+    let identity = state.identity.as_ref().ok_or("No identity loaded")?;
 
     let secure_storage =
         create_secure_storage(state.data_dir()).map_err(|e| format!("Secure storage: {}", e))?;
