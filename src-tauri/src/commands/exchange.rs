@@ -4,8 +4,9 @@
 
 //! Exchange Commands
 //!
-//! Handles contact exchange via the ExchangeSession state machine.
-//! Uses ManualConfirmationVerifier since desktop doesn't have ultrasonic audio.
+//! Handles contact exchange via the mutual QR flow.
+//! Both peers generate and scan QR codes; ManualConfirmationVerifier is used
+//! for the visual fingerprint confirmation step on desktop.
 
 use std::sync::Mutex;
 
@@ -42,10 +43,10 @@ pub struct ExchangeResult {
     pub message: String,
 }
 
-/// Start an exchange as the initiator (display QR).
+/// Start a mutual QR exchange (display our QR).
 ///
-/// Creates an ExchangeSession with ManualConfirmationVerifier,
-/// generates a QR code, and stores the session in AppState.
+/// Creates an ExchangeSession via `new_qr`, triggers `StartQR` to
+/// generate our QR code, and stores the session in AppState.
 #[tauri::command]
 pub fn start_exchange(state: State<'_, Mutex<AppState>>) -> Result<ExchangeQRResponse, String> {
     let mut state = state.lock().unwrap();
@@ -68,12 +69,11 @@ pub fn start_exchange(state: State<'_, Mutex<AppState>>) -> Result<ExchangeQRRes
     let display_name = identity.display_name().to_string();
 
     let verifier = ManualConfirmationVerifier::new();
-    verifier.confirm(); // Pre-confirm for desktop (visual fingerprint comparison)
-    let mut session = ExchangeSession::new_initiator(identity, our_card, verifier);
+    let mut session = ExchangeSession::new_qr(identity, our_card, verifier);
 
-    // Generate QR
+    // Generate QR via StartQR
     session
-        .apply(ExchangeEvent::GenerateQR)
+        .apply(ExchangeEvent::StartQR)
         .map_err(|e| format!("Failed to generate QR: {:?}", e))?;
 
     let (data, qr_ascii) = match session.qr() {
@@ -90,10 +90,10 @@ pub fn start_exchange(state: State<'_, Mutex<AppState>>) -> Result<ExchangeQRRes
     })
 }
 
-/// Process a scanned QR code.
+/// Process a scanned QR code from the peer.
 ///
-/// Creates a responder ExchangeSession, processes the QR,
-/// and stores the session in AppState.
+/// Creates a QR ExchangeSession, applies `StartQR` to initialise it,
+/// then applies `ProcessQR` with the scanned data.
 #[tauri::command]
 pub fn process_scanned_qr(data: String, state: State<'_, Mutex<AppState>>) -> Result<(), String> {
     let mut state = state.lock().unwrap();
@@ -121,8 +121,12 @@ pub fn process_scanned_qr(data: String, state: State<'_, Mutex<AppState>>) -> Re
     }
 
     let verifier = ManualConfirmationVerifier::new();
-    verifier.confirm(); // Pre-confirm for desktop
-    let mut session = ExchangeSession::new_responder(identity, our_card, verifier);
+    let mut session = ExchangeSession::new_qr(identity, our_card, verifier);
+
+    // Initialise the session, then process the scanned QR
+    session
+        .apply(ExchangeEvent::StartQR)
+        .map_err(|e| format!("Failed to start QR session: {:?}", e))?;
 
     session
         .apply(ExchangeEvent::ProcessQR(qr))
@@ -133,12 +137,12 @@ pub fn process_scanned_qr(data: String, state: State<'_, Mutex<AppState>>) -> Re
     Ok(())
 }
 
-/// Confirm proximity verification.
+/// Confirm the peer has scanned our QR code.
 ///
-/// For desktop, this is a no-op since ManualConfirmationVerifier is pre-confirmed.
-/// The frontend shows the QR fingerprint for manual user confirmation.
+/// In the mutual QR flow the frontend calls this after detecting (or the
+/// user confirming) that the other party has successfully scanned our QR.
 #[tauri::command]
-pub fn confirm_proximity(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+pub fn confirm_peer_scan(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
     let mut state = state.lock().unwrap();
 
     let session = state
@@ -147,8 +151,8 @@ pub fn confirm_proximity(state: State<'_, Mutex<AppState>>) -> Result<(), String
         .ok_or("No exchange session active")?;
 
     session
-        .apply(ExchangeEvent::VerifyProximity)
-        .map_err(|e| format!("Proximity verification failed: {:?}", e))?;
+        .apply(ExchangeEvent::TheyScannedOurQR)
+        .map_err(|e| format!("Peer scan confirmation failed: {:?}", e))?;
 
     Ok(())
 }

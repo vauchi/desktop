@@ -105,7 +105,7 @@ pub fn run() {
             commands::contacts::trusted_contact_count,
             commands::exchange::start_exchange,
             commands::exchange::process_scanned_qr,
-            commands::exchange::confirm_proximity,
+            commands::exchange::confirm_peer_scan,
             commands::exchange::complete_exchange,
             commands::backup::export_backup,
             commands::backup::import_backup,
