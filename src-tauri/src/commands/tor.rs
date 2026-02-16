@@ -33,9 +33,7 @@ pub struct TorConfigInput {
 
 /// Get the current Tor configuration.
 #[tauri::command]
-pub fn get_tor_config(
-    state: State<'_, Mutex<AppState>>,
-) -> Result<TorConfigInfo, String> {
+pub fn get_tor_config(state: State<'_, Mutex<AppState>>) -> Result<TorConfigInfo, String> {
     let state = state.lock().unwrap();
     let config = state
         .storage

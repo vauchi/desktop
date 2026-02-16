@@ -92,10 +92,7 @@ pub fn setup_duress_pin(
 
     state
         .storage
-        .save_duress_password(
-            config.duress_hash().unwrap(),
-            config.duress_salt().unwrap(),
-        )
+        .save_duress_password(config.duress_hash().unwrap(), config.duress_salt().unwrap())
         .map_err(|e| e.to_string())?;
 
     Ok(())
