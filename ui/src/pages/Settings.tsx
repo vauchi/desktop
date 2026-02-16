@@ -141,6 +141,14 @@ function Settings(props: SettingsProps) {
   const [showShredConfirm, setShowShredConfirm] = createSignal(false);
   const [shredResult, setShredResult] = createSignal('');
 
+  // Emergency broadcast state
+  const [emergencyConfig, setEmergencyConfig] = createSignal<{trusted_contact_ids: string[], message: string, include_location: boolean} | null>(null);
+  const [showEmergencyDialog, setShowEmergencyDialog] = createSignal(false);
+  const [emergencyMessage, setEmergencyMessage] = createSignal('');
+  const [emergencyContactIds, setEmergencyContactIds] = createSignal('');
+  const [emergencyAlertMsg, setEmergencyAlertMsg] = createSignal('I may be in danger. Please check on me.');
+  const [emergencyIncludeLocation, setEmergencyIncludeLocation] = createSignal(false);
+
   // Theme and locale state
   const [availableThemes, setAvailableThemes] = createSignal<Theme[]>([]);
   const [selectedThemeId, setSelectedThemeId] = createSignal<string>('');
@@ -216,6 +224,19 @@ function Settings(props: SettingsProps) {
       setDuressEnabled(status.duress_enabled);
     } catch (e) {
       console.error('Failed to load duress status:', e);
+    }
+
+    // Load emergency broadcast config
+    try {
+      const ec = await invoke('get_emergency_config') as {trusted_contact_ids: string[], message: string, include_location: boolean} | null;
+      setEmergencyConfig(ec);
+      if (ec) {
+        setEmergencyContactIds(ec.trusted_contact_ids.join(', '));
+        setEmergencyAlertMsg(ec.message);
+        setEmergencyIncludeLocation(ec.include_location);
+      }
+    } catch (e) {
+      console.error('Failed to load emergency config:', e);
     }
 
     // Load GDPR state
@@ -324,6 +345,54 @@ function Settings(props: SettingsProps) {
       setSecurityMessage('Duress PIN disabled');
     } catch (e) {
       setSecurityError(String(e));
+    }
+  };
+
+  const handleSaveEmergencyConfig = async () => {
+    setEmergencyMessage('');
+    const ids = emergencyContactIds()
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (ids.length === 0) {
+      setEmergencyMessage('Please enter at least one trusted contact ID');
+      return;
+    }
+    if (ids.length > 10) {
+      setEmergencyMessage('Maximum 10 trusted contacts allowed');
+      return;
+    }
+    try {
+      await invoke('save_emergency_config', {
+        config: {
+          trusted_contact_ids: ids,
+          message: emergencyAlertMsg(),
+          include_location: emergencyIncludeLocation(),
+        },
+      });
+      setEmergencyConfig({
+        trusted_contact_ids: ids,
+        message: emergencyAlertMsg(),
+        include_location: emergencyIncludeLocation(),
+      });
+      setShowEmergencyDialog(false);
+      setEmergencyMessage('Emergency broadcast configured');
+    } catch (e) {
+      setEmergencyMessage(`Failed to save: ${e}`);
+    }
+  };
+
+  const handleDisableEmergencyConfig = async () => {
+    setEmergencyMessage('');
+    try {
+      await invoke('delete_emergency_config');
+      setEmergencyConfig(null);
+      setEmergencyContactIds('');
+      setEmergencyAlertMsg('I may be in danger. Please check on me.');
+      setEmergencyIncludeLocation(false);
+      setEmergencyMessage('Emergency broadcast disabled');
+    } catch (e) {
+      setEmergencyMessage(`Failed to disable: ${e}`);
     }
   };
 
@@ -865,6 +934,117 @@ function Settings(props: SettingsProps) {
                 </button>
                 <button class="primary" onClick={handleSetupDuress}>
                   Set Duress PIN
+                </button>
+              </div>
+            </div>
+          </div>
+        </Show>
+      </section>
+
+      {/* Emergency Broadcast Section */}
+      <section class="settings-section" aria-labelledby="emergency-section-title">
+        <h2 id="emergency-section-title">Emergency Broadcast</h2>
+        <p class="setting-description">
+          Send one-tap encrypted alerts to trusted contacts when you feel unsafe.
+        </p>
+
+        <div class="setting-item">
+          <span class="setting-label">Status</span>
+          <span class="setting-value">
+            {emergencyConfig()
+              ? `Configured (${emergencyConfig()!.trusted_contact_ids.length} contact${emergencyConfig()!.trusted_contact_ids.length !== 1 ? 's' : ''})`
+              : 'Not configured'}
+          </span>
+        </div>
+
+        <Show when={emergencyMessage()}>
+          <p class="sync-message" role="status" aria-live="polite">
+            {emergencyMessage()}
+          </p>
+        </Show>
+
+        <div class="setting-buttons">
+          <button
+            class="secondary"
+            onClick={() => {
+              setEmergencyMessage('');
+              setShowEmergencyDialog(true);
+            }}
+            aria-label="Configure emergency broadcast"
+          >
+            {emergencyConfig() ? 'Edit Configuration' : 'Configure'}
+          </button>
+          <Show when={emergencyConfig()}>
+            <button
+              class="danger"
+              onClick={handleDisableEmergencyConfig}
+              aria-label="Disable emergency broadcast"
+            >
+              Disable
+            </button>
+          </Show>
+        </div>
+
+        {/* Emergency Broadcast Configuration Dialog */}
+        <Show when={showEmergencyDialog()}>
+          <div class="dialog-overlay" onClick={() => setShowEmergencyDialog(false)}>
+            <div class="dialog" onClick={(e) => e.stopPropagation()}>
+              <h3>Emergency Broadcast Configuration</h3>
+              <p class="setting-description">
+                Choose up to 10 trusted contacts to receive an encrypted alert. Alerts look like normal sync traffic on the wire.
+              </p>
+
+              <Show when={emergencyMessage()}>
+                <p class="error" role="alert">
+                  {emergencyMessage()}
+                </p>
+              </Show>
+
+              <label>
+                Trusted Contact IDs
+                <span class="toggle-description">Comma-separated contact IDs</span>
+                <textarea
+                  value={emergencyContactIds()}
+                  onInput={(e) => setEmergencyContactIds(e.currentTarget.value)}
+                  placeholder="contact-id-1, contact-id-2"
+                  rows={3}
+                  aria-label="Trusted contact IDs"
+                />
+              </label>
+
+              <label>
+                Alert Message
+                <input
+                  type="text"
+                  value={emergencyAlertMsg()}
+                  onInput={(e) => setEmergencyAlertMsg(e.currentTarget.value)}
+                  placeholder="I may be in danger. Please check on me."
+                  aria-label="Emergency alert message"
+                />
+              </label>
+
+              <div class="accessibility-toggle">
+                <label for="emergency-location-toggle">
+                  Include Location
+                  <span class="toggle-description">Attach device location to the alert</span>
+                </label>
+                <div class="toggle-switch">
+                  <input
+                    type="checkbox"
+                    id="emergency-location-toggle"
+                    checked={emergencyIncludeLocation()}
+                    onChange={() => setEmergencyIncludeLocation(!emergencyIncludeLocation())}
+                  />
+                  <span class="toggle-slider" aria-hidden="true" />
+                </div>
+              </div>
+
+              <div class="dialog-actions">
+                <button class="secondary" onClick={() => setShowEmergencyDialog(false)}>
+                  Cancel
+                </button>
+                <button class="primary" onClick={handleSaveEmergencyConfig}>
+                  Save Configuration
                 </button>
               </div>
             </div>

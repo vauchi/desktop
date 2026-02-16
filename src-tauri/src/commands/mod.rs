@@ -14,6 +14,7 @@ pub mod card;
 pub mod contacts;
 pub mod content;
 pub mod devices;
+pub mod emergency;
 pub mod exchange;
 pub mod gdpr;
 pub mod help;

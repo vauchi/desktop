@@ -189,6 +189,10 @@ pub fn run() {
             commands::gdpr::get_consent_records,
             commands::gdpr::execute_account_deletion,
             commands::gdpr::panic_shred,
+            // Emergency broadcast commands
+            commands::emergency::get_emergency_config,
+            commands::emergency::save_emergency_config,
+            commands::emergency::delete_emergency_config,
             // Auth & duress commands
             commands::auth::setup_app_password,
             commands::auth::authenticate,
