@@ -149,6 +149,14 @@ function Settings(props: SettingsProps) {
   const [emergencyAlertMsg, setEmergencyAlertMsg] = createSignal('I may be in danger. Please check on me.');
   const [emergencyIncludeLocation, setEmergencyIncludeLocation] = createSignal(false);
 
+  // Tor mode state
+  const [torEnabled, setTorEnabled] = createSignal(false);
+  const [torPreferOnion, setTorPreferOnion] = createSignal(true);
+  const [torBridges, setTorBridges] = createSignal('');
+  const [torMessage, setTorMessage] = createSignal('');
+  const [showBridgeDialog, setShowBridgeDialog] = createSignal(false);
+  const [newBridge, setNewBridge] = createSignal('');
+
   // Theme and locale state
   const [availableThemes, setAvailableThemes] = createSignal<Theme[]>([]);
   const [selectedThemeId, setSelectedThemeId] = createSignal<string>('');
@@ -237,6 +245,16 @@ function Settings(props: SettingsProps) {
       }
     } catch (e) {
       console.error('Failed to load emergency config:', e);
+    }
+
+    // Load Tor config
+    try {
+      const tc = await invoke('get_tor_config') as {enabled: boolean, bridges: string[], prefer_onion: boolean, circuit_rotation_secs: number};
+      setTorEnabled(tc.enabled);
+      setTorPreferOnion(tc.prefer_onion);
+      setTorBridges(tc.bridges.join('\n'));
+    } catch (e) {
+      console.error('Failed to load Tor config:', e);
     }
 
     // Load GDPR state
@@ -393,6 +411,59 @@ function Settings(props: SettingsProps) {
       setEmergencyMessage('Emergency broadcast disabled');
     } catch (e) {
       setEmergencyMessage(`Failed to disable: ${e}`);
+    }
+  };
+
+  const handleToggleTor = async () => {
+    const newEnabled = !torEnabled();
+    try {
+      await invoke('save_tor_config', {
+        config: {
+          enabled: newEnabled,
+          bridges: torBridges().split('\n').map(s => s.trim()).filter(s => s.length > 0),
+          prefer_onion: torPreferOnion(),
+          circuit_rotation_secs: 600,
+        },
+      });
+      setTorEnabled(newEnabled);
+      setTorMessage(newEnabled ? 'Tor mode enabled' : 'Tor mode disabled');
+    } catch (e) {
+      setTorMessage(`Failed: ${e}`);
+    }
+  };
+
+  const handleTogglePreferOnion = async () => {
+    const newPref = !torPreferOnion();
+    try {
+      await invoke('save_tor_config', {
+        config: {
+          enabled: torEnabled(),
+          bridges: torBridges().split('\n').map(s => s.trim()).filter(s => s.length > 0),
+          prefer_onion: newPref,
+          circuit_rotation_secs: 600,
+        },
+      });
+      setTorPreferOnion(newPref);
+    } catch (e) {
+      setTorMessage(`Failed: ${e}`);
+    }
+  };
+
+  const handleSaveBridges = async () => {
+    const bridgeList = torBridges().split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    try {
+      await invoke('save_tor_config', {
+        config: {
+          enabled: torEnabled(),
+          bridges: bridgeList,
+          prefer_onion: torPreferOnion(),
+          circuit_rotation_secs: 600,
+        },
+      });
+      setShowBridgeDialog(false);
+      setTorMessage(`${bridgeList.length} bridge(s) saved`);
+    } catch (e) {
+      setTorMessage(`Failed: ${e}`);
     }
   };
 
@@ -1045,6 +1116,101 @@ function Settings(props: SettingsProps) {
                 </button>
                 <button class="primary" onClick={handleSaveEmergencyConfig}>
                   Save Configuration
+                </button>
+              </div>
+            </div>
+          </div>
+        </Show>
+      </section>
+
+      {/* Tor Mode Section */}
+      <section class="settings-section" aria-labelledby="tor-section-title">
+        <h2 id="tor-section-title">Tor Mode</h2>
+        <p class="setting-description">
+          Route all relay traffic through Tor for enhanced anonymity.
+        </p>
+
+        <div class="accessibility-toggle">
+          <label for="tor-enable-toggle">
+            Enable Tor
+            <span class="toggle-description">Route connections through the Tor network</span>
+          </label>
+          <div class="toggle-switch">
+            <input
+              type="checkbox"
+              id="tor-enable-toggle"
+              checked={torEnabled()}
+              onChange={handleToggleTor}
+            />
+            <span class="toggle-slider" aria-hidden="true" />
+          </div>
+        </div>
+
+        <div class="accessibility-toggle">
+          <label for="tor-onion-toggle">
+            Prefer .onion Addresses
+            <span class="toggle-description">Use hidden service addresses when available</span>
+          </label>
+          <div class="toggle-switch">
+            <input
+              type="checkbox"
+              id="tor-onion-toggle"
+              checked={torPreferOnion()}
+              onChange={handleTogglePreferOnion}
+            />
+            <span class="toggle-slider" aria-hidden="true" />
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <span class="setting-label">Bridges</span>
+          <span class="setting-value">
+            {torBridges().split('\n').filter(s => s.trim().length > 0).length} configured
+          </span>
+        </div>
+
+        <Show when={torMessage()}>
+          <p class="sync-message" role="status" aria-live="polite">
+            {torMessage()}
+          </p>
+        </Show>
+
+        <div class="setting-buttons">
+          <button
+            class="secondary"
+            onClick={() => {
+              setTorMessage('');
+              setShowBridgeDialog(true);
+            }}
+          >
+            Manage Bridges
+          </button>
+        </div>
+
+        {/* Bridge Management Dialog */}
+        <Show when={showBridgeDialog()}>
+          <div class="dialog-overlay" onClick={() => setShowBridgeDialog(false)}>
+            <div class="dialog" onClick={(e) => e.stopPropagation()}>
+              <h3>Manage Bridges</h3>
+              <p class="setting-description">
+                Add obfs4 bridge addresses for censored networks. One per line.
+              </p>
+              <label>
+                Bridge Addresses
+                <textarea
+                  value={torBridges()}
+                  onInput={(e) => setTorBridges(e.currentTarget.value)}
+                  placeholder="obfs4 192.168.1.1:443 cert=... iat-mode=0"
+                  rows={5}
+                  aria-label="Bridge addresses, one per line"
+                />
+              </label>
+              <div class="dialog-actions">
+                <button class="secondary" onClick={() => setShowBridgeDialog(false)}>
+                  Cancel
+                </button>
+                <button class="primary" onClick={handleSaveBridges}>
+                  Save Bridges
                 </button>
               </div>
             </div>

@@ -24,5 +24,6 @@ pub mod labels;
 pub mod recovery;
 pub mod sync;
 pub mod theme;
+pub mod tor;
 pub mod validation;
 pub mod visibility;

@@ -201,6 +201,9 @@ pub fn run() {
             commands::auth::get_duress_status,
             commands::auth::get_duress_settings,
             commands::auth::save_duress_settings,
+            // Tor commands
+            commands::tor::get_tor_config,
+            commands::tor::save_tor_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
