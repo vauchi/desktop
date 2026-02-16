@@ -220,7 +220,7 @@ function Exchange(props: ExchangeProps) {
           <p>Or share this data:</p>
           <div class="copy-input-group">
             <input type="text" readonly value={qrData()?.data || ''} />
-            <button class="copy-btn" onClick={copyToClipboard}>
+            <button class="copy-btn" onClick={copyToClipboard} aria-label="Copy exchange data to clipboard">
               Copy
             </button>
           </div>

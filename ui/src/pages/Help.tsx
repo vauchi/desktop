@@ -113,6 +113,7 @@ function Help(props: HelpProps) {
           <button
             class={`category-chip ${!selectedCategory() && !searchResults() ? 'active' : ''}`}
             onClick={clearFilters}
+            aria-pressed={!selectedCategory() && !searchResults()}
           >
             All
           </button>
@@ -121,6 +122,7 @@ function Help(props: HelpProps) {
               <button
                 class={`category-chip ${selectedCategory() === category.id ? 'active' : ''}`}
                 onClick={() => handleCategorySelect(category.id)}
+                aria-pressed={selectedCategory() === category.id}
               >
                 {category.name}
               </button>
