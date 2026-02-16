@@ -22,7 +22,7 @@ use vauchi_core::network::simple_message::{
     create_simple_envelope, decode_simple_message, encode_simple_message, SimpleAckStatus,
     SimpleDeviceSyncMessage, SimpleEncryptedUpdate, SimplePayload,
 };
-use vauchi_core::sync::{DeviceSyncOrchestrator, SyncItem};
+use vauchi_core::sync::{process_card_updates, DeviceSyncOrchestrator, SyncItem};
 use vauchi_core::{Contact, ContactCard, Identity, Storage};
 
 use crate::state::AppState;
@@ -285,52 +285,8 @@ fn send_exchange_response(
     Ok(())
 }
 
-/// Process incoming card updates.
-fn process_card_updates(storage: &Storage, updates: Vec<(String, Vec<u8>)>) -> Result<u32, String> {
-    let mut processed = 0u32;
-
-    for (sender_id, ciphertext) in updates {
-        let mut contact = match storage
-            .load_contact(&sender_id)
-            .map_err(|e| e.to_string())?
-        {
-            Some(c) => c,
-            None => continue,
-        };
-
-        let (mut ratchet, _) = match storage
-            .load_ratchet_state(&sender_id)
-            .map_err(|e| e.to_string())?
-        {
-            Some(state) => state,
-            None => continue,
-        };
-
-        let ratchet_msg: vauchi_core::crypto::ratchet::RatchetMessage =
-            match serde_json::from_slice(&ciphertext) {
-                Ok(msg) => msg,
-                Err(_) => continue,
-            };
-
-        let plaintext = match ratchet.decrypt(&ratchet_msg) {
-            Ok(pt) => pt,
-            Err(_) => continue,
-        };
-
-        if let Ok(delta) = serde_json::from_slice::<vauchi_core::sync::CardDelta>(&plaintext) {
-            let mut card = contact.card().clone();
-            if delta.apply(&mut card).is_ok() {
-                contact.update_card(card);
-                storage.save_contact(&contact).map_err(|e| e.to_string())?;
-                processed += 1;
-            }
-        }
-
-        let _ = storage.save_ratchet_state(&sender_id, &ratchet, false);
-    }
-
-    Ok(processed)
-}
+// Card update processing is now handled by vauchi_core::sync::process_card_updates
+// which provides the full secure pipeline (revocation, signature, replay detection).
 
 /// Send pending outbound updates.
 fn send_pending_updates(
@@ -591,8 +547,10 @@ pub fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
 
     let contacts_added = encrypted_added;
 
-    // Process card updates
-    let cards_updated = process_card_updates(&state.storage, received.card_updates)?;
+    // Process card updates (uses core's secure pipeline with full security checks)
+    let card_result = process_card_updates(identity, &state.storage, received.card_updates)
+        .map_err(|e| e.to_string())?;
+    let cards_updated = card_result.processed;
 
     // Process device sync messages (inter-device synchronization)
     let device_synced =
