@@ -138,6 +138,8 @@ function Settings(props: SettingsProps) {
   const [deletionState, setDeletionState] = createSignal<DeletionInfo | null>(null);
   const [consentRecords, setConsentRecords] = createSignal<ConsentRecordInfo[]>([]);
   const [gdprMessage, setGdprMessage] = createSignal('');
+  const [showShredConfirm, setShowShredConfirm] = createSignal(false);
+  const [shredResult, setShredResult] = createSignal('');
 
   // Theme and locale state
   const [availableThemes, setAvailableThemes] = createSignal<Theme[]>([]);
@@ -563,6 +565,27 @@ function Settings(props: SettingsProps) {
     }
 
     setIsCheckingContent(false);
+  };
+
+  const handlePanicShred = async () => {
+    try {
+      const result = (await invoke('panic_shred')) as {
+        contacts_notified: number;
+        relay_purge_sent: boolean;
+        smk_destroyed: boolean;
+        sqlite_destroyed: boolean;
+        all_clear: boolean;
+      };
+      setShredResult(
+        result.all_clear
+          ? 'Emergency shred complete. All data destroyed.'
+          : 'Shred completed with warnings. Check logs.'
+      );
+      setShowShredConfirm(false);
+    } catch (e) {
+      setShredResult(`Shred failed: ${e}`);
+      setShowShredConfirm(false);
+    }
   };
 
   const handleExportGdprData = async () => {
@@ -1203,6 +1226,46 @@ function Settings(props: SettingsProps) {
             </For>
           </div>
         </div>
+
+        {/* Emergency Shred */}
+        <div class="setting-item">
+          <button
+            class="danger"
+            onClick={() => setShowShredConfirm(true)}
+            aria-label="Emergency panic shred - destroy all data immediately"
+          >
+            Emergency Shred
+          </button>
+          <span class="setting-description">
+            Immediately destroy all data. No grace period. Irreversible.
+          </span>
+        </div>
+
+        <Show when={shredResult()}>
+          <div class="setting-message" aria-live="polite">{shredResult()}</div>
+        </Show>
+
+        {/* Emergency Shred Confirmation Dialog */}
+        <Show when={showShredConfirm()}>
+          <div class="dialog-overlay" onClick={() => setShowShredConfirm(false)}>
+            <div class="dialog" onClick={(e) => e.stopPropagation()}>
+              <h3>Emergency Shred</h3>
+              <p>
+                This will <strong>immediately and irreversibly</strong> destroy all your data,
+                including contacts, identity, and encryption keys. This cannot be undone.
+              </p>
+              <p>Are you sure you want to proceed?</p>
+              <div class="dialog-actions">
+                <button class="secondary" onClick={() => setShowShredConfirm(false)}>
+                  Cancel
+                </button>
+                <button class="danger" onClick={handlePanicShred}>
+                  Destroy All Data
+                </button>
+              </div>
+            </div>
+          </div>
+        </Show>
 
         <Show when={gdprMessage()}>
           <div class="setting-message" aria-live="polite">{gdprMessage()}</div>
