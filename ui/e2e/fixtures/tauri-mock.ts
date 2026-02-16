@@ -127,9 +127,9 @@ export function tauriMockScript(): string {
         get_field_viewers: () => [],
 
         generate_qr: () => ({
-          qr_svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="white"/><text x="10" y="50" font-size="8">QR Mock</text></svg>',
-          qr_data: 'vauchi://mock-exchange-data',
-          exchange_id: 'ex-001',
+          data: 'vauchi://mock-exchange-data',
+          display_name: state.displayName || 'Test User',
+          qr_ascii: '█▀▀▀▀▀█ MOCK QR █▀▀▀▀▀█',
         }),
 
         complete_exchange: (args) => {
@@ -140,7 +140,7 @@ export function tauriMockScript(): string {
             public_key_hex: 'cd'.repeat(32),
           });
           persistState();
-          return { contact_id: id, display_name: 'New Contact' };
+          return { success: true, contact_name: 'New Contact', contact_id: id, message: 'Contact added' };
         },
 
         list_devices: () => [{
@@ -171,8 +171,8 @@ export function tauriMockScript(): string {
           return { strength: 'Strong', score: 3, feedback: [] };
         },
 
-        export_backup: () => ({ backup_data: btoa('mock-backup-data'), checksum: 'abc123' }),
-        import_backup: () => ({ success: true }),
+        export_backup: () => ({ success: true, data: btoa('mock-backup-data'), error: null }),
+        import_backup: () => 'Backup restored successfully',
         update_display_name: (args) => { state.displayName = args.name; persistState(); return null; },
 
         get_recovery_settings: () => ({ trusted_contacts: [], threshold: 2 }),
@@ -332,6 +332,26 @@ export function tauriMockScript(): string {
 
         open_contact_field: () => ({ opened: true }),
         get_field_action: () => ({ action: 'open', url: '' }),
+
+        // Search / hidden contacts
+        search_contacts: (args) => {
+          const q = (args.query || '').toLowerCase();
+          return state.contacts.filter((c) => c.display_name.toLowerCase().includes(q));
+        },
+        list_hidden_contacts: () => [],
+        hide_contact: () => null,
+        unhide_contact: () => null,
+        trust_contact: () => null,
+        untrust_contact: () => null,
+
+        // GDPR / Privacy
+        get_deletion_state: () => ({ state: 'none', scheduled_at: 0, execute_at: 0, days_remaining: 0 }),
+        get_consent_records: () => [],
+        grant_consent: () => null,
+        revoke_consent: () => null,
+        export_gdpr_data: () => JSON.stringify({ exported: true }),
+        schedule_account_deletion: () => ({ state: 'scheduled', scheduled_at: Date.now(), execute_at: Date.now() + 30*86400*1000, days_remaining: 30 }),
+        cancel_account_deletion: () => null,
       };
 
       window.__TAURI_INTERNALS__ = {

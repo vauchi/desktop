@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import { test, expect, Page } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 
 // Test data
 export const TEST_USER = {
@@ -20,154 +20,110 @@ export const TEST_CONTACT = {
   ],
 };
 
-// Helper functions
+// Helper functions using real CSS/ARIA selectors
+
 export async function setupTestUser(page: Page): Promise<void> {
-  // Navigate to setup page if no identity exists
   await page.goto('/');
-  
-  // Check if we're on setup page
-  if (await page.locator('[data-testid="setup-page"]').isVisible()) {
-    await page.fill('[data-testid="display-name-input"]', TEST_USER.displayName);
-    await page.click('[data-testid="create-identity-btn"]');
-    
-    // Wait for main app to load
-    await page.waitForSelector('[data-testid="main-app"]');
+
+  // Wait for either setup page or home page
+  const setupPage = page.locator('.page.setup');
+  const homePage = page.locator('.page.home');
+
+  const first = await Promise.race([
+    setupPage.waitFor({ timeout: 10000 }).then(() => 'setup'),
+    homePage.waitFor({ timeout: 10000 }).then(() => 'home'),
+  ]);
+
+  if (first === 'setup') {
+    await page.fill('#name', TEST_USER.displayName);
+    await page.click('button[type="submit"]');
+    await page.waitForSelector('.page.home', { timeout: 10000 });
   }
 }
 
 export async function addTestFields(page: Page): Promise<void> {
   for (const field of TEST_USER.initialFields) {
-    await page.click('[data-testid="add-field-btn"]');
-    await page.selectOption('[data-testid="field-type-select"]', field.type);
-    await page.fill('[data-testid="field-label-input"]', field.label);
-    await page.fill('[data-testid="field-value-input"]', field.value);
-    await page.click('[data-testid="save-field-btn"]');
-    await page.waitForTimeout(500); // Brief wait for field to be added
+    // Click "Add field" button
+    await page.click('.icon-btn');
+    await page.waitForSelector('[role="dialog"]');
+    await page.selectOption('#add-field-type', field.type);
+    await page.fill('#add-field-label', field.label);
+    await page.fill('#add-field-value', field.value);
+    // Click the Add button in dialog (last button in dialog-actions)
+    await page.click('[role="dialog"] .dialog-actions button:last-child');
+    await page.waitForTimeout(500);
   }
 }
 
+export async function navigateTo(page: Page, label: string): Promise<void> {
+  await page.click(`nav.bottom-nav button[aria-label*="${label}"]`);
+}
+
 export async function generateQRCode(page: Page): Promise<string> {
-  await page.click('[data-testid="exchange-tab"]');
-  await page.click('[data-testid="generate-qr-btn"]');
-  
-  // Wait for QR code to appear
-  await page.waitForSelector('[data-testid="qr-code"]');
-  
-  // Get QR code data
-  const qrData = await page.locator('[data-testid="qr-data"]').textContent();
+  await navigateTo(page, 'Exchange');
+  await page.waitForSelector('.page.exchange', { timeout: 10000 });
+
+  // Wait for QR container to appear
+  await page.waitForSelector('.qr-container', { timeout: 10000 });
+
+  // Get the exchange data from the copy input
+  const qrData = await page.locator('.copy-input-group input').inputValue();
   expect(qrData).toBeTruthy();
-  
+
   return qrData || '';
 }
 
 export async function completeExchange(page: Page, qrData: string): Promise<void> {
-  await page.click('[data-testid="exchange-tab"]');
-  await page.click('[data-testid="scan-qr-btn"]');
-  
-  // Mock QR scan by directly entering data
-  await page.fill('[data-testid="qr-input"]', qrData);
-  await page.click('[data-testid="complete-exchange-btn"]');
-  
+  await navigateTo(page, 'Exchange');
+  await page.waitForSelector('.page.exchange', { timeout: 10000 });
+
+  // Fill scan data input
+  await page.fill('input[aria-label="Exchange data input"]', qrData);
+  await page.click('button[aria-label="Complete the contact exchange"]');
+
   // Wait for success message
-  await page.waitForSelector('[data-testid="exchange-success"]');
+  await page.waitForSelector('.success', { timeout: 10000 });
 }
 
 export async function verifyContactExists(page: Page, displayName: string): Promise<void> {
-  await page.click('[data-testid="contacts-tab"]');
-  
-  const contactCard = page.locator(`[data-testid="contact-card"]`).filter({ hasText: displayName });
-  await expect(contactCard).toBeVisible({ timeout: 10000 });
+  await navigateTo(page, 'Contacts');
+  await page.waitForSelector('.page.contacts', { timeout: 10000 });
+
+  const contactItem = page.locator('.contact-item').filter({ hasText: displayName });
+  await expect(contactItem).toBeVisible({ timeout: 10000 });
 }
 
 export async function checkAppState(page: Page): Promise<{
   hasIdentity: boolean;
   contactCount: number;
-  isOnline: boolean;
 }> {
-  const contactCards = page.locator('[data-testid="contact-card"]');
-  const contactCount = await contactCards.count();
-  
-  const hasIdentity = await page.locator('[data-testid="main-app"]').isVisible();
-  const isOnline = await page.locator('[data-testid="connection-status"]').textContent();
-  
-  return {
-    hasIdentity,
-    contactCount,
-    isOnline: isOnline?.includes('Online') || false,
-  };
-}
+  const hasIdentity = await page.locator('.page.home').isVisible();
 
-export async function waitForSync(page: Page): Promise<void> {
-  await page.click('[data-testid="sync-btn"]');
-  await page.waitForSelector('[data-testid="sync-complete"]', { timeout: 30000 });
-}
+  // Navigate to contacts to count them
+  await navigateTo(page, 'Contacts');
+  await page.waitForSelector('.page.contacts', { timeout: 10000 });
+  const contactCount = await page.locator('.contact-item').count();
 
-export async function checkFieldVisibility(
-  page: Page,
-  contactName: string,
-  fieldLabel: string,
-  shouldBeVisible: boolean
-): Promise<void> {
-  await page.click('[data-testid="contacts-tab"]');
-  await page.locator(`[data-testid="contact-card"]`).filter({ hasText: contactName }).click();
-  
-  await page.waitForSelector('[data-testid="contact-detail"]');
-  
-  const field = page.locator(`[data-testid="field"]`).filter({ hasText: fieldLabel });
-  
-  if (shouldBeVisible) {
-    await expect(field).toBeVisible();
-  } else {
-    await expect(field).not.toBeVisible();
-  }
+  // Navigate back to home
+  await navigateTo(page, 'Home');
+  await page.waitForSelector('.page.home', { timeout: 10000 });
+
+  return { hasIdentity, contactCount };
 }
 
 export async function createBackup(page: Page, password: string): Promise<string> {
-  await page.click('[data-testid="settings-tab"]');
-  await page.click('[data-testid="backup-export-btn"]');
-  await page.fill('[data-testid="backup-password-input"]', password);
-  await page.click('[data-testid="create-backup-btn"]');
-  
-  // Wait for backup data
-  await page.waitForSelector('[data-testid="backup-data"]');
-  const backupData = await page.locator('[data-testid="backup-data"]').textContent();
-  
+  await navigateTo(page, 'Settings');
+  await page.waitForSelector('.page.settings', { timeout: 10000 });
+  await page.click('button[aria-label="Export a backup of your identity"]');
+  await page.waitForSelector('[role="dialog"]');
+  await page.fill('#backup-password', password);
+  await page.fill('#backup-confirm-password', password);
+  await page.click('button[aria-label="Create encrypted backup"]');
+
+  // Wait for backup result
+  await page.waitForSelector('.backup-result', { timeout: 10000 });
+  const backupData = await page.locator('.backup-result textarea').inputValue();
+
   expect(backupData).toBeTruthy();
   return backupData || '';
-}
-
-export async function restoreBackup(page: Page, backupData: string, password: string): Promise<void> {
-  await page.click('[data-testid="settings-tab"]');
-  await page.click('[data-testid="backup-import-btn"]');
-  await page.fill('[data-testid="backup-data-input"]', backupData);
-  await page.fill('[data-testid="backup-password-input"]', password);
-  await page.click('[data-testid="restore-backup-btn"]');
-  
-  // Wait for restore completion
-  await page.waitForSelector('[data-testid="restore-success"]');
-}
-
-// Error handling helpers
-export async function handleErrorToast(page: Page): Promise<string | null> {
-  const errorToast = page.locator('[data-testid="error-toast"]');
-  if (await errorToast.isVisible({ timeout: 2000 })) {
-    return await errorToast.textContent();
-  }
-  return null;
-}
-
-export async function checkAccessibility(page: Page): Promise<void> {
-  // Basic accessibility checks
-  await expect(page.locator('h1, h2, h3')).toHaveCount({ min: 1 });
-  await expect(page.locator('button')).toHaveCount({ min: 1 });
-  await expect(page.locator('[aria-label]')).toHaveCount({ min: 1 });
-}
-
-// Network simulation
-export async function simulateOffline(page: Page): Promise<void> {
-  await page.context().setOffline(true);
-}
-
-export async function simulateOnline(page: Page): Promise<void> {
-  await page.context().setOffline(false);
 }
