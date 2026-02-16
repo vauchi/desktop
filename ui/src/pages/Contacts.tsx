@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import { createResource, createSignal, createMemo, For, Show } from 'solid-js';
+import { createResource, createSignal, createMemo, For, Show, onMount, onCleanup } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { t, tArgs } from '../services/i18nService';
 import {
@@ -71,12 +71,26 @@ async function fetchContacts(): Promise<ContactInfo[]> {
   return await invoke('list_contacts');
 }
 
+async function fetchHiddenContacts(): Promise<ContactInfo[]> {
+  return await invoke('list_hidden_contacts');
+}
+
 async function searchContactsBackend(query: string): Promise<ContactInfo[]> {
   return await invoke('search_contacts', { query });
 }
 
+async function hideContact(id: string): Promise<void> {
+  await invoke('hide_contact', { id });
+}
+
+async function unhideContact(id: string): Promise<void> {
+  await invoke('unhide_contact', { id });
+}
+
 function Contacts(props: ContactsProps) {
+  const [showHiddenContacts, setShowHiddenContacts] = createSignal(false);
   const [contacts, { refetch }] = createResource(fetchContacts);
+  const [hiddenContacts, { refetch: refetchHidden }] = createResource(fetchHiddenContacts);
   const [selectedContact, setSelectedContact] = createSignal<ContactDetails | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = createSignal(false);
   const [showVisibility, setShowVisibility] = createSignal(false);
@@ -92,12 +106,24 @@ function Contacts(props: ContactsProps) {
   const [fieldValidations, setFieldValidations] = createSignal<Record<string, ValidationStatus>>({});
   const [validationLoading, setValidationLoading] = createSignal<string | null>(null);
 
+  // Keyboard shortcut listener for toggling hidden contacts view
+  onMount(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'H') {
+        e.preventDefault();
+        setShowHiddenContacts(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
+  });
+
   // Use backend search when query is present, otherwise show all contacts
   const filteredContacts = createMemo(() => {
     if (searchQuery().trim()) {
       return searchResults() || [];
     }
-    return contacts() || [];
+    return showHiddenContacts() ? (hiddenContacts() || []) : (contacts() || []);
   });
 
   // Debounced backend search
@@ -271,6 +297,35 @@ function Contacts(props: ContactsProps) {
       setSelectedContact(null);
       setShowDeleteConfirm(false);
       refetch();
+      refetchHidden();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const handleHideContact = async () => {
+    const contact = selectedContact();
+    if (!contact) return;
+
+    try {
+      await hideContact(contact.id);
+      setSelectedContact(null);
+      refetch();
+      refetchHidden();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const handleUnhideContact = async () => {
+    const contact = selectedContact();
+    if (!contact) return;
+
+    try {
+      await unhideContact(contact.id);
+      setSelectedContact(null);
+      refetch();
+      refetchHidden();
     } catch (e) {
       setError(String(e));
     }
@@ -315,7 +370,7 @@ function Contacts(props: ContactsProps) {
 
   return (
     <div class="page contacts" role="main" aria-labelledby="contacts-title">
-      <header role="banner">
+      <header role="banner" class={showHiddenContacts() ? 'hidden-mode' : ''}>
         <button
           class="back-btn"
           onClick={() => props.onNavigate('home')}
@@ -323,7 +378,14 @@ function Contacts(props: ContactsProps) {
         >
           {t('action.back')}
         </button>
-        <h1 id="contacts-title">{t('contacts.title')}</h1>
+        <h1 id="contacts-title">
+          {showHiddenContacts() ? 'Hidden Contacts' : t('contacts.title')}
+        </h1>
+        <Show when={showHiddenContacts()}>
+          <span class="mode-indicator" aria-label="Hidden contacts mode active">
+            🔒
+          </span>
+        </Show>
       </header>
 
       <div class="search-bar" role="search">
@@ -684,6 +746,24 @@ function Contacts(props: ContactsProps) {
                 <button class="secondary" onClick={closeDetail} aria-label="Close contact details">
                   Close
                 </button>
+                <Show when={!showHiddenContacts()}>
+                  <button
+                    class="secondary"
+                    onClick={handleHideContact}
+                    aria-label={`Hide ${selectedContact()?.display_name} from contacts`}
+                  >
+                    Hide Contact
+                  </button>
+                </Show>
+                <Show when={showHiddenContacts()}>
+                  <button
+                    class="primary"
+                    onClick={handleUnhideContact}
+                    aria-label={`Unhide ${selectedContact()?.display_name} and return to contacts`}
+                  >
+                    Unhide Contact
+                  </button>
+                </Show>
                 <button
                   class="danger"
                   onClick={() => setShowDeleteConfirm(true)}
