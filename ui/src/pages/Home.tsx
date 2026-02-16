@@ -325,7 +325,12 @@ function Home(props: HomeProps) {
 
       {/* Field Visibility Dialog */}
       <Show when={selectedFieldId()}>
-        <div class="dialog-overlay" onClick={closeVisibilityDialog} role="presentation">
+        <div
+          class="dialog-overlay"
+          onClick={closeVisibilityDialog}
+          onKeyDown={(e) => { if (e.key === 'Escape') closeVisibilityDialog(); }}
+          role="presentation"
+        >
           <div
             class="dialog visibility-dialog"
             role="dialog"
@@ -407,6 +412,7 @@ function Home(props: HomeProps) {
           onClick={() => {
             if (!isEditSaving()) closeEditDialog();
           }}
+          onKeyDown={(e) => { if (e.key === 'Escape' && !isEditSaving()) closeEditDialog(); }}
           role="presentation"
         >
           <div
@@ -503,7 +509,12 @@ function AddFieldDialog(props: AddFieldDialogProps) {
   };
 
   return (
-    <div class="dialog-overlay" onClick={props.onClose} role="presentation">
+    <div
+      class="dialog-overlay"
+      onClick={props.onClose}
+      onKeyDown={(e) => { if (e.key === 'Escape') props.onClose(); }}
+      role="presentation"
+    >
       <div
         class="dialog"
         role="dialog"

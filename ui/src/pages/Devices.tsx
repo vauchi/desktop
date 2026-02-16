@@ -196,7 +196,12 @@ function Devices(props: DevicesProps) {
 
       {/* Link Device Dialog */}
       <Show when={showLinkDialog()}>
-        <div class="dialog-overlay" onClick={() => setShowLinkDialog(false)} role="presentation">
+        <div
+          class="dialog-overlay"
+          onClick={() => setShowLinkDialog(false)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setShowLinkDialog(false); }}
+          role="presentation"
+        >
           <div
             class="dialog"
             role="dialog"
@@ -240,6 +245,13 @@ function Devices(props: DevicesProps) {
           class="dialog-overlay"
           onClick={() => {
             if (!isJoining()) {
+              setShowJoinDialog(false);
+              setJoinData('');
+              setJoinMessage('');
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && !isJoining()) {
               setShowJoinDialog(false);
               setJoinData('');
               setJoinMessage('');
@@ -307,6 +319,9 @@ function Devices(props: DevicesProps) {
           class="dialog-overlay"
           onClick={() => {
             if (!isRevoking()) setShowRevokeConfirm(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && !isRevoking()) setShowRevokeConfirm(null);
           }}
           role="presentation"
         >

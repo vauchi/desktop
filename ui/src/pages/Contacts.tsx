@@ -389,7 +389,12 @@ function Contacts(props: ContactsProps) {
 
       {/* Contact Detail Dialog */}
       <Show when={selectedContact()}>
-        <div class="dialog-overlay" onClick={closeDetail} role="presentation">
+        <div
+          class="dialog-overlay"
+          onClick={closeDetail}
+          onKeyDown={(e) => { if (e.key === 'Escape') closeDetail(); }}
+          role="presentation"
+        >
           <div
             class="dialog contact-detail"
             role="dialog"

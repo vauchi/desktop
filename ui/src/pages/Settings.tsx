@@ -1033,7 +1033,12 @@ function Settings(props: SettingsProps) {
 
       {/* Backup Dialog */}
       <Show when={showBackupDialog()}>
-        <div class="dialog-overlay" onClick={closeDialog} role="presentation">
+        <div
+          class="dialog-overlay"
+          onClick={closeDialog}
+          onKeyDown={(e) => { if (e.key === 'Escape') closeDialog(); }}
+          role="presentation"
+        >
           <div
             class="dialog"
             role="dialog"
@@ -1140,7 +1145,12 @@ function Settings(props: SettingsProps) {
 
       {/* Import Dialog */}
       <Show when={showImportDialog()}>
-        <div class="dialog-overlay" onClick={closeImportDialog} role="presentation">
+        <div
+          class="dialog-overlay"
+          onClick={closeImportDialog}
+          onKeyDown={(e) => { if (e.key === 'Escape') closeImportDialog(); }}
+          role="presentation"
+        >
           <div
             class="dialog"
             role="dialog"
