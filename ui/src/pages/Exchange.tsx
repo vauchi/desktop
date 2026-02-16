@@ -261,6 +261,18 @@ function Exchange(props: ExchangeProps) {
         </button>
       </section>
 
+      <section class="ble-section" aria-labelledby="ble-section-title">
+        <h2 id="ble-section-title">Bluetooth Exchange</h2>
+        <div class="ble-stub">
+          <p class="ble-icon" aria-hidden="true">📶</p>
+          <p>Not available on desktop</p>
+          <p class="ble-description">
+            Bluetooth-based contact exchange is available on mobile devices.
+            Use QR code exchange on desktop.
+          </p>
+        </div>
+      </section>
+
       <Show when={ahaMoment()}>
         <div class="aha-moment" role="status" aria-live="polite">
           <h2>{ahaMoment()!.title}</h2>
