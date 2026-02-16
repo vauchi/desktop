@@ -280,8 +280,8 @@ pub fn finish_join_device(
 /// Complete a device link request on the existing device.
 ///
 /// This is called on the device that generated the link QR to approve the new device.
-// TODO: Migrate to prepare_confirmation() + confirm_link() API
-#[allow(deprecated)]
+/// Returns a JSON object with `response` (base64 encrypted response) and
+/// `confirmation` (device name, confirmation code, fingerprint) for UI display.
 #[tauri::command]
 pub fn complete_device_link(
     request_data: String,
@@ -315,17 +315,24 @@ pub fn complete_device_link(
         .unwrap_or_else(|| identity.initial_device_registry());
 
     // Restore the initiator
-    let initiator = identity.restore_device_link_initiator(registry, saved_qr);
+    let mut initiator = identity.restore_device_link_initiator(registry, saved_qr);
 
     // Decode and process the request
     let encrypted_request = BASE64
         .decode(&request_data)
         .map_err(|_| "Invalid request data (not valid base64)".to_string())?;
 
-    #[allow(deprecated)] // TODO: Migrate to prepare_confirmation() + confirm_link()
+    // Decrypt request and get confirmation details
+    let (_confirmation, request) = initiator
+        .prepare_confirmation(&encrypted_request)
+        .map_err(|e| format!("Failed to prepare confirmation: {:?}", e))?;
+
+    // Desktop uses QR scan for proximity proof
+    initiator.set_proximity_verified();
+
     let (encrypted_response, updated_registry, _new_device) = initiator
-        .process_request(&encrypted_request)
-        .map_err(|e| format!("Failed to process request: {:?}", e))?;
+        .confirm_link(&request)
+        .map_err(|e| format!("Failed to confirm link: {:?}", e))?;
 
     // Save the updated registry
     state
