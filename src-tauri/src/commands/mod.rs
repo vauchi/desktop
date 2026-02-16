@@ -8,6 +8,7 @@
 
 pub mod actions;
 pub mod aha;
+pub mod auth;
 pub mod backup;
 pub mod card;
 pub mod contacts;

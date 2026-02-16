@@ -122,6 +122,18 @@ function Settings(props: SettingsProps) {
   const [highContrast, setHighContrast] = createSignal(false);
   const [largeTouchTargets, setLargeTouchTargets] = createSignal(false);
 
+  // Security / duress state
+  const [passwordEnabled, setPasswordEnabled] = createSignal(false);
+  const [duressEnabled, setDuressEnabled] = createSignal(false);
+  const [showPasswordDialog, setShowPasswordDialog] = createSignal(false);
+  const [showDuressDialog, setShowDuressDialog] = createSignal(false);
+  const [appPassword, setAppPassword] = createSignal('');
+  const [appPasswordConfirm, setAppPasswordConfirm] = createSignal('');
+  const [duressPin, setDuressPin] = createSignal('');
+  const [dressPinConfirm, setDressPinConfirm] = createSignal('');
+  const [securityError, setSecurityError] = createSignal('');
+  const [securityMessage, setSecurityMessage] = createSignal('');
+
   // GDPR state
   const [deletionState, setDeletionState] = createSignal<DeletionInfo | null>(null);
   const [consentRecords, setConsentRecords] = createSignal<ConsentRecordInfo[]>([]);
@@ -192,6 +204,18 @@ function Settings(props: SettingsProps) {
       console.error('Failed to load locales:', e);
     }
 
+    // Load security / duress status
+    try {
+      const status = (await invoke('get_duress_status')) as {
+        password_enabled: boolean;
+        duress_enabled: boolean;
+      };
+      setPasswordEnabled(status.password_enabled);
+      setDuressEnabled(status.duress_enabled);
+    } catch (e) {
+      console.error('Failed to load duress status:', e);
+    }
+
     // Load GDPR state
     try {
       const deletion = (await invoke('get_deletion_state')) as DeletionInfo;
@@ -242,6 +266,63 @@ function Settings(props: SettingsProps) {
     setSelectedLocaleCode(code);
     // Reload page to apply locale changes fully
     window.location.reload();
+  };
+
+  const handleSetupPassword = async () => {
+    setSecurityError('');
+    setSecurityMessage('');
+    if (appPassword().length < 4) {
+      setSecurityError('Password must be at least 4 characters');
+      return;
+    }
+    if (appPassword() !== appPasswordConfirm()) {
+      setSecurityError('Passwords do not match');
+      return;
+    }
+    try {
+      await invoke('setup_app_password', { password: appPassword() });
+      setPasswordEnabled(true);
+      setShowPasswordDialog(false);
+      setAppPassword('');
+      setAppPasswordConfirm('');
+      setSecurityMessage('App password set');
+    } catch (e) {
+      setSecurityError(String(e));
+    }
+  };
+
+  const handleSetupDuress = async () => {
+    setSecurityError('');
+    setSecurityMessage('');
+    if (duressPin().length < 4) {
+      setSecurityError('Duress PIN must be at least 4 characters');
+      return;
+    }
+    if (duressPin() !== dressPinConfirm()) {
+      setSecurityError('PINs do not match');
+      return;
+    }
+    try {
+      await invoke('setup_duress_pin', { duressPin: duressPin() });
+      setDuressEnabled(true);
+      setShowDuressDialog(false);
+      setDuressPin('');
+      setDressPinConfirm('');
+      setSecurityMessage('Duress PIN configured');
+    } catch (e) {
+      setSecurityError(String(e));
+    }
+  };
+
+  const handleDisableDuress = async () => {
+    setSecurityError('');
+    try {
+      await invoke('disable_duress');
+      setDuressEnabled(false);
+      setSecurityMessage('Duress PIN disabled');
+    } catch (e) {
+      setSecurityError(String(e));
+    }
   };
 
   const handleSync = async () => {
@@ -615,6 +696,157 @@ function Settings(props: SettingsProps) {
             {identity()?.public_id}
           </span>
         </div>
+      </section>
+
+      {/* Security / Duress PIN Section */}
+      <section class="settings-section" aria-labelledby="security-section-title">
+        <h2 id="security-section-title">Security</h2>
+        <p class="setting-description">
+          Protect your data with an app password and optional duress PIN.
+        </p>
+
+        <Show when={securityMessage()}>
+          <p class="success-message" role="status">
+            {securityMessage()}
+          </p>
+        </Show>
+
+        {/* App Password */}
+        <div class="setting-item">
+          <span class="setting-label">App Password</span>
+          <span class="setting-value">
+            {passwordEnabled() ? 'Enabled' : 'Not set'}
+          </span>
+        </div>
+        <Show when={!passwordEnabled()}>
+          <div class="setting-buttons">
+            <button
+              class="secondary"
+              onClick={() => {
+                setSecurityError('');
+                setShowPasswordDialog(true);
+              }}
+            >
+              Set App Password
+            </button>
+          </div>
+        </Show>
+
+        {/* Duress PIN */}
+        <Show when={passwordEnabled()}>
+          <div class="setting-item">
+            <span class="setting-label">Duress PIN</span>
+            <span class="setting-value">
+              {duressEnabled() ? 'Enabled' : 'Not set'}
+            </span>
+          </div>
+          <div class="setting-buttons">
+            <Show when={!duressEnabled()}>
+              <button
+                class="secondary"
+                onClick={() => {
+                  setSecurityError('');
+                  setShowDuressDialog(true);
+                }}
+              >
+                Set Duress PIN
+              </button>
+            </Show>
+            <Show when={duressEnabled()}>
+              <button class="danger" onClick={handleDisableDuress}>
+                Disable Duress PIN
+              </button>
+            </Show>
+          </div>
+          <Show when={duressEnabled()}>
+            <p class="setting-description">
+              When entered, contacts will be replaced with decoy data.
+            </p>
+          </Show>
+        </Show>
+
+        {/* Set App Password Dialog */}
+        <Show when={showPasswordDialog()}>
+          <div class="dialog-overlay" onClick={() => setShowPasswordDialog(false)}>
+            <div class="dialog" onClick={(e) => e.stopPropagation()}>
+              <h3>Set App Password</h3>
+              <Show when={securityError()}>
+                <p class="error" role="alert">
+                  {securityError()}
+                </p>
+              </Show>
+              <label>
+                Password
+                <input
+                  type="password"
+                  value={appPassword()}
+                  onInput={(e) => setAppPassword(e.currentTarget.value)}
+                  placeholder="Enter password"
+                />
+              </label>
+              <label>
+                Confirm Password
+                <input
+                  type="password"
+                  value={appPasswordConfirm()}
+                  onInput={(e) => setAppPasswordConfirm(e.currentTarget.value)}
+                  placeholder="Confirm password"
+                />
+              </label>
+              <div class="dialog-actions">
+                <button class="secondary" onClick={() => setShowPasswordDialog(false)}>
+                  Cancel
+                </button>
+                <button class="primary" onClick={handleSetupPassword}>
+                  Set Password
+                </button>
+              </div>
+            </div>
+          </div>
+        </Show>
+
+        {/* Set Duress PIN Dialog */}
+        <Show when={showDuressDialog()}>
+          <div class="dialog-overlay" onClick={() => setShowDuressDialog(false)}>
+            <div class="dialog" onClick={(e) => e.stopPropagation()}>
+              <h3>Set Duress PIN</h3>
+              <p class="setting-description">
+                When this PIN is entered instead of the app password, contacts will be replaced with decoy data.
+              </p>
+              <Show when={securityError()}>
+                <p class="error" role="alert">
+                  {securityError()}
+                </p>
+              </Show>
+              <label>
+                Duress PIN
+                <input
+                  type="password"
+                  value={duressPin()}
+                  onInput={(e) => setDuressPin(e.currentTarget.value)}
+                  placeholder="Enter duress PIN"
+                />
+              </label>
+              <label>
+                Confirm Duress PIN
+                <input
+                  type="password"
+                  value={dressPinConfirm()}
+                  onInput={(e) => setDressPinConfirm(e.currentTarget.value)}
+                  placeholder="Confirm duress PIN"
+                />
+              </label>
+              <div class="dialog-actions">
+                <button class="secondary" onClick={() => setShowDuressDialog(false)}>
+                  Cancel
+                </button>
+                <button class="primary" onClick={handleSetupDuress}>
+                  Set Duress PIN
+                </button>
+              </div>
+            </div>
+          </div>
+        </Show>
       </section>
 
       <section class="settings-section" aria-labelledby="devices-section-title">

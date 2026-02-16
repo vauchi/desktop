@@ -189,6 +189,14 @@ pub fn run() {
             commands::gdpr::get_consent_records,
             commands::gdpr::execute_account_deletion,
             commands::gdpr::panic_shred,
+            // Auth & duress commands
+            commands::auth::setup_app_password,
+            commands::auth::authenticate,
+            commands::auth::setup_duress_pin,
+            commands::auth::disable_duress,
+            commands::auth::get_duress_status,
+            commands::auth::get_duress_settings,
+            commands::auth::save_duress_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
