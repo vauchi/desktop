@@ -411,7 +411,7 @@ function Contacts(props: ContactsProps) {
               role="listitem"
               tabIndex={0}
               onClick={() => openContactDetail(contact.id)}
-              onKeyPress={(e) => e.key === 'Enter' && openContactDetail(contact.id)}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), openContactDetail(contact.id))}
               aria-label={`${contact.display_name}, ${contact.verified ? 'verified' : 'not verified'}. Press Enter to view details.`}
             >
               <div class="contact-avatar" aria-hidden="true">
@@ -562,7 +562,7 @@ function Contacts(props: ContactsProps) {
                       role="listitem"
                       tabIndex={0}
                       onClick={() => handleFieldClick(field)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleFieldClick(field)}
+                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), handleFieldClick(field))}
                       aria-label={`${field.label}: ${field.value}. Press Enter to open.`}
                     >
                       <span class="field-icon" aria-hidden="true">

@@ -930,9 +930,20 @@ function Settings(props: SettingsProps) {
 
         {/* Set App Password Dialog */}
         <Show when={showPasswordDialog()}>
-          <div class="dialog-overlay" onClick={() => setShowPasswordDialog(false)}>
-            <div class="dialog" onClick={(e) => e.stopPropagation()}>
-              <h3>Set App Password</h3>
+          <div
+            class="dialog-overlay"
+            onClick={() => setShowPasswordDialog(false)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setShowPasswordDialog(false); }}
+            role="presentation"
+          >
+            <div
+              class="dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="password-dialog-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="password-dialog-title">Set App Password</h3>
               <Show when={securityError()}>
                 <p class="error" role="alert">
                   {securityError()}
@@ -970,9 +981,20 @@ function Settings(props: SettingsProps) {
 
         {/* Set Duress PIN Dialog */}
         <Show when={showDuressDialog()}>
-          <div class="dialog-overlay" onClick={() => setShowDuressDialog(false)}>
-            <div class="dialog" onClick={(e) => e.stopPropagation()}>
-              <h3>Set Duress PIN</h3>
+          <div
+            class="dialog-overlay"
+            onClick={() => setShowDuressDialog(false)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setShowDuressDialog(false); }}
+            role="presentation"
+          >
+            <div
+              class="dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="duress-dialog-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="duress-dialog-title">Set Duress PIN</h3>
               <p class="setting-description">
                 When this PIN is entered instead of the app password, contacts will be replaced with decoy data.
               </p>
@@ -1058,9 +1080,20 @@ function Settings(props: SettingsProps) {
 
         {/* Emergency Broadcast Configuration Dialog */}
         <Show when={showEmergencyDialog()}>
-          <div class="dialog-overlay" onClick={() => setShowEmergencyDialog(false)}>
-            <div class="dialog" onClick={(e) => e.stopPropagation()}>
-              <h3>Emergency Broadcast Configuration</h3>
+          <div
+            class="dialog-overlay"
+            onClick={() => setShowEmergencyDialog(false)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setShowEmergencyDialog(false); }}
+            role="presentation"
+          >
+            <div
+              class="dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="emergency-dialog-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="emergency-dialog-title">Emergency Broadcast Configuration</h3>
               <p class="setting-description">
                 Choose up to 10 trusted contacts to receive an encrypted alert. Alerts look like normal sync traffic on the wire.
               </p>
@@ -1189,9 +1222,20 @@ function Settings(props: SettingsProps) {
 
         {/* Bridge Management Dialog */}
         <Show when={showBridgeDialog()}>
-          <div class="dialog-overlay" onClick={() => setShowBridgeDialog(false)}>
-            <div class="dialog" onClick={(e) => e.stopPropagation()}>
-              <h3>Manage Bridges</h3>
+          <div
+            class="dialog-overlay"
+            onClick={() => setShowBridgeDialog(false)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setShowBridgeDialog(false); }}
+            role="presentation"
+          >
+            <div
+              class="dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="bridges-dialog-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="bridges-dialog-title">Manage Bridges</h3>
               <p class="setting-description">
                 Add obfs4 bridge addresses for censored networks. One per line.
               </p>
@@ -1593,9 +1637,20 @@ function Settings(props: SettingsProps) {
 
         {/* Emergency Shred Confirmation Dialog */}
         <Show when={showShredConfirm()}>
-          <div class="dialog-overlay" onClick={() => setShowShredConfirm(false)}>
-            <div class="dialog" onClick={(e) => e.stopPropagation()}>
-              <h3>Emergency Shred</h3>
+          <div
+            class="dialog-overlay"
+            onClick={() => setShowShredConfirm(false)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setShowShredConfirm(false); }}
+            role="presentation"
+          >
+            <div
+              class="dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="shred-dialog-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="shred-dialog-title">Emergency Shred</h3>
               <p>
                 This will <strong>immediately and irreversibly</strong> destroy all your data,
                 including contacts, identity, and encryption keys. This cannot be undone.

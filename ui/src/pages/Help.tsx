@@ -149,6 +149,7 @@ function Help(props: HelpProps) {
             {(faq) => (
               <div class={`faq-item ${expandedFaq() === faq.id ? 'expanded' : ''}`}>
                 <button
+                  id={`faq-question-${faq.id}`}
                   class="faq-question"
                   onClick={() => toggleFaq(faq.id)}
                   aria-expanded={expandedFaq() === faq.id}
