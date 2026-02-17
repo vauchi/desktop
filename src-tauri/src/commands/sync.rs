@@ -446,22 +446,12 @@ fn apply_sync_item(storage: &Storage, item: &SyncItem) -> Result<(), String> {
     Ok(())
 }
 
-/// Send pending device sync items to other devices.
-fn send_device_sync(
-    identity: &Identity,
-    storage: &Storage,
-    socket: &mut WebSocket<MaybeTlsStream<TcpStream>>,
-) -> Result<u32, String> {
-    let envelopes = vauchi_core::sync::build_device_sync_envelopes(identity, storage)
-        .map_err(|e| format!("Failed to build sync envelopes: {:?}", e))?;
+struct WsSender<'a>(&'a mut WebSocket<MaybeTlsStream<TcpStream>>);
 
-    let mut sent = 0u32;
-    for data in envelopes {
-        if socket.send(Message::Binary(data)).is_ok() {
-            sent += 1;
-        }
+impl vauchi_core::sync::BinarySender for WsSender<'_> {
+    fn send_binary(&mut self, data: Vec<u8>) -> Result<(), String> {
+        self.0.send(Message::Binary(data)).map_err(|e| e.to_string())
     }
-    Ok(sent)
 }
 
 /// Perform a sync with the relay server.
@@ -511,7 +501,8 @@ pub fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
         process_device_sync_messages(identity, &state.storage, received.device_sync_messages)?;
 
     // Send pending device sync items to other devices
-    let device_sync_sent = send_device_sync(identity, &state.storage, &mut socket)?;
+    let device_sync_sent = vauchi_core::sync::send_device_sync(identity, &state.storage, &mut WsSender(&mut socket))
+        .map_err(|e| format!("Send device sync failed: {:?}", e))?;
 
     // Send pending outbound updates
     let updates_sent = send_pending_updates(identity, &state.storage, &mut socket)?;
