@@ -177,7 +177,7 @@ export function tauriMockScript(): string {
 
         get_recovery_settings: () => ({ trusted_contacts: [], threshold: 2 }),
         create_recovery_claim: () => 'mock-claim-b64',
-        parse_recovery_claim: () => ({ public_key_hex: 'ab'.repeat(32), created_at: Date.now() }),
+        parse_recovery_claim: () => ({ old_pk: 'ab'.repeat(32), new_pk: 'cd'.repeat(32), is_expired: false, contact_name: 'Alice' }),
         create_recovery_voucher: () => 'mock-voucher-b64',
         check_recovery_claim: () => ({ status: 'pending' }),
 
@@ -344,14 +344,61 @@ export function tauriMockScript(): string {
         trust_contact: () => null,
         untrust_contact: () => null,
 
+        // Security: App Password & Duress
+        get_duress_status: () => ({ app_password_set: false, duress_pin_set: false }),
+        setup_app_password: (args) => { state._appPasswordSet = true; persistState(); return null; },
+        setup_duress_pin: (args) => { state._duressPinSet = true; persistState(); return null; },
+        disable_duress: () => { state._duressPinSet = false; persistState(); return null; },
+
+        // Emergency Broadcast
+        get_emergency_config: () => state._emergencyConfig || null,
+        save_emergency_config: (args) => {
+          state._emergencyConfig = { trusted_contact_ids: args.trustedContactIds || [], message: args.message || '', include_location: args.includeLocation || false };
+          persistState();
+          return null;
+        },
+        delete_emergency_config: () => { state._emergencyConfig = null; persistState(); return null; },
+
+        // Tor
+        get_tor_config: () => state._torConfig || { enabled: false, bridges: [], prefer_onion: false, circuit_rotation_secs: 600 },
+        save_tor_config: (args) => {
+          state._torConfig = {
+            enabled: args.enabled !== undefined ? args.enabled : (state._torConfig || {}).enabled || false,
+            bridges: args.bridges !== undefined ? args.bridges : (state._torConfig || {}).bridges || [],
+            prefer_onion: args.preferOnion !== undefined ? args.preferOnion : (state._torConfig || {}).prefer_onion || false,
+            circuit_rotation_secs: args.circuitRotationSecs !== undefined ? args.circuitRotationSecs : (state._torConfig || {}).circuit_rotation_secs || 600,
+          };
+          persistState();
+          return null;
+        },
+
         // GDPR / Privacy
-        get_deletion_state: () => ({ state: 'none', scheduled_at: 0, execute_at: 0, days_remaining: 0 }),
-        get_consent_records: () => [],
-        grant_consent: () => null,
-        revoke_consent: () => null,
-        export_gdpr_data: () => JSON.stringify({ exported: true }),
-        schedule_account_deletion: () => ({ state: 'scheduled', scheduled_at: Date.now(), execute_at: Date.now() + 30*86400*1000, days_remaining: 30 }),
-        cancel_account_deletion: () => null,
+        get_deletion_state: () => state._deletionState || { state: 'none', scheduled_at: 0, execute_at: 0, days_remaining: 0 },
+        get_consent_records: () => state._consentRecords || [],
+        grant_consent: (args) => {
+          if (!state._consentRecords) state._consentRecords = [];
+          state._consentRecords.push({ consent_type: args.consentType, granted: true, timestamp: Date.now() });
+          persistState();
+          return null;
+        },
+        revoke_consent: (args) => {
+          if (!state._consentRecords) state._consentRecords = [];
+          state._consentRecords = state._consentRecords.filter((r) => r.consent_type !== args.consentType);
+          persistState();
+          return null;
+        },
+        export_gdpr_data: () => JSON.stringify({ exported: true, identity: state.displayName, fields: state.fields, contacts: state.contacts }),
+        schedule_account_deletion: () => {
+          state._deletionState = { state: 'scheduled', scheduled_at: Date.now(), execute_at: Date.now() + 30*86400*1000, days_remaining: 30 };
+          persistState();
+          return state._deletionState;
+        },
+        cancel_account_deletion: () => {
+          state._deletionState = { state: 'none', scheduled_at: 0, execute_at: 0, days_remaining: 0 };
+          persistState();
+          return null;
+        },
+        panic_shred: () => ({ success: true, message: 'All data destroyed' }),
       };
 
       window.__TAURI_INTERNALS__ = {
