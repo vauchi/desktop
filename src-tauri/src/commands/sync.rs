@@ -4,16 +4,16 @@
 
 //! Sync Commands
 //!
-//! Handles synchronization with the relay server.
+//! Handles synchronization with the relay server using async WebSocket I/O.
+//! Storage is scoped so it never lives across `.await` boundaries (it is `!Send`).
 
-use std::net::TcpStream;
 use std::sync::Mutex;
 use std::time::Duration;
 
+use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
 use tauri::State;
-use tungstenite::stream::MaybeTlsStream;
-use tungstenite::{Message, WebSocket};
+use tokio_tungstenite::tungstenite::Message;
 
 use vauchi_core::crypto::ratchet::DoubleRatchetState;
 use vauchi_core::exchange::{EncryptedExchangeMessage, X3DHKeyPair};
@@ -22,10 +22,17 @@ use vauchi_core::network::simple_message::{
     decode_simple_message, encode_simple_message, SimpleAckStatus, SimpleDeviceSyncMessage,
     SimpleEncryptedUpdate, SimplePayload,
 };
-use vauchi_core::sync::{process_card_updates, DeviceSyncOrchestrator, SyncItem};
+use vauchi_core::sync::{
+    build_device_sync_envelopes, process_card_updates, DeviceSyncOrchestrator, SyncItem,
+};
 use vauchi_core::{Contact, ContactCard, Identity, IdentityBackup, Storage};
 
 use crate::state::AppState;
+
+/// Type alias for the async WebSocket stream.
+type WsStream = tokio_tungstenite::WebSocketStream<
+    tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+>;
 
 /// Result of a sync operation.
 #[derive(Serialize)]
@@ -53,56 +60,22 @@ pub struct SyncStatus {
     pub is_syncing: bool,
 }
 
-/// Connect to relay server via WebSocket with timeout.
-fn connect_to_relay(relay_url: &str) -> Result<WebSocket<MaybeTlsStream<TcpStream>>, String> {
-    use std::net::ToSocketAddrs;
-    use url::Url;
+/// Connect to relay server via async WebSocket with timeout.
+async fn connect_to_relay(relay_url: &str) -> Result<WsStream, String> {
+    let (ws_stream, _) = tokio::time::timeout(
+        Duration::from_secs(5),
+        tokio_tungstenite::connect_async(relay_url),
+    )
+    .await
+    .map_err(|_| "Connection timed out".to_string())?
+    .map_err(|e| format!("WebSocket connection failed: {}", e))?;
 
-    // Parse URL to get host and port
-    let url = Url::parse(relay_url).map_err(|e| format!("Invalid relay URL: {}", e))?;
-    let host = url.host_str().ok_or("No host in relay URL")?;
-    let port = url
-        .port()
-        .unwrap_or(if url.scheme() == "wss" { 443 } else { 80 });
-    let addr_str = format!("{}:{}", host, port);
-
-    // Resolve address
-    let addr = addr_str
-        .to_socket_addrs()
-        .map_err(|e| format!("Failed to resolve {}: {}", addr_str, e))?
-        .next()
-        .ok_or_else(|| format!("No addresses found for {}", addr_str))?;
-
-    // Connect with timeout (2 seconds for responsive UX)
-    let stream = TcpStream::connect_timeout(&addr, Duration::from_secs(2))
-        .map_err(|e| format!("Connection failed: {}", e))?;
-
-    // Set read/write timeouts (3 seconds)
-    stream.set_read_timeout(Some(Duration::from_secs(3))).ok();
-    stream.set_write_timeout(Some(Duration::from_secs(3))).ok();
-
-    // Handle TLS if needed
-    let tls_stream: MaybeTlsStream<TcpStream> = if url.scheme() == "wss" {
-        let connector = native_tls::TlsConnector::new()
-            .map_err(|e| format!("Failed to create TLS connector: {}", e))?;
-        let tls_stream = connector
-            .connect(host, stream)
-            .map_err(|e| format!("TLS handshake failed: {}", e))?;
-        MaybeTlsStream::NativeTls(tls_stream)
-    } else {
-        MaybeTlsStream::Plain(stream)
-    };
-
-    // Perform WebSocket handshake
-    let (socket, _response) = tungstenite::client(relay_url, tls_stream)
-        .map_err(|e| format!("WebSocket handshake failed: {}", e))?;
-
-    Ok(socket)
+    Ok(ws_stream)
 }
 
 /// Send authenticated handshake to relay.
-fn send_handshake(
-    socket: &mut WebSocket<MaybeTlsStream<TcpStream>>,
+async fn send_handshake(
+    socket: &mut WsStream,
     identity: &Identity,
     device_id: Option<&str>,
 ) -> Result<(), String> {
@@ -111,6 +84,7 @@ fn send_handshake(
     let data = encode_simple_message(&envelope).map_err(|e| format!("Encode error: {}", e))?;
     socket
         .send(Message::Binary(data))
+        .await
         .map_err(|e| format!("Send error: {}", e))?;
     Ok(())
 }
@@ -122,22 +96,22 @@ struct ReceivedMessages {
     device_sync_messages: Vec<SimpleDeviceSyncMessage>,
 }
 
-/// Receive pending messages from relay.
-fn receive_pending(
-    socket: &mut WebSocket<MaybeTlsStream<TcpStream>>,
-) -> Result<ReceivedMessages, String> {
+/// Receive pending messages from relay with timeout.
+async fn receive_pending(socket: &mut WsStream) -> Result<ReceivedMessages, String> {
     let mut encrypted_exchange = Vec::new();
     let mut card_updates = Vec::new();
     let mut device_sync_messages = Vec::new();
 
-    // Set read timeout for non-blocking receive
-    if let MaybeTlsStream::Plain(ref stream) = socket.get_ref() {
-        let _ = stream.set_read_timeout(Some(Duration::from_millis(1000)));
-    }
-
     loop {
-        match socket.read() {
-            Ok(Message::Binary(data)) => {
+        // Use timeout to detect when no more messages are pending
+        let msg = match tokio::time::timeout(Duration::from_secs(1), socket.next()).await {
+            Ok(Some(Ok(msg))) => msg,
+            Ok(Some(Err(_))) | Ok(None) => break,
+            Err(_) => break, // Timeout — no more pending messages
+        };
+
+        match msg {
+            Message::Binary(data) => {
                 if let Ok(envelope) = decode_simple_message(&data) {
                     match envelope.payload {
                         SimplePayload::EncryptedUpdate(update) => {
@@ -154,7 +128,7 @@ fn receive_pending(
                                 SimpleAckStatus::ReceivedByRecipient,
                             );
                             if let Ok(ack_data) = encode_simple_message(&ack) {
-                                let _ = socket.send(Message::Binary(ack_data));
+                                let _ = socket.send(Message::Binary(ack_data)).await;
                             }
                         }
                         SimplePayload::DeviceSyncMessage(msg) => {
@@ -165,25 +139,18 @@ fn receive_pending(
                             // Send device sync ack
                             let ack = create_device_sync_ack(&envelope.message_id, version);
                             if let Ok(ack_data) = encode_simple_message(&ack) {
-                                let _ = socket.send(Message::Binary(ack_data));
+                                let _ = socket.send(Message::Binary(ack_data)).await;
                             }
                         }
                         _ => {}
                     }
                 }
             }
-            Ok(Message::Ping(data)) => {
-                let _ = socket.send(Message::Pong(data));
+            Message::Ping(data) => {
+                let _ = socket.send(Message::Pong(data)).await;
             }
-            Ok(Message::Close(_)) => break,
-            Ok(_) => { /* Ignore other message types */ }
-            Err(tungstenite::Error::Io(ref e))
-                if e.kind() == std::io::ErrorKind::WouldBlock
-                    || e.kind() == std::io::ErrorKind::TimedOut =>
-            {
-                break;
-            }
-            Err(_) => break,
+            Message::Close(_) => break,
+            _ => { /* Ignore other message types */ }
         }
     }
 
@@ -194,14 +161,16 @@ fn receive_pending(
     })
 }
 
-/// Process encrypted exchange messages.
-fn process_encrypted_exchanges(
+/// Process encrypted exchange messages (sync — no await, Storage-safe).
+/// Returns the number of contacts added and a list of (recipient_id, exchange_key)
+/// to send responses to later (without holding Storage).
+fn process_exchanges_sync(
     identity: &Identity,
     storage: &Storage,
     encrypted_data: Vec<Vec<u8>>,
-    relay_url: &str,
-) -> Result<u32, String> {
+) -> Result<(u32, Vec<(String, [u8; 32])>), String> {
     let mut added = 0u32;
+    let mut responses = Vec::new();
     let our_x3dh = identity.x3dh_keypair();
 
     for data in encrypted_data {
@@ -238,24 +207,22 @@ fn process_encrypted_exchanges(
         let _ = storage.save_ratchet_state(&contact_id, &ratchet, false);
 
         added += 1;
-
-        // Send response
-        let _ = send_exchange_response(identity, &public_id, &payload.exchange_key, relay_url);
+        responses.push((public_id, payload.exchange_key));
     }
 
-    Ok(added)
+    Ok((added, responses))
 }
 
-/// Send exchange response.
-fn send_exchange_response(
+/// Send exchange response via a new async connection.
+async fn send_exchange_response(
     identity: &Identity,
     recipient_id: &str,
     recipient_exchange_key: &[u8; 32],
     relay_url: &str,
 ) -> Result<(), String> {
-    let mut socket = connect_to_relay(relay_url)?;
+    let mut socket = connect_to_relay(relay_url).await?;
 
-    send_handshake(&mut socket, identity, None)?;
+    send_handshake(&mut socket, identity, None).await?;
 
     let our_id = identity.public_id();
     let our_x3dh = identity.x3dh_keypair();
@@ -277,10 +244,11 @@ fn send_exchange_response(
     let data = encode_simple_message(&envelope).map_err(|e| e.to_string())?;
     socket
         .send(Message::Binary(data))
+        .await
         .map_err(|e| e.to_string())?;
 
-    std::thread::sleep(Duration::from_millis(100));
-    let _ = socket.close(None);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let _ = socket.close(None).await;
 
     Ok(())
 }
@@ -288,15 +256,15 @@ fn send_exchange_response(
 // Card update processing is now handled by vauchi_core::sync::process_card_updates
 // which provides the full secure pipeline (revocation, signature, replay detection).
 
-/// Send pending outbound updates.
-fn send_pending_updates(
+/// Collect pending outbound updates as serialized envelopes (sync — no await, Storage-safe).
+/// Returns (update_id, serialized_envelope) pairs for async sending.
+fn collect_pending_updates_data(
     identity: &Identity,
     storage: &Storage,
-    socket: &mut WebSocket<MaybeTlsStream<TcpStream>>,
-) -> Result<u32, String> {
+) -> Result<Vec<(String, Vec<u8>)>, String> {
     let contacts = storage.list_contacts().map_err(|e| e.to_string())?;
     let our_id = identity.public_id();
-    let mut sent = 0u32;
+    let mut result = Vec::new();
 
     for contact in contacts {
         let pending = storage
@@ -312,15 +280,12 @@ fn send_pending_updates(
 
             let envelope = create_simple_envelope(SimplePayload::EncryptedUpdate(msg));
             if let Ok(data) = encode_simple_message(&envelope) {
-                if socket.send(Message::Binary(data)).is_ok() {
-                    let _ = storage.delete_pending_update(&update.id);
-                    sent += 1;
-                }
+                result.push((update.id, data));
             }
         }
     }
 
-    Ok(sent)
+    Ok(result)
 }
 
 /// Process incoming device sync messages from other devices.
@@ -446,85 +411,110 @@ fn apply_sync_item(storage: &Storage, item: &SyncItem) -> Result<(), String> {
     Ok(())
 }
 
-struct WsSender<'a>(&'a mut WebSocket<MaybeTlsStream<TcpStream>>);
-
-impl vauchi_core::sync::BinarySender for WsSender<'_> {
-    fn send_binary(&mut self, data: Vec<u8>) -> Result<(), String> {
-        self.0
-            .send(Message::Binary(data))
-            .map_err(|e| e.to_string())
-    }
-}
-
-/// Run the full sync operation in a blocking context.
+/// Perform a fully async sync with the relay server.
 ///
-/// Opens a fresh storage connection and reconstructs identity from backup,
-/// so this function is safe to call from a background thread.
-fn do_sync_blocking(
+/// Storage is created in scoped blocks and dropped before any `.await` boundaries
+/// because `Storage` is `!Send` (contains `RefCell`).
+async fn do_sync_async(
     data_dir: &std::path::Path,
     relay_url: &str,
     backup_password: &str,
 ) -> Result<SyncResult, String> {
-    // Open fresh storage connection for this thread
-    let storage = AppState::open_storage(data_dir).map_err(|e| e.to_string())?;
+    // ── Phase 1: Reconstruct identity (Storage scoped, no await) ──
+    let (identity, device_id_hex) = {
+        let storage = AppState::open_storage(data_dir).map_err(|e| e.to_string())?;
+        let (backup_data, _name) = storage
+            .load_identity()
+            .map_err(|e| e.to_string())?
+            .ok_or("No identity found in storage")?;
+        let backup = IdentityBackup::new(backup_data);
+        let identity = Identity::import_backup(&backup, backup_password)
+            .map_err(|e| format!("Failed to import identity: {:?}", e))?;
+        let device_id_hex = hex::encode(identity.device_id());
+        (identity, device_id_hex)
+        // storage dropped here
+    };
 
-    // Reconstruct identity from stored backup
-    let (backup_data, _name) = storage
-        .load_identity()
-        .map_err(|e| e.to_string())?
-        .ok_or("No identity found in storage")?;
-    let backup = IdentityBackup::new(backup_data);
-    let identity = Identity::import_backup(&backup, backup_password)
-        .map_err(|e| format!("Failed to import identity: {:?}", e))?;
+    // ── Phase 2: Connect and receive messages (async, no Storage) ──
+    let mut socket = connect_to_relay(relay_url).await?;
+    send_handshake(&mut socket, &identity, Some(&device_id_hex)).await?;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let received = receive_pending(&mut socket).await?;
 
-    let device_id_hex = hex::encode(identity.device_id());
+    // ── Phase 3: Process received messages (Storage scoped, no await) ──
+    let (contacts_added, exchange_responses, cards_updated, device_synced, device_envelopes, pending_to_send) = {
+        let storage = AppState::open_storage(data_dir).map_err(|e| e.to_string())?;
 
-    // Connect to relay with timeout
-    let mut socket = connect_to_relay(relay_url)?;
+        // Process exchange messages
+        let (added, responses) =
+            process_exchanges_sync(&identity, &storage, received.encrypted_exchange)?;
 
-    // Send authenticated handshake with device_id for inter-device sync
-    send_handshake(&mut socket, &identity, Some(&device_id_hex))?;
+        // Process card updates (core's secure pipeline)
+        let card_result = process_card_updates(&identity, &storage, received.card_updates)
+            .map_err(|e| e.to_string())?;
 
-    // Brief wait for server to send pending messages (reduced from 500ms)
-    std::thread::sleep(Duration::from_millis(100));
+        // Process device sync messages
+        let device_synced =
+            process_device_sync_messages(&identity, &storage, received.device_sync_messages)?;
 
-    // Receive pending messages
-    let received = receive_pending(&mut socket)?;
+        // Build device sync envelopes for outbound
+        let device_envelopes =
+            build_device_sync_envelopes(&identity, &storage).unwrap_or_default();
 
-    // Process encrypted exchange messages
-    let encrypted_added = process_encrypted_exchanges(
-        &identity,
-        &storage,
-        received.encrypted_exchange,
-        relay_url,
-    )?;
+        // Collect pending update data
+        let pending = collect_pending_updates_data(&identity, &storage)?;
 
-    let contacts_added = encrypted_added;
+        (
+            added,
+            responses,
+            card_result.processed,
+            device_synced,
+            device_envelopes,
+            pending,
+        )
+        // storage dropped here
+    };
 
-    // Process card updates (uses core's secure pipeline with full security checks)
-    let card_result = process_card_updates(&identity, &storage, received.card_updates)
-        .map_err(|e| e.to_string())?;
-    let cards_updated = card_result.processed;
+    // ── Phase 4: Send outbound data (async, no Storage) ──
 
-    // Process device sync messages (inter-device synchronization)
-    let device_synced =
-        process_device_sync_messages(&identity, &storage, received.device_sync_messages)?;
+    // Send exchange responses (each opens its own connection)
+    for (recipient_id, exchange_key) in &exchange_responses {
+        let _ = send_exchange_response(&identity, recipient_id, exchange_key, relay_url).await;
+    }
 
-    // Send pending device sync items to other devices
-    let device_sync_sent =
-        vauchi_core::sync::send_device_sync(&identity, &storage, &mut WsSender(&mut socket))
-            .map_err(|e| format!("Send device sync failed: {:?}", e))?;
+    // Send device sync envelopes
+    let mut device_sent = 0u32;
+    for data in device_envelopes {
+        if socket.send(Message::Binary(data)).await.is_ok() {
+            device_sent += 1;
+        }
+    }
 
-    // Send pending outbound updates
-    let updates_sent = send_pending_updates(&identity, &storage, &mut socket)?;
+    // Send pending updates and track which ones succeeded
+    let mut updates_sent = 0u32;
+    let mut sent_ids = Vec::new();
+    for (update_id, data) in pending_to_send {
+        if socket.send(Message::Binary(data)).await.is_ok() {
+            sent_ids.push(update_id);
+            updates_sent += 1;
+        }
+    }
 
-    // Close connection
-    let _ = socket.close(None);
+    // ── Phase 5: Cleanup sent updates (Storage scoped, no await) ──
+    if !sent_ids.is_empty() {
+        let storage = AppState::open_storage(data_dir).map_err(|e| e.to_string())?;
+        for id in &sent_ids {
+            let _ = storage.delete_pending_update(id);
+        }
+        // storage dropped here
+    }
+
+    let _ = socket.close(None).await;
 
     Ok(SyncResult {
         contacts_added,
         cards_updated: cards_updated + device_synced,
-        updates_sent: updates_sent + device_sync_sent,
+        updates_sent: updates_sent + device_sent,
         success: true,
         error: None,
     })
@@ -533,7 +523,7 @@ fn do_sync_blocking(
 /// Perform a sync with the relay server.
 ///
 /// This sends pending updates to contacts and receives incoming updates.
-/// Runs in a background thread via `spawn_blocking` to prevent UI freezes.
+/// Fully async — no blocking I/O on the Tauri command thread.
 #[tauri::command]
 pub async fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
     // Extract what we need from state (hold lock briefly, then release)
@@ -554,12 +544,8 @@ pub async fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, Strin
     };
     // Mutex lock released here — UI thread is now unblocked
 
-    // Run sync in background thread to prevent UI freeze
-    tokio::task::spawn_blocking(move || {
-        do_sync_blocking(&data_dir, &relay_url, &backup_password)
-    })
-    .await
-    .map_err(|e| format!("Sync task panicked: {}", e))?
+    // Run fully async sync (no spawn_blocking needed)
+    do_sync_async(&data_dir, &relay_url, &backup_password).await
 }
 
 /// Get the current sync status.

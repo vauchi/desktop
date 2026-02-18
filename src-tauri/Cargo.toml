@@ -50,9 +50,10 @@ hex = "0.4"
 # URL validation
 url = "2"
 
-# WebSocket for relay sync
-tungstenite = { version = "0.24", features = ["native-tls"] }
-native-tls = "0.2"
+# Async WebSocket for relay sync
+tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
+# Stream/Sink combinators for async WebSocket
+futures-util = "0.3"
 
 [features]
 default = ["custom-protocol", "secure-storage"]
