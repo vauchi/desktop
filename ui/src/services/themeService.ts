@@ -63,27 +63,40 @@ export function getSelectedThemeId(): string | null {
   return localStorage.getItem(THEME_STORAGE_KEY);
 }
 
+// Constructable stylesheet for theme variables — avoids 'unsafe-inline' in CSP (#243)
+let themeSheet: CSSStyleSheet | null = null;
+
+function getThemeSheet(): CSSStyleSheet {
+  if (!themeSheet) {
+    themeSheet = new CSSStyleSheet();
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, themeSheet];
+  }
+  return themeSheet;
+}
+
 /**
- * Apply a theme by setting CSS variables.
+ * Apply a theme by injecting CSS variables via a constructable stylesheet.
+ * Uses CSSStyleSheet.replaceSync() instead of element.style.setProperty()
+ * so we don't need 'unsafe-inline' in the CSP style-src directive.
  */
 export function applyTheme(theme: Theme): void {
-  const root = document.documentElement;
-
-  // Set CSS variables
-  root.style.setProperty('--bg-primary', theme.colors.bg_primary);
-  root.style.setProperty('--bg-secondary', theme.colors.bg_secondary);
-  root.style.setProperty('--bg-tertiary', theme.colors.bg_tertiary);
-  root.style.setProperty('--text-primary', theme.colors.text_primary);
-  root.style.setProperty('--text-secondary', theme.colors.text_secondary);
-  root.style.setProperty('--accent', theme.colors.accent);
-  root.style.setProperty('--accent-dark', theme.colors.accent_dark);
-  root.style.setProperty('--success', theme.colors.success);
-  root.style.setProperty('--error', theme.colors.error);
-  root.style.setProperty('--warning', theme.colors.warning);
-  root.style.setProperty('--border', theme.colors.border);
+  const sheet = getThemeSheet();
+  sheet.replaceSync(`:root {
+  --bg-primary: ${theme.colors.bg_primary};
+  --bg-secondary: ${theme.colors.bg_secondary};
+  --bg-tertiary: ${theme.colors.bg_tertiary};
+  --text-primary: ${theme.colors.text_primary};
+  --text-secondary: ${theme.colors.text_secondary};
+  --accent: ${theme.colors.accent};
+  --accent-dark: ${theme.colors.accent_dark};
+  --success: ${theme.colors.success};
+  --error: ${theme.colors.error};
+  --warning: ${theme.colors.warning};
+  --border: ${theme.colors.border};
+}`);
 
   // Set theme mode attribute
-  root.setAttribute('data-theme', theme.mode);
+  document.documentElement.setAttribute('data-theme', theme.mode);
 
   // Save selection
   localStorage.setItem(THEME_STORAGE_KEY, theme.id);
