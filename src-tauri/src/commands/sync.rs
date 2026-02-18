@@ -23,7 +23,7 @@ use vauchi_core::network::simple_message::{
     SimpleEncryptedUpdate, SimplePayload,
 };
 use vauchi_core::sync::{process_card_updates, DeviceSyncOrchestrator, SyncItem};
-use vauchi_core::{Contact, ContactCard, Identity, Storage};
+use vauchi_core::{Contact, ContactCard, Identity, IdentityBackup, Storage};
 
 use crate::state::AppState;
 
@@ -456,26 +456,34 @@ impl vauchi_core::sync::BinarySender for WsSender<'_> {
     }
 }
 
-/// Perform a sync with the relay server.
+/// Run the full sync operation in a blocking context.
 ///
-/// This sends pending updates to contacts and receives incoming updates.
-#[tauri::command]
-pub fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
-    let state = state.lock().unwrap();
+/// Opens a fresh storage connection and reconstructs identity from backup,
+/// so this function is safe to call from a background thread.
+fn do_sync_blocking(
+    data_dir: &std::path::Path,
+    relay_url: &str,
+    backup_password: &str,
+) -> Result<SyncResult, String> {
+    // Open fresh storage connection for this thread
+    let storage = AppState::open_storage(data_dir).map_err(|e| e.to_string())?;
 
-    let identity = state
-        .identity
-        .as_ref()
-        .ok_or("No identity found. Please create an identity first.")?;
+    // Reconstruct identity from stored backup
+    let (backup_data, _name) = storage
+        .load_identity()
+        .map_err(|e| e.to_string())?
+        .ok_or("No identity found in storage")?;
+    let backup = IdentityBackup::new(backup_data);
+    let identity = Identity::import_backup(&backup, backup_password)
+        .map_err(|e| format!("Failed to import identity: {:?}", e))?;
 
-    let relay_url = state.relay_url();
     let device_id_hex = hex::encode(identity.device_id());
 
     // Connect to relay with timeout
     let mut socket = connect_to_relay(relay_url)?;
 
     // Send authenticated handshake with device_id for inter-device sync
-    send_handshake(&mut socket, identity, Some(&device_id_hex))?;
+    send_handshake(&mut socket, &identity, Some(&device_id_hex))?;
 
     // Brief wait for server to send pending messages (reduced from 500ms)
     std::thread::sleep(Duration::from_millis(100));
@@ -485,8 +493,8 @@ pub fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
 
     // Process encrypted exchange messages
     let encrypted_added = process_encrypted_exchanges(
-        identity,
-        &state.storage,
+        &identity,
+        &storage,
         received.encrypted_exchange,
         relay_url,
     )?;
@@ -494,21 +502,21 @@ pub fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
     let contacts_added = encrypted_added;
 
     // Process card updates (uses core's secure pipeline with full security checks)
-    let card_result = process_card_updates(identity, &state.storage, received.card_updates)
+    let card_result = process_card_updates(&identity, &storage, received.card_updates)
         .map_err(|e| e.to_string())?;
     let cards_updated = card_result.processed;
 
     // Process device sync messages (inter-device synchronization)
     let device_synced =
-        process_device_sync_messages(identity, &state.storage, received.device_sync_messages)?;
+        process_device_sync_messages(&identity, &storage, received.device_sync_messages)?;
 
     // Send pending device sync items to other devices
     let device_sync_sent =
-        vauchi_core::sync::send_device_sync(identity, &state.storage, &mut WsSender(&mut socket))
+        vauchi_core::sync::send_device_sync(&identity, &storage, &mut WsSender(&mut socket))
             .map_err(|e| format!("Send device sync failed: {:?}", e))?;
 
     // Send pending outbound updates
-    let updates_sent = send_pending_updates(identity, &state.storage, &mut socket)?;
+    let updates_sent = send_pending_updates(&identity, &storage, &mut socket)?;
 
     // Close connection
     let _ = socket.close(None);
@@ -520,6 +528,38 @@ pub fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
         success: true,
         error: None,
     })
+}
+
+/// Perform a sync with the relay server.
+///
+/// This sends pending updates to contacts and receives incoming updates.
+/// Runs in a background thread via `spawn_blocking` to prevent UI freezes.
+#[tauri::command]
+pub async fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
+    // Extract what we need from state (hold lock briefly, then release)
+    let (data_dir, relay_url, backup_password) = {
+        let state_guard = state.lock().unwrap();
+
+        if state_guard.identity.is_none() {
+            return Err("No identity found. Please create an identity first.".to_string());
+        }
+
+        let backup_password = state_guard.backup_password().map_err(|e| e.to_string())?;
+
+        (
+            state_guard.data_dir().to_path_buf(),
+            state_guard.relay_url().to_string(),
+            backup_password,
+        )
+    };
+    // Mutex lock released here — UI thread is now unblocked
+
+    // Run sync in background thread to prevent UI freeze
+    tokio::task::spawn_blocking(move || {
+        do_sync_blocking(&data_dir, &relay_url, &backup_password)
+    })
+    .await
+    .map_err(|e| format!("Sync task panicked: {}", e))?
 }
 
 /// Get the current sync status.
