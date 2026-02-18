@@ -29,10 +29,12 @@ use vauchi_core::{Contact, ContactCard, Identity, IdentityBackup, Storage};
 
 use crate::state::AppState;
 
+/// Exchange response data: (recipient_id, exchange_key).
+type ExchangeResponses = Vec<(String, [u8; 32])>;
+
 /// Type alias for the async WebSocket stream.
-type WsStream = tokio_tungstenite::WebSocketStream<
-    tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
->;
+type WsStream =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
 /// Result of a sync operation.
 #[derive(Serialize)]
@@ -168,7 +170,7 @@ fn process_exchanges_sync(
     identity: &Identity,
     storage: &Storage,
     encrypted_data: Vec<Vec<u8>>,
-) -> Result<(u32, Vec<(String, [u8; 32])>), String> {
+) -> Result<(u32, ExchangeResponses), String> {
     let mut added = 0u32;
     let mut responses = Vec::new();
     let our_x3dh = identity.x3dh_keypair();
@@ -442,7 +444,14 @@ async fn do_sync_async(
     let received = receive_pending(&mut socket).await?;
 
     // ── Phase 3: Process received messages (Storage scoped, no await) ──
-    let (contacts_added, exchange_responses, cards_updated, device_synced, device_envelopes, pending_to_send) = {
+    let (
+        contacts_added,
+        exchange_responses,
+        cards_updated,
+        device_synced,
+        device_envelopes,
+        pending_to_send,
+    ) = {
         let storage = AppState::open_storage(data_dir).map_err(|e| e.to_string())?;
 
         // Process exchange messages
@@ -458,8 +467,7 @@ async fn do_sync_async(
             process_device_sync_messages(&identity, &storage, received.device_sync_messages)?;
 
         // Build device sync envelopes for outbound
-        let device_envelopes =
-            build_device_sync_envelopes(&identity, &storage).unwrap_or_default();
+        let device_envelopes = build_device_sync_envelopes(&identity, &storage).unwrap_or_default();
 
         // Collect pending update data
         let pending = collect_pending_updates_data(&identity, &storage)?;
