@@ -403,51 +403,53 @@ function Contacts(props: ContactsProps) {
         </Show>
       </div>
 
-      <div class="contacts-list" role="list" aria-label="Contacts list">
-        <For each={filteredContacts()}>
-          {(contact) => (
-            <div
-              class="contact-item"
-              role="listitem"
-              tabIndex={0}
-              onClick={() => openContactDetail(contact.id)}
-              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), openContactDetail(contact.id))}
-              aria-label={`${contact.display_name}, ${contact.verified ? 'verified' : 'not verified'}. Press Enter to view details.`}
-            >
-              <div class="contact-avatar" aria-hidden="true">
-                {contact.display_name.charAt(0).toUpperCase()}
-              </div>
-              <div class="contact-info">
-                <span class="contact-name">{contact.display_name}</span>
-                <span class="contact-status">
-                  {contact.verified ? t('contacts.verified') : t('contacts.not_verified')}
-                  {contact.recovery_trusted && ' · Recovery Trusted'}
+      <Show when={filteredContacts().length > 0}>
+        <div class="contacts-list" role="list" aria-label="Contacts list">
+          <For each={filteredContacts()}>
+            {(contact) => (
+              <div
+                class="contact-item"
+                role="listitem"
+                tabIndex={0}
+                onClick={() => openContactDetail(contact.id)}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), openContactDetail(contact.id))}
+                aria-label={`${contact.display_name}, ${contact.verified ? 'verified' : 'not verified'}. Press Enter to view details.`}
+              >
+                <div class="contact-avatar" aria-hidden="true">
+                  {contact.display_name.charAt(0).toUpperCase()}
+                </div>
+                <div class="contact-info">
+                  <span class="contact-name">{contact.display_name}</span>
+                  <span class="contact-status">
+                    {contact.verified ? t('contacts.verified') : t('contacts.not_verified')}
+                    {contact.recovery_trusted && ' · Recovery Trusted'}
                 </span>
               </div>
             </div>
           )}
-        </For>
+          </For>
+        </div>
+      </Show>
 
-        {filteredContacts().length === 0 && searchQuery() && (
-          <div class="empty-state" role="status" aria-live="polite">
-            <p>No contacts match "{searchQuery()}"</p>
-            <button class="secondary" onClick={() => setSearchQuery('')}>
-              Clear search
-            </button>
-          </div>
-        )}
+      {filteredContacts().length === 0 && searchQuery() && (
+        <div class="empty-state" role="status" aria-live="polite">
+          <p>No contacts match "{searchQuery()}"</p>
+          <button class="secondary" onClick={() => setSearchQuery('')}>
+            Clear search
+          </button>
+        </div>
+      )}
 
-        {contacts()?.length === 0 && !searchQuery() && (
-          <div
-            class="empty-state"
-            role="status"
-            aria-label="No contacts yet. Exchange cards with someone to add contacts."
-          >
-            <p>{t('contacts.empty')}</p>
-            <button onClick={() => props.onNavigate('exchange')}>{t('exchange.title')}</button>
-          </div>
-        )}
-      </div>
+      {contacts()?.length === 0 && !searchQuery() && (
+        <div
+          class="empty-state"
+          role="status"
+          aria-label="No contacts yet. Exchange cards with someone to add contacts."
+        >
+          <p>{t('contacts.empty')}</p>
+          <button onClick={() => props.onNavigate('exchange')}>{t('exchange.title')}</button>
+        </div>
+      )}
 
       {/* Contact Detail Dialog */}
       <Show when={selectedContact()}>
