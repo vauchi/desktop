@@ -52,8 +52,10 @@ variables:
   extends: .node-cache
 
 # ============================================================
-# Lint Stage (change-based)
+# Lint Stage — Preflight Gate (change-based)
 # ============================================================
+# Cheapest checks run first. Test + security jobs wait for these
+# to pass before starting (PI-13 fail-fast DAG).
 
 # Tauri requires GTK3 and WebKit2GTK for Linux builds
 .tauri-deps:
@@ -140,14 +142,20 @@ lint:frontend:
           - ".gitlab-ci.yml"
 
 # ============================================================
-# Test Stage (change-based)
+# Test Stage (change-based, gated by lint)
 # ============================================================
 
 # Rust tests
 test:rust:
   extends: [.rust-job, .tauri-deps, .timeout-standard]
   stage: test
-  needs: [build:frontend-dist]
+  needs:
+    - job: build:frontend-dist
+      artifacts: true
+    - job: lint:rust-format
+      optional: true
+    - job: lint:rust-clippy
+      optional: true
   script:
     - cd src-tauri && cargo test --all-targets --no-default-features --features custom-protocol
   rules:
@@ -163,7 +171,9 @@ test:rust:
 test:frontend:
   extends: [.node-job, .timeout-standard]
   stage: test
-  needs: []
+  needs:
+    - job: lint:frontend
+      optional: true
   script:
     - cd ui && npm ci && npm test || echo "No test script configured"
   rules:
@@ -181,7 +191,11 @@ test:frontend:
 test:visual-regression:
   extends: [.node-job, .timeout-standard]
   stage: test
-  needs: [build:frontend-dist]
+  needs:
+    - job: build:frontend-dist
+      artifacts: true
+    - job: lint:frontend
+      optional: true
   allow_failure: true
   script:
     - cd ui && npm ci
@@ -202,14 +216,16 @@ test:visual-regression:
           - ".gitlab-ci.yml"
 
 # ============================================================
-# Security Stage (change-based)
+# Security Stage (change-based, gated by lint, parallel with test)
 # ============================================================
 
 # Rust security audit (runs on dependency changes)
 security:audit:
   extends: [.rust-job, .timeout-quick]
   stage: security
-  needs: []
+  needs:
+    - job: lint:rust-format
+      optional: true
   cache:
     policy: pull  # Read-only cache
   script:
@@ -228,7 +244,9 @@ security:audit:
 security:deny:
   extends: [.rust-job, .timeout-quick]
   stage: security
-  needs: []
+  needs:
+    - job: lint:rust-format
+      optional: true
   cache:
     policy: pull
   rules:
@@ -242,7 +260,9 @@ security:deny:
 security:npm-audit:
   extends: [.node-job, .timeout-quick]
   stage: security
-  needs: []
+  needs:
+    - job: lint:frontend
+      optional: true
   cache:
     policy: pull
   script:
