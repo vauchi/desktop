@@ -216,6 +216,35 @@ test:visual-regression:
           - "ui/**/*"
           - ".gitlab-ci.yml"
 
+# Accessibility tests — axe-core critical violations fail the build (PI-12)
+# Runs the @a11y Playwright tests which use @axe-core/playwright to check
+# WCAG 2.0 AA compliance on all pages. Critical violations are blocking.
+test:accessibility:
+  extends: [.node-job, .timeout-standard]
+  stage: test
+  needs:
+    - job: build:frontend-dist
+      artifacts: true
+    - job: lint:frontend
+      optional: true
+  script:
+    - cd ui && npm ci
+    - npx playwright install --with-deps chromium
+    - npx playwright test --grep @a11y --project chromium --reporter=html
+  artifacts:
+    when: always
+    paths:
+      - ui/playwright-report/
+      - ui/e2e/test-results/
+    expire_in: 7 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        compare_to: refs/heads/main
+        paths:
+          - "ui/**/*"
+          - ".gitlab-ci.yml"
+
 # ============================================================
 # Security Stage (change-based, gated by lint, parallel with test)
 # ============================================================
