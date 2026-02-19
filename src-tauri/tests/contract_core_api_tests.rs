@@ -83,8 +83,8 @@ fn contract_identity_create_and_accessors() {
 
 #[test]
 fn contract_identity_x3dh_keypair_exists() {
+    // allow(zero_assertions): Compile-time shape check — verifies x3dh_keypair() exists
     let identity = Identity::create("DesktopUser");
-    // x3dh_keypair is used by exchange — verify it returns something
     let _keypair = identity.x3dh_keypair();
 }
 
@@ -107,8 +107,12 @@ fn contract_contact_card_add_and_remove_field() {
 #[test]
 fn contract_contact_card_field_has_id() {
     let mut card = ContactCard::new("DesktopCard");
-    card.add_field(ContactField::new(FieldType::Website, "Blog", "https://example.com"))
-        .unwrap();
+    card.add_field(ContactField::new(
+        FieldType::Website,
+        "Blog",
+        "https://example.com",
+    ))
+    .unwrap();
 
     let field = &card.fields()[0];
     assert!(!field.id().is_empty());
