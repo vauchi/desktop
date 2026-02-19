@@ -52,6 +52,8 @@ url = "2"
 
 # Async WebSocket for relay sync
 tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
+# Pin native-tls to avoid 0.2.17 non-exhaustive match bug (E0004 on CI)
+native-tls = ">=0.2.13, <0.2.17"
 # Stream/Sink combinators for async WebSocket
 futures-util = "0.3"
 
