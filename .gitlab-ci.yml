@@ -44,6 +44,11 @@ variables:
   DS_EXCLUDED_PATHS: "target/, node_modules/"
   SECRET_DETECTION_EXCLUDED_PATHS: "target/, node_modules/"
 
+# Clone sibling locales repo (needed by vauchi-core build.rs)
+.clone-locales:
+  before_script:
+    - git clone --depth=1 https://gitlab.com/vauchi/locales.git ../locales
+
 # Node.js jobs run on allyson-docker (Docker executor)
 .node-job:
   image: node:20
@@ -127,6 +132,9 @@ lint:rust-clippy:
   needs: [build:frontend-dist]
   cache:
     policy: pull  # Read-only cache for lint
+  before_script:
+    - !reference [.self-hosted, before_script]
+    - !reference [.clone-locales, before_script]
   script:
     - cd src-tauri && cargo clippy --all-targets --no-default-features --features custom-protocol -- -D warnings
   rules:
@@ -172,6 +180,9 @@ test:rust:
       optional: true
     - job: lint:rust-clippy
       optional: true
+  before_script:
+    - !reference [.self-hosted, before_script]
+    - !reference [.clone-locales, before_script]
   script:
     - cd src-tauri && cargo nextest run --all-targets --no-default-features --features custom-protocol
   rules:
@@ -276,6 +287,9 @@ mutation:nightly:
   needs: [build:frontend-dist]
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
+  before_script:
+    - !reference [.self-hosted, before_script]
+    - !reference [.clone-locales, before_script]
   script:
     - cd src-tauri && cargo mutants --no-default-features --features custom-protocol --timeout 60 --output target/mutants
   artifacts:
@@ -297,6 +311,9 @@ mutation:incremental:
   allow_failure: true
   variables:
     GIT_DEPTH: "100"
+  before_script:
+    - !reference [.self-hosted, before_script]
+    - !reference [.clone-locales, before_script]
   script:
     - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --depth=100
     - git diff "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"...HEAD > mr.diff
@@ -402,5 +419,8 @@ verify:upstream-compat:
   extends: [.rust-runner, .desktop-cache, .verify-on-upstream, .timeout-standard]
   stage: verify
   needs: [build:frontend-dist]
+  before_script:
+    - !reference [.self-hosted, before_script]
+    - !reference [.clone-locales, before_script]
   script:
     - cd src-tauri && cargo nextest run --all-targets --no-default-features --features custom-protocol

@@ -27,3 +27,6 @@ Thumbs.db
 *.rpm
 *.AppImage
 .cargo/
+
+# Locale files loaded from sibling locales/ repo
+src-tauri/resources/locales/

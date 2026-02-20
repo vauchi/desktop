@@ -30,7 +30,7 @@
     "icon": [],
     "targets": "all",
     "resources": [
-      "resources/locales/"
+      "../../locales/"
     ],
     "category": "Productivity",
     "shortDescription": "Privacy-focused contact card exchange",
