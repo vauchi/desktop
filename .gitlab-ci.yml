@@ -48,10 +48,17 @@ variables:
 .node-job:
   image: node:20
   tags: [docker]
+  variables:
+    npm_config_cache: ${CI_PROJECT_DIR}/.npm
+    PLAYWRIGHT_BROWSERS_PATH: ${CI_PROJECT_DIR}/.playwright
   cache:
     key: ${CI_COMMIT_REF_SLUG}-node
+    fallback_keys:
+      - ${CI_DEFAULT_BRANCH}-node
+      - node
     paths:
-      - ui/node_modules/
+      - .npm/
+      - .playwright/
 
 # Desktop Rust cache — Cargo.lock and target/ are in src-tauri/
 .desktop-cache:
@@ -82,7 +89,7 @@ build:frontend-dist:
   stage: lint
   needs: []
   script:
-    - cd ui && npm ci && npm run build
+    - cd ui && npm ci --prefer-offline && npm run build
   artifacts:
     paths:
       - ui/dist/
@@ -140,7 +147,7 @@ lint:frontend:
   cache:
     policy: pull  # Read-only cache for lint
   script:
-    - cd ui && npm ci && npm run lint || echo "No lint script configured"
+    - cd ui && npm ci --prefer-offline && npm run lint || echo "No lint script configured"
     - npm run typecheck || echo "No typecheck script configured"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -176,15 +183,18 @@ test:rust:
           - "ui/**/*"
           - ".gitlab-ci.yml"
 
-# Frontend tests (unit tests only — E2E requires Tauri runtime)
+# Frontend functional tests — excludes @visual and @a11y (they have
+# dedicated jobs). Runs only chromium (other browsers not installed).
 test:frontend:
-  extends: [.node-job, .timeout-standard]
+  extends: [.node-job, .timeout-quick]
   stage: test
   needs:
     - job: lint:frontend
       optional: true
   script:
-    - cd ui && npm ci && npm test || echo "No test script configured"
+    - cd ui && npm ci --prefer-offline
+    - npx playwright install --with-deps chromium
+    - npx playwright test --project=chromium --grep-invert "@visual|@a11y"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
@@ -207,7 +217,7 @@ test:visual-regression:
       optional: true
   allow_failure: true
   script:
-    - cd ui && npm ci
+    - cd ui && npm ci --prefer-offline
     - npx playwright install --with-deps chromium
     - npx playwright test --grep @visual --project visual-chromium --reporter=html
   artifacts:
@@ -236,7 +246,7 @@ test:accessibility:
     - job: lint:frontend
       optional: true
   script:
-    - cd ui && npm ci
+    - cd ui && npm ci --prefer-offline
     - npx playwright install --with-deps chromium
     - npx playwright test --grep @a11y --project chromium --reporter=html
   artifacts:
@@ -368,7 +378,7 @@ security:npm-audit:
   cache:
     policy: pull
   script:
-    - cd ui && npm ci && npm audit --audit-level=moderate || true
+    - cd ui && npm ci --prefer-offline && npm audit --audit-level=moderate || true
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
