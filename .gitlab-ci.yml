@@ -7,6 +7,8 @@
 # Tauri desktop application with SolidJS frontend
 #
 # Performance optimizations:
+#   - Self-hosted runners: sccache, persistent caches, load-balanced
+#   - Docker executor for Node.js jobs (allyson-docker)
 #   - Change-based rules: Jobs run only when relevant files change
 #   - Timeouts: Prevent runaway jobs from blocking runners
 #   - Read-only cache for lint jobs
@@ -42,28 +44,37 @@ variables:
   DS_EXCLUDED_PATHS: "target/, node_modules/"
   SECRET_DETECTION_EXCLUDED_PATHS: "target/, node_modules/"
 
-# Node.js cache
-.node-cache:
+# Node.js jobs run on allyson-docker (Docker executor)
+.node-job:
+  image: node:20
+  tags: [docker]
   cache:
     key: ${CI_COMMIT_REF_SLUG}-node
     paths:
       - ui/node_modules/
 
-.node-job:
-  image: node:20
-  extends: .node-cache
+# Desktop Rust cache — Cargo.lock and target/ are in src-tauri/
+.desktop-cache:
+  cache:
+    key:
+      files:
+        - src-tauri/Cargo.lock
+      prefix: rust-${CI_JOB_NAME}
+    fallback_keys:
+      - rust-${CI_JOB_NAME}-${CI_DEFAULT_BRANCH}
+      - rust-${CI_JOB_NAME}
+    paths:
+      - .cargo/bin/
+      - .cargo/registry/index/
+      - .cargo/registry/cache/
+      - src-tauri/target/
+    policy: pull-push
 
 # ============================================================
 # Lint Stage — Preflight Gate (change-based)
 # ============================================================
 # Cheapest checks run first. Test + security jobs wait for these
 # to pass before starting (PI-13 fail-fast DAG).
-
-# Tauri requires GTK3 and WebKit2GTK for Linux builds
-.tauri-deps:
-  before_script:
-    - apt-get update -qq
-    - apt-get install -y -qq libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
 
 # Build frontend first (needed for Tauri's generate_context!)
 build:frontend-dist:
@@ -89,13 +100,10 @@ build:frontend-dist:
 
 # Rust linting (runs on Rust code changes)
 lint:rust-format:
-  extends: [.rust-job, .timeout-quick]
+  extends: [.rust-runner-nocache, .timeout-quick]
   stage: lint
   needs: []
-  cache:
-    policy: pull  # Read-only cache for lint
   script:
-    - rustup component add rustfmt
     - cd src-tauri && cargo fmt --all -- --check
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -107,13 +115,12 @@ lint:rust-format:
           - ".gitlab-ci.yml"
 
 lint:rust-clippy:
-  extends: [.rust-job, .tauri-deps, .timeout-standard]
+  extends: [.rust-runner, .desktop-cache, .timeout-standard]
   stage: lint
   needs: [build:frontend-dist]
   cache:
     policy: pull  # Read-only cache for lint
   script:
-    - rustup component add clippy
     - cd src-tauri && cargo clippy --all-targets --no-default-features --features custom-protocol -- -D warnings
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -149,7 +156,7 @@ lint:frontend:
 
 # Rust tests
 test:rust:
-  extends: [.rust-job, .tauri-deps, .timeout-standard]
+  extends: [.rust-runner, .desktop-cache, .timeout-standard]
   stage: test
   needs:
     - job: build:frontend-dist
@@ -252,13 +259,12 @@ test:accessibility:
 
 # Nightly full mutation testing on Rust backend (scheduled pipeline)
 mutation:nightly:
-  extends: [.rust-job, .tauri-deps, .timeout-extended]
+  extends: [.rust-runner, .desktop-cache, .timeout-extended]
   stage: mutation
   needs: [build:frontend-dist]
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
-    - cargo binstall cargo-mutants --no-confirm 2>/dev/null || cargo install cargo-mutants --locked || true
     - cd src-tauri && cargo mutants --no-default-features --features custom-protocol --timeout 60 --output target/mutants
   artifacts:
     paths:
@@ -267,7 +273,7 @@ mutation:nightly:
 
 # Per-MR incremental mutation testing (advisory, runs after Rust tests pass)
 mutation:incremental:
-  extends: [.rust-job, .tauri-deps, .timeout-extended]
+  extends: [.rust-runner, .desktop-cache, .timeout-extended]
   stage: mutation
   needs:
     - job: build:frontend-dist
@@ -280,7 +286,6 @@ mutation:incremental:
   variables:
     GIT_DEPTH: "100"
   script:
-    - cargo binstall cargo-mutants --no-confirm 2>/dev/null || cargo install cargo-mutants --locked || true
     - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --depth=100
     - git diff "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"...HEAD > mr.diff
     - cd src-tauri && cargo mutants --no-default-features --features custom-protocol --in-diff ../mr.diff --timeout 60
@@ -296,15 +301,26 @@ mutation:incremental:
 
 # Rust security audit (runs on dependency changes)
 security:audit:
-  extends: [.rust-job, .timeout-quick]
+  extends: [.rust-runner-readonly, .timeout-quick]
   stage: security
   needs:
     - job: lint:rust-format
       optional: true
   cache:
-    policy: pull  # Read-only cache
+    key:
+      files:
+        - src-tauri/Cargo.lock
+      prefix: rust-${CI_JOB_NAME}
+    fallback_keys:
+      - rust-${CI_JOB_NAME}-${CI_DEFAULT_BRANCH}
+      - rust-${CI_JOB_NAME}
+    paths:
+      - .cargo/bin/
+      - .cargo/registry/index/
+      - .cargo/registry/cache/
+      - src-tauri/target/
+    policy: pull
   script:
-    - cargo install cargo-audit || true
     - cd src-tauri && cargo audit
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -317,18 +333,29 @@ security:audit:
 
 # Full cargo-deny check: advisories, licenses, bans, sources
 security:deny:
-  extends: [.rust-job, .timeout-quick]
+  extends: [.rust-runner-readonly, .timeout-quick]
   stage: security
   needs:
     - job: lint:rust-format
       optional: true
   cache:
+    key:
+      files:
+        - src-tauri/Cargo.lock
+      prefix: rust-${CI_JOB_NAME}
+    fallback_keys:
+      - rust-${CI_JOB_NAME}-${CI_DEFAULT_BRANCH}
+      - rust-${CI_JOB_NAME}
+    paths:
+      - .cargo/bin/
+      - .cargo/registry/index/
+      - .cargo/registry/cache/
+      - src-tauri/target/
     policy: pull
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
-    - cargo binstall cargo-deny --no-confirm 2>/dev/null || cargo install cargo-deny || true
     - cd src-tauri && cargo deny check
 
 # npm audit for frontend (runs on package changes)
@@ -360,7 +387,7 @@ security:npm-audit:
 # Requires build:frontend-dist (Tauri's generate_context! needs ui/dist/).
 
 verify:upstream-compat:
-  extends: [.rust-job, .tauri-deps, .verify-on-upstream, .timeout-standard]
+  extends: [.rust-runner, .desktop-cache, .verify-on-upstream, .timeout-standard]
   stage: verify
   needs: [build:frontend-dist]
   script:
