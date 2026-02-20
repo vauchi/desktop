@@ -135,7 +135,7 @@ lint:css:
     - node
   needs: []
   script:
-    - stylelint "ui/src/**/*.css"
+    - cd ui && npx stylelint "src/**/*.css"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
