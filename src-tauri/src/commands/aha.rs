@@ -148,6 +148,7 @@ pub fn check_aha_moment_localized(
     })
 }
 
+// INLINE_TEST_REQUIRED: tests access private Tauri command internals and app state setup
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,7 +157,7 @@ mod tests {
     fn ensure_init() {
         if !vauchi_core::i18n::is_initialized() {
             let locales_dir =
-                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/locales");
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../locales");
             let _ = vauchi_core::i18n::init(&locales_dir);
         }
     }
