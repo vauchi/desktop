@@ -29,9 +29,9 @@
     "active": true,
     "icon": [],
     "targets": "all",
-    "resources": [
-      "../../locales/"
-    ],
+    "resources": {
+      "../../locales/*.json": "locales/"
+    },
     "category": "Productivity",
     "shortDescription": "Privacy-focused contact card exchange",
     "longDescription": "Vauchi is a privacy-focused contact card exchange app. Exchange contact cards securely with QR codes and control what each contact can see."
