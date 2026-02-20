@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import { createSignal, createResource, For, Show, onMount } from 'solid-js';
+import { createSignal, createResource, For, Show } from 'solid-js';
 import {
   getHelpCategories,
   getAllFaqsLocalized,
   searchFaqsLocalized,
   type FaqItem,
-  type HelpCategory,
 } from '../services/helpService';
 import { t, getSelectedLocale } from '../services/i18nService';
 
@@ -168,9 +167,7 @@ function Help(props: HelpProps) {
                     role="region"
                     aria-labelledby={`faq-question-${faq.id}`}
                   >
-                    {faq.answer.split('\n').map((line) => (
-                      <p>{line}</p>
-                    ))}
+                    <For each={faq.answer.split('\n')}>{(line) => <p>{line}</p>}</For>
                   </div>
                 </Show>
               </div>

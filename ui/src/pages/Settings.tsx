@@ -161,8 +161,6 @@ function Settings(props: SettingsProps) {
   const [torBridges, setTorBridges] = createSignal('');
   const [torMessage, setTorMessage] = createSignal('');
   const [showBridgeDialog, setShowBridgeDialog] = createSignal(false);
-  const [newBridge, setNewBridge] = createSignal('');
-
   // Theme and locale state
   const [availableThemes, setAvailableThemes] = createSignal<Theme[]>([]);
   const [selectedThemeId, setSelectedThemeId] = createSignal<string>('');

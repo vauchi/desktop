@@ -4,7 +4,7 @@
 
 import { createResource, createSignal, createMemo, For, Show, onMount, onCleanup } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { t, tArgs } from '../services/i18nService';
+import { t } from '../services/i18nService';
 import {
   getFieldValidationStatus,
   validateField,

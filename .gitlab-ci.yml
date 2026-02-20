@@ -34,8 +34,8 @@ include:
 stages:
   - lint
   - test
-  - mutation
   - security
+  - mutation
   - verify
 
 variables:
@@ -147,8 +147,8 @@ lint:frontend:
   cache:
     policy: pull  # Read-only cache for lint
   script:
-    - cd ui && npm ci --prefer-offline && npm run lint || echo "No lint script configured"
-    - npm run typecheck || echo "No typecheck script configured"
+    - cd ui && npm ci --prefer-offline && npm run lint --if-present
+    - npm run typecheck --if-present
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
@@ -173,7 +173,7 @@ test:rust:
     - job: lint:rust-clippy
       optional: true
   script:
-    - cd src-tauri && cargo test --all-targets --no-default-features --features custom-protocol
+    - cd src-tauri && cargo nextest run --all-targets --no-default-features --features custom-protocol
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
@@ -189,6 +189,8 @@ test:frontend:
   extends: [.node-job, .timeout-quick]
   stage: test
   needs:
+    - job: build:frontend-dist
+      artifacts: true
     - job: lint:frontend
       optional: true
   script:
@@ -401,4 +403,4 @@ verify:upstream-compat:
   stage: verify
   needs: [build:frontend-dist]
   script:
-    - cd src-tauri && cargo test --all-targets --no-default-features --features custom-protocol
+    - cd src-tauri && cargo nextest run --all-targets --no-default-features --features custom-protocol
