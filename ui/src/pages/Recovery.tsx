@@ -130,7 +130,9 @@ function Recovery(props: RecoveryProps) {
             role="button"
             tabIndex={0}
             onClick={() => setMode('claim')}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setMode('claim'))}
+            onKeyDown={(e) =>
+              (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setMode('claim'))
+            }
             aria-label="Create Recovery Claim. Lost your device? Start the recovery process."
           >
             <div class="menu-icon" aria-hidden="true">
@@ -147,7 +149,9 @@ function Recovery(props: RecoveryProps) {
             role="button"
             tabIndex={0}
             onClick={() => setMode('vouch')}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setMode('vouch'))}
+            onKeyDown={(e) =>
+              (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setMode('vouch'))
+            }
             aria-label="Vouch for Contact. Help a contact recover their identity."
           >
             <div class="menu-icon" aria-hidden="true">

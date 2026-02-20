@@ -82,9 +82,7 @@ function Setup(props: SetupProps) {
             type="submit"
             disabled={loading()}
             aria-busy={loading()}
-            aria-label={
-              loading() ? t('setup.creating') : t('setup.get_started')
-            }
+            aria-label={loading() ? t('setup.creating') : t('setup.get_started')}
           >
             {loading() ? t('setup.creating') : t('setup.get_started')}
           </button>

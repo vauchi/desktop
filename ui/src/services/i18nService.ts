@@ -88,10 +88,7 @@ export async function tAsync(key: string): Promise<string> {
 /**
  * Async get a localized string with arguments.
  */
-export async function tArgsAsync(
-  key: string,
-  args: Record<string, string>
-): Promise<string> {
+export async function tArgsAsync(key: string, args: Record<string, string>): Promise<string> {
   const localeCode = getSelectedLocale();
   return await invoke<string>('get_localized_string_with_args', {
     localeCode,
@@ -116,8 +113,7 @@ export async function initializeLocale(): Promise<void> {
     locale = supportedLocales.includes(browserLocale) ? browserLocale : 'en';
   }
   localStorage.setItem(LOCALE_STORAGE_KEY, locale);
-  document.documentElement.dir =
-    locale === 'ar' || locale === 'he' ? 'rtl' : 'ltr';
+  document.documentElement.dir = locale === 'ar' || locale === 'he' ? 'rtl' : 'ltr';
   document.documentElement.lang = locale;
   await loadStrings(locale);
 }

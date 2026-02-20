@@ -199,7 +199,9 @@ function Devices(props: DevicesProps) {
         <div
           class="dialog-overlay"
           onClick={() => setShowLinkDialog(false)}
-          onKeyDown={(e) => { if (e.key === 'Escape') setShowLinkDialog(false); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setShowLinkDialog(false);
+          }}
           role="presentation"
         >
           <div

@@ -59,10 +59,7 @@ export async function getFieldValidationStatus(
 /**
  * Revoke your validation of a field.
  */
-export async function revokeFieldValidation(
-  contactId: string,
-  fieldId: string
-): Promise<boolean> {
+export async function revokeFieldValidation(contactId: string, fieldId: string): Promise<boolean> {
   return await invoke<boolean>('revoke_field_validation', {
     contactId,
     fieldId,
@@ -72,10 +69,7 @@ export async function revokeFieldValidation(
 /**
  * Get the validation count for a field.
  */
-export async function getFieldValidationCount(
-  contactId: string,
-  fieldId: string
-): Promise<number> {
+export async function getFieldValidationCount(contactId: string, fieldId: string): Promise<number> {
   return await invoke<number>('get_field_validation_count', {
     contactId,
     fieldId,

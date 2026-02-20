@@ -103,7 +103,9 @@ function Contacts(props: ContactsProps) {
   const [searchQuery, setSearchQuery] = createSignal('');
 
   const [searchResults, setSearchResults] = createSignal<ContactInfo[] | null>(null);
-  const [fieldValidations, setFieldValidations] = createSignal<Record<string, ValidationStatus>>({});
+  const [fieldValidations, setFieldValidations] = createSignal<Record<string, ValidationStatus>>(
+    {}
+  );
   const [validationLoading, setValidationLoading] = createSignal<string | null>(null);
 
   // Keyboard shortcut listener for toggling hidden contacts view
@@ -111,7 +113,7 @@ function Contacts(props: ContactsProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'H') {
         e.preventDefault();
-        setShowHiddenContacts(prev => !prev);
+        setShowHiddenContacts((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -123,7 +125,7 @@ function Contacts(props: ContactsProps) {
     if (searchQuery().trim()) {
       return searchResults() || [];
     }
-    return showHiddenContacts() ? (hiddenContacts() || []) : (contacts() || []);
+    return showHiddenContacts() ? hiddenContacts() || [] : contacts() || [];
   });
 
   // Debounced backend search
@@ -397,7 +399,14 @@ function Contacts(props: ContactsProps) {
           aria-label="Search contacts by name"
         />
         <Show when={searchQuery()}>
-          <button class="clear-search" onClick={() => { setSearchQuery(''); setSearchResults(null); }} aria-label="Clear search">
+          <button
+            class="clear-search"
+            onClick={() => {
+              setSearchQuery('');
+              setSearchResults(null);
+            }}
+            aria-label="Clear search"
+          >
             ×
           </button>
         </Show>
@@ -412,7 +421,10 @@ function Contacts(props: ContactsProps) {
                 role="listitem"
                 tabIndex={0}
                 onClick={() => openContactDetail(contact.id)}
-                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), openContactDetail(contact.id))}
+                onKeyDown={(e) =>
+                  (e.key === 'Enter' || e.key === ' ') &&
+                  (e.preventDefault(), openContactDetail(contact.id))
+                }
                 aria-label={`${contact.display_name}, ${contact.verified ? 'verified' : 'not verified'}. Press Enter to view details.`}
               >
                 <div class="contact-avatar" aria-hidden="true">
@@ -423,10 +435,10 @@ function Contacts(props: ContactsProps) {
                   <span class="contact-status">
                     {contact.verified ? t('contacts.verified') : t('contacts.not_verified')}
                     {contact.recovery_trusted && ' · Recovery Trusted'}
-                </span>
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
           </For>
         </div>
       </Show>
@@ -456,7 +468,9 @@ function Contacts(props: ContactsProps) {
         <div
           class="dialog-overlay"
           onClick={closeDetail}
-          onKeyDown={(e) => { if (e.key === 'Escape') closeDetail(); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') closeDetail();
+          }}
           role="presentation"
         >
           <div
@@ -507,7 +521,9 @@ function Contacts(props: ContactsProps) {
                   role="status"
                   aria-label={`Verification status: ${selectedContact()?.verified ? 'verified' : 'not verified'}`}
                 >
-                  {selectedContact()?.verified ? t('contacts.verified') : t('contacts.not_verified')}
+                  {selectedContact()?.verified
+                    ? t('contacts.verified')
+                    : t('contacts.not_verified')}
                 </span>
                 <Show when={!selectedContact()?.verified}>
                   <button
@@ -564,7 +580,10 @@ function Contacts(props: ContactsProps) {
                       role="listitem"
                       tabIndex={0}
                       onClick={() => handleFieldClick(field)}
-                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), handleFieldClick(field))}
+                      onKeyDown={(e) =>
+                        (e.key === 'Enter' || e.key === ' ') &&
+                        (e.preventDefault(), handleFieldClick(field))
+                      }
                       aria-label={`${field.label}: ${field.value}. Press Enter to open.`}
                     >
                       <span class="field-icon" aria-hidden="true">

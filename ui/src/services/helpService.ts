@@ -78,9 +78,6 @@ export async function getFaqsByCategoryLocalized(
 /**
  * Search FAQs by query in the specified locale.
  */
-export async function searchFaqsLocalized(
-  query: string,
-  localeCode: string
-): Promise<FaqItem[]> {
+export async function searchFaqsLocalized(query: string, localeCode: string): Promise<FaqItem[]> {
   return await invoke<FaqItem[]>('search_help_localized', { query, localeCode });
 }

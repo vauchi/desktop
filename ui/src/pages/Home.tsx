@@ -328,7 +328,9 @@ function Home(props: HomeProps) {
         <div
           class="dialog-overlay"
           onClick={closeVisibilityDialog}
-          onKeyDown={(e) => { if (e.key === 'Escape') closeVisibilityDialog(); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') closeVisibilityDialog();
+          }}
           role="presentation"
         >
           <div
@@ -412,7 +414,9 @@ function Home(props: HomeProps) {
           onClick={() => {
             if (!isEditSaving()) closeEditDialog();
           }}
-          onKeyDown={(e) => { if (e.key === 'Escape' && !isEditSaving()) closeEditDialog(); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && !isEditSaving()) closeEditDialog();
+          }}
           role="presentation"
         >
           <div
@@ -422,7 +426,9 @@ function Home(props: HomeProps) {
             aria-labelledby="edit-dialog-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 id="edit-dialog-title">{t('card.edit_field')} {editingField()?.label}</h3>
+            <h3 id="edit-dialog-title">
+              {t('card.edit_field')} {editingField()?.label}
+            </h3>
 
             <div class="form">
               <label for="edit-field-type">{t('card.field_type')}</label>
@@ -512,7 +518,9 @@ function AddFieldDialog(props: AddFieldDialogProps) {
     <div
       class="dialog-overlay"
       onClick={props.onClose}
-      onKeyDown={(e) => { if (e.key === 'Escape') props.onClose(); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') props.onClose();
+      }}
       role="presentation"
     >
       <div

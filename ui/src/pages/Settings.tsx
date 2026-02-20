@@ -142,11 +142,17 @@ function Settings(props: SettingsProps) {
   const [shredResult, setShredResult] = createSignal('');
 
   // Emergency broadcast state
-  const [emergencyConfig, setEmergencyConfig] = createSignal<{trusted_contact_ids: string[], message: string, include_location: boolean} | null>(null);
+  const [emergencyConfig, setEmergencyConfig] = createSignal<{
+    trusted_contact_ids: string[];
+    message: string;
+    include_location: boolean;
+  } | null>(null);
   const [showEmergencyDialog, setShowEmergencyDialog] = createSignal(false);
   const [emergencyMessage, setEmergencyMessage] = createSignal('');
   const [emergencyContactIds, setEmergencyContactIds] = createSignal('');
-  const [emergencyAlertMsg, setEmergencyAlertMsg] = createSignal('I may be in danger. Please check on me.');
+  const [emergencyAlertMsg, setEmergencyAlertMsg] = createSignal(
+    'I may be in danger. Please check on me.'
+  );
   const [emergencyIncludeLocation, setEmergencyIncludeLocation] = createSignal(false);
 
   // Tor mode state
@@ -236,7 +242,11 @@ function Settings(props: SettingsProps) {
 
     // Load emergency broadcast config
     try {
-      const ec = await invoke('get_emergency_config') as {trusted_contact_ids: string[], message: string, include_location: boolean} | null;
+      const ec = (await invoke('get_emergency_config')) as {
+        trusted_contact_ids: string[];
+        message: string;
+        include_location: boolean;
+      } | null;
       setEmergencyConfig(ec);
       if (ec) {
         setEmergencyContactIds(ec.trusted_contact_ids.join(', '));
@@ -249,7 +259,12 @@ function Settings(props: SettingsProps) {
 
     // Load Tor config
     try {
-      const tc = await invoke('get_tor_config') as {enabled: boolean, bridges: string[], prefer_onion: boolean, circuit_rotation_secs: number};
+      const tc = (await invoke('get_tor_config')) as {
+        enabled: boolean;
+        bridges: string[];
+        prefer_onion: boolean;
+        circuit_rotation_secs: number;
+      };
       setTorEnabled(tc.enabled);
       setTorPreferOnion(tc.prefer_onion);
       setTorBridges(tc.bridges.join('\n'));
@@ -420,7 +435,10 @@ function Settings(props: SettingsProps) {
       await invoke('save_tor_config', {
         config: {
           enabled: newEnabled,
-          bridges: torBridges().split('\n').map(s => s.trim()).filter(s => s.length > 0),
+          bridges: torBridges()
+            .split('\n')
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0),
           prefer_onion: torPreferOnion(),
           circuit_rotation_secs: 600,
         },
@@ -438,7 +456,10 @@ function Settings(props: SettingsProps) {
       await invoke('save_tor_config', {
         config: {
           enabled: torEnabled(),
-          bridges: torBridges().split('\n').map(s => s.trim()).filter(s => s.length > 0),
+          bridges: torBridges()
+            .split('\n')
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0),
           prefer_onion: newPref,
           circuit_rotation_secs: 600,
         },
@@ -450,7 +471,10 @@ function Settings(props: SettingsProps) {
   };
 
   const handleSaveBridges = async () => {
-    const bridgeList = torBridges().split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    const bridgeList = torBridges()
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
     try {
       await invoke('save_tor_config', {
         config: {
@@ -877,9 +901,7 @@ function Settings(props: SettingsProps) {
         {/* App Password */}
         <div class="setting-item">
           <span class="setting-label">App Password</span>
-          <span class="setting-value">
-            {passwordEnabled() ? 'Enabled' : 'Not set'}
-          </span>
+          <span class="setting-value">{passwordEnabled() ? 'Enabled' : 'Not set'}</span>
         </div>
         <Show when={!passwordEnabled()}>
           <div class="setting-buttons">
@@ -899,9 +921,7 @@ function Settings(props: SettingsProps) {
         <Show when={passwordEnabled()}>
           <div class="setting-item">
             <span class="setting-label">Duress PIN</span>
-            <span class="setting-value">
-              {duressEnabled() ? 'Enabled' : 'Not set'}
-            </span>
+            <span class="setting-value">{duressEnabled() ? 'Enabled' : 'Not set'}</span>
           </div>
           <div class="setting-buttons">
             <Show when={!duressEnabled()}>
@@ -933,7 +953,9 @@ function Settings(props: SettingsProps) {
           <div
             class="dialog-overlay"
             onClick={() => setShowPasswordDialog(false)}
-            onKeyDown={(e) => { if (e.key === 'Escape') setShowPasswordDialog(false); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setShowPasswordDialog(false);
+            }}
             role="presentation"
           >
             <div
@@ -984,7 +1006,9 @@ function Settings(props: SettingsProps) {
           <div
             class="dialog-overlay"
             onClick={() => setShowDuressDialog(false)}
-            onKeyDown={(e) => { if (e.key === 'Escape') setShowDuressDialog(false); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setShowDuressDialog(false);
+            }}
             role="presentation"
           >
             <div
@@ -996,7 +1020,8 @@ function Settings(props: SettingsProps) {
             >
               <h3 id="duress-dialog-title">Set Duress PIN</h3>
               <p class="setting-description">
-                When this PIN is entered instead of the app password, contacts will be replaced with decoy data.
+                When this PIN is entered instead of the app password, contacts will be replaced with
+                decoy data.
               </p>
               <Show when={securityError()}>
                 <p class="error" role="alert">
@@ -1083,7 +1108,9 @@ function Settings(props: SettingsProps) {
           <div
             class="dialog-overlay"
             onClick={() => setShowEmergencyDialog(false)}
-            onKeyDown={(e) => { if (e.key === 'Escape') setShowEmergencyDialog(false); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setShowEmergencyDialog(false);
+            }}
             role="presentation"
           >
             <div
@@ -1095,7 +1122,8 @@ function Settings(props: SettingsProps) {
             >
               <h3 id="emergency-dialog-title">Emergency Broadcast Configuration</h3>
               <p class="setting-description">
-                Choose up to 10 trusted contacts to receive an encrypted alert. Alerts look like normal sync traffic on the wire.
+                Choose up to 10 trusted contacts to receive an encrypted alert. Alerts look like
+                normal sync traffic on the wire.
               </p>
 
               <Show when={emergencyMessage()}>
@@ -1198,7 +1226,12 @@ function Settings(props: SettingsProps) {
         <div class="setting-item">
           <span class="setting-label">Bridges</span>
           <span class="setting-value">
-            {torBridges().split('\n').filter(s => s.trim().length > 0).length} configured
+            {
+              torBridges()
+                .split('\n')
+                .filter((s) => s.trim().length > 0).length
+            }{' '}
+            configured
           </span>
         </div>
 
@@ -1225,7 +1258,9 @@ function Settings(props: SettingsProps) {
           <div
             class="dialog-overlay"
             onClick={() => setShowBridgeDialog(false)}
-            onKeyDown={(e) => { if (e.key === 'Escape') setShowBridgeDialog(false); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setShowBridgeDialog(false);
+            }}
             role="presentation"
           >
             <div
@@ -1566,7 +1601,11 @@ function Settings(props: SettingsProps) {
         <h2 id="privacy-section-title">{t('privacy.title')}</h2>
 
         <div class="setting-item">
-          <button class="secondary" onClick={handleExportGdprData} aria-label="Export all personal data">
+          <button
+            class="secondary"
+            onClick={handleExportGdprData}
+            aria-label="Export all personal data"
+          >
             {t('privacy.export_data')}
           </button>
           <span class="setting-description">{t('privacy.export_description')}</span>
@@ -1576,16 +1615,27 @@ function Settings(props: SettingsProps) {
           <Show
             when={deletionState()?.state === 'scheduled'}
             fallback={
-              <button class="secondary danger" onClick={handleScheduleDeletion} aria-label="Schedule account deletion">
+              <button
+                class="secondary danger"
+                onClick={handleScheduleDeletion}
+                aria-label="Schedule account deletion"
+              >
                 {t('privacy.delete_account')}
               </button>
             }
           >
             <div>
               <span class="setting-value warning">
-                {t('privacy.deletion_scheduled').replace('{days}', String(deletionState()?.days_remaining ?? 0))}
+                {t('privacy.deletion_scheduled').replace(
+                  '{days}',
+                  String(deletionState()?.days_remaining ?? 0)
+                )}
               </span>
-              <button class="secondary" onClick={handleCancelDeletion} aria-label="Cancel account deletion">
+              <button
+                class="secondary"
+                onClick={handleCancelDeletion}
+                aria-label="Cancel account deletion"
+              >
                 {t('privacy.cancel_deletion')}
               </button>
             </div>
@@ -1596,9 +1646,18 @@ function Settings(props: SettingsProps) {
         <div class="setting-item">
           <span class="setting-label">{t('privacy.consent')}</span>
           <div class="consent-toggles">
-            <For each={['data_processing', 'contact_sharing', 'analytics', 'recovery_vouching'] as const}>
+            <For
+              each={
+                ['data_processing', 'contact_sharing', 'analytics', 'recovery_vouching'] as const
+              }
+            >
               {(type) => {
-                const record = () => consentRecords().find((r) => r.consent_type === `${type.charAt(0).toUpperCase()}${type.slice(1).replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())}`);
+                const record = () =>
+                  consentRecords().find(
+                    (r) =>
+                      r.consent_type ===
+                      `${type.charAt(0).toUpperCase()}${type.slice(1).replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())}`
+                  );
                 const isGranted = () => record()?.granted ?? false;
                 const label = () => t(`privacy.consent_${type}`);
                 return (
@@ -1606,7 +1665,9 @@ function Settings(props: SettingsProps) {
                     <input
                       type="checkbox"
                       checked={isGranted()}
-                      onChange={() => isGranted() ? handleRevokeConsent(type) : handleGrantConsent(type)}
+                      onChange={() =>
+                        isGranted() ? handleRevokeConsent(type) : handleGrantConsent(type)
+                      }
                       aria-label={`${label()} consent`}
                     />
                     {label()}
@@ -1632,7 +1693,9 @@ function Settings(props: SettingsProps) {
         </div>
 
         <Show when={shredResult()}>
-          <div class="setting-message" aria-live="polite">{shredResult()}</div>
+          <div class="setting-message" aria-live="polite">
+            {shredResult()}
+          </div>
         </Show>
 
         {/* Emergency Shred Confirmation Dialog */}
@@ -1640,7 +1703,9 @@ function Settings(props: SettingsProps) {
           <div
             class="dialog-overlay"
             onClick={() => setShowShredConfirm(false)}
-            onKeyDown={(e) => { if (e.key === 'Escape') setShowShredConfirm(false); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setShowShredConfirm(false);
+            }}
             role="presentation"
           >
             <div
@@ -1669,7 +1734,9 @@ function Settings(props: SettingsProps) {
         </Show>
 
         <Show when={gdprMessage()}>
-          <div class="setting-message" aria-live="polite">{gdprMessage()}</div>
+          <div class="setting-message" aria-live="polite">
+            {gdprMessage()}
+          </div>
         </Show>
       </section>
 
@@ -1732,7 +1799,9 @@ function Settings(props: SettingsProps) {
         <div
           class="dialog-overlay"
           onClick={closeDialog}
-          onKeyDown={(e) => { if (e.key === 'Escape') closeDialog(); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') closeDialog();
+          }}
           role="presentation"
         >
           <div
@@ -1844,7 +1913,9 @@ function Settings(props: SettingsProps) {
         <div
           class="dialog-overlay"
           onClick={closeImportDialog}
-          onKeyDown={(e) => { if (e.key === 'Escape') closeImportDialog(); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') closeImportDialog();
+          }}
           role="presentation"
         >
           <div

@@ -15,7 +15,15 @@ import Help from './pages/Help';
 import { initializeTheme } from './services/themeService';
 import { initializeLocale } from './services/i18nService';
 
-type Page = 'setup' | 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery' | 'help';
+type Page =
+  | 'setup'
+  | 'home'
+  | 'contacts'
+  | 'exchange'
+  | 'settings'
+  | 'devices'
+  | 'recovery'
+  | 'help';
 
 async function checkIdentity(): Promise<boolean> {
   return await invoke('has_identity');

@@ -219,8 +219,17 @@ function Exchange(props: ExchangeProps) {
         <div class="copy-section">
           <p>Or share this data:</p>
           <div class="copy-input-group">
-            <input type="text" readonly value={qrData()?.data || ''} aria-label="Exchange data to share" />
-            <button class="copy-btn" onClick={copyToClipboard} aria-label="Copy exchange data to clipboard">
+            <input
+              type="text"
+              readonly
+              value={qrData()?.data || ''}
+              aria-label="Exchange data to share"
+            />
+            <button
+              class="copy-btn"
+              onClick={copyToClipboard}
+              aria-label="Copy exchange data to clipboard"
+            >
               Copy
             </button>
           </div>
@@ -264,11 +273,13 @@ function Exchange(props: ExchangeProps) {
       <section class="ble-section" aria-labelledby="ble-section-title">
         <h2 id="ble-section-title">Bluetooth Exchange</h2>
         <div class="ble-stub">
-          <p class="ble-icon" aria-hidden="true">📶</p>
+          <p class="ble-icon" aria-hidden="true">
+            📶
+          </p>
           <p>Not available on desktop</p>
           <p class="ble-description">
-            Bluetooth-based contact exchange is available on mobile devices.
-            Use QR code exchange on desktop.
+            Bluetooth-based contact exchange is available on mobile devices. Use QR code exchange on
+            desktop.
           </p>
         </div>
       </section>
