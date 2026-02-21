@@ -72,12 +72,45 @@ variables:
       - src-tauri/target/
     policy: pull-push
 
-# Override shared test-quality jobs: use shell runners instead of Docker
+# Override shared test-quality jobs: use shell runners instead of Docker.
+# Use unique temp dirs to avoid collisions between concurrent shell jobs.
 quality:zero-assertions:
   tags: [self-hosted, rust]
+  script:
+    - |
+      SCRIPTS_DIR=$(mktemp -d)
+      git clone --depth=1 https://gitlab.com/vauchi/scripts.git "$SCRIPTS_DIR"
+      chmod +x "$SCRIPTS_DIR/scripts/check-zero-assertions.sh"
+
+      DIRS=""
+      for dir in src tests; do
+        if [ -d "$dir" ]; then DIRS="$DIRS $dir"; fi
+      done
+      for dir in */src */tests; do
+        if [ -d "$dir" ]; then DIRS="$DIRS $dir"; fi
+      done
+
+      if [ -n "$DIRS" ]; then
+        "$SCRIPTS_DIR/scripts/check-zero-assertions.sh" $DIRS
+      else
+        echo "No test directories found — skipping"
+      fi
 
 quality:test-ratio:
   tags: [self-hosted, rust]
+  script:
+    - |
+      SCRIPTS_DIR=$(mktemp -d)
+      git clone --depth=1 https://gitlab.com/vauchi/scripts.git "$SCRIPTS_DIR"
+      chmod +x "$SCRIPTS_DIR/scripts/test-code-ratio.sh"
+
+      for dir in . */; do
+        dir="${dir%/}"
+        if [ -d "$dir/src" ]; then
+          echo ""
+          "$SCRIPTS_DIR/scripts/test-code-ratio.sh" "$dir"
+        fi
+      done
 
 # ============================================================
 # Lint Stage — Preflight Gate (change-based)
