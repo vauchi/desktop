@@ -474,7 +474,7 @@ impl AppState {
 // Trace: features/identity_management.feature, contact_card_management.feature
 // ===========================================================================
 
-// INLINE_TEST_REQUIRED: Tests access private AppState fields (backup_data, display_name)
+// INLINE_TEST_REQUIRED: Tests access private AppState fields (backup_data, display_name, data_dir)
 // and private helper functions (load_or_generate_fallback_key) not accessible from external tests.
 #[cfg(test)]
 mod tests {
@@ -495,6 +495,7 @@ mod tests {
     // === Identity Management Tests ===
     // Trace: identity_management.feature
 
+    // @scenario: identity_management:User creates a new identity
     /// Trace: identity_management.feature - New state has no identity
     #[test]
     fn test_new_state_has_no_identity() {
@@ -504,6 +505,7 @@ mod tests {
         assert!(state.public_id().is_none());
     }
 
+    // @scenario: identity_management:User creates a new identity
     /// Trace: identity_management.feature - Create new identity
     #[test]
     fn test_create_identity() {
@@ -518,6 +520,7 @@ mod tests {
         assert!(state.public_id().is_some());
     }
 
+    // @scenario: identity_management:Identity persists across app restarts
     /// Trace: identity_management.feature - Identity persists across state instances
     #[test]
     fn test_identity_persistence() {
@@ -541,6 +544,7 @@ mod tests {
 
     // === Settings Tests ===
 
+    // @scenario: relay_network:Default relay configuration
     /// Test default relay URL
     #[test]
     fn test_relay_url_default() {
@@ -564,6 +568,7 @@ mod tests {
         assert_eq!(relay_url, "wss://relay.vauchi.app");
     }
 
+    // @scenario: relay_network:Custom relay server configuration
     /// Test setting relay URL
     #[test]
     fn test_set_relay_url() {
@@ -576,6 +581,7 @@ mod tests {
         assert_eq!(state.relay_url(), "wss://custom.relay.example.com");
     }
 
+    // @scenario: relay_network:Custom relay server configuration
     /// Test relay URL persistence
     #[test]
     fn test_relay_url_persistence() {
@@ -596,6 +602,7 @@ mod tests {
         }
     }
 
+    // @scenario: relay_network:Invalid relay URL rejected
     /// Test invalid relay URL rejected
     #[test]
     fn test_invalid_relay_url_rejected() {
@@ -605,6 +612,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    // @scenario: relay_network:Invalid relay URL rejected
     /// Test empty relay URL rejected
     #[test]
     fn test_empty_relay_url_rejected() {
@@ -614,6 +622,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    // @scenario: relay_network:Invalid relay URL rejected
     /// Test http URL rejected (must be ws or wss)
     #[test]
     fn test_http_relay_url_rejected() {
@@ -623,6 +632,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    // @scenario: relay_network:Default relay configuration
     /// Test VAUCHI_RELAY_URL env var is used when no config file exists
     #[test]
     fn test_relay_url_from_env_var() {
@@ -648,6 +658,7 @@ mod tests {
         assert_eq!(relay_url, "wss://env.relay.example.com");
     }
 
+    // @scenario: relay_network:Custom relay server configuration
     /// Test config file takes precedence over env var
     #[test]
     fn test_config_file_precedence_over_env_var() {
@@ -682,6 +693,7 @@ mod tests {
     // === Display Name Tests ===
     // Trace: contact_card_management.feature
 
+    // @scenario: contact_card_management:User edits display name
     /// Trace: contact_card_management.feature - Update display name
     #[test]
     fn test_update_display_name() {
@@ -697,6 +709,7 @@ mod tests {
         assert_eq!(state.display_name(), Some("Alice S."));
     }
 
+    // @scenario: contact_card_management:Display name validation rejects empty
     /// Trace: contact_card_management.feature - Empty display name rejected
     #[test]
     fn test_empty_display_name_rejected() {
@@ -710,6 +723,7 @@ mod tests {
         assert_eq!(state.display_name(), Some("Alice Smith"));
     }
 
+    // @scenario: contact_card_management:Display name validation rejects too long
     /// Trace: contact_card_management.feature - Display name too long rejected
     #[test]
     fn test_long_display_name_rejected() {
@@ -723,6 +737,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    // @scenario: contact_card_management:Display name validation rejects whitespace
     /// Trace: contact_card_management.feature - Whitespace-only display name rejected
     #[test]
     fn test_whitespace_display_name_rejected() {
@@ -735,6 +750,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    // @scenario: contact_card_management:User edits display name
     /// Test display name with leading/trailing whitespace is trimmed
     #[test]
     fn test_display_name_trimmed() {
@@ -753,6 +769,7 @@ mod tests {
     // === Fallback Key Storage Tests ===
     // Trace: Phase 2 security hardening — hardcoded key removal
 
+    // @scenario: security:Encryption keys are unique per installation
     /// Verify fallback key generation produces consistent keys from same data dir
     #[cfg(not(feature = "secure-storage"))]
     #[test]
@@ -782,6 +799,7 @@ mod tests {
         );
     }
 
+    // @scenario: security:Encryption keys are unique per installation
     /// Verify different installations produce different keys
     #[cfg(not(feature = "secure-storage"))]
     #[test]
@@ -801,6 +819,7 @@ mod tests {
 
     // === Update without identity fails ===
 
+    // @scenario: identity_management:User creates a new identity
     #[test]
     fn test_update_display_name_without_identity_fails() {
         let (mut state, _temp) = create_test_state();

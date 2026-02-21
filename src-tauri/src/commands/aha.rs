@@ -162,6 +162,7 @@ mod tests {
         }
     }
 
+    // @scenario: aha_moments:Milestone triggers only once
     #[test]
     fn test_check_aha_moment_triggers_once() {
         let temp = TempDir::new().unwrap();
@@ -177,6 +178,7 @@ mod tests {
         assert!(tracker2.has_seen(AhaMomentType::CardCreationComplete));
     }
 
+    // @scenario: aha_moments:Aha moment state persists across sessions
     #[test]
     fn test_tracker_persists() {
         let temp = TempDir::new().unwrap();
@@ -189,6 +191,7 @@ mod tests {
         assert!(!loaded.has_seen(AhaMomentType::FirstContactAdded));
     }
 
+    // @scenario: aha_moments:All milestone types defined
     #[test]
     fn test_type_roundtrip() {
         for t in AhaMomentType::all() {
@@ -198,6 +201,7 @@ mod tests {
         }
     }
 
+    // @scenario: aha_moments:Milestone celebrations are localized
     #[test]
     fn test_localized_moment() {
         ensure_init();

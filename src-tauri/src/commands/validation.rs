@@ -216,6 +216,7 @@ fn build_known_names_map(state: &AppState) -> HashMap<String, String> {
 // Trace: features/field_validation.feature
 // ===========================================================================
 
+// INLINE_TEST_REQUIRED: tests access private AppState fields and storage internals for validation testing
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,6 +237,7 @@ mod tests {
         (state, temp_dir)
     }
 
+    // @scenario: field_validation:User validates a contact field
     #[test]
     fn test_validate_field_creates_record() {
         let (state, _temp) = create_state_with_identity();
@@ -271,6 +273,7 @@ mod tests {
         assert_eq!(loaded[0].field_value(), "alice@example.com");
     }
 
+    // @scenario: field_validation:Validation trust levels
     #[test]
     fn test_validation_status_shows_correct_trust_level() {
         let (state, _temp) = create_state_with_identity();
@@ -314,6 +317,7 @@ mod tests {
         assert!(status.validated_by_me);
     }
 
+    // @scenario: field_validation:User revokes a validation
     #[test]
     fn test_revoke_validation() {
         let (state, _temp) = create_state_with_identity();
@@ -359,6 +363,7 @@ mod tests {
         );
     }
 
+    // @scenario: field_validation:User validates a contact field
     #[test]
     fn test_list_my_validations() {
         let (state, _temp) = create_state_with_identity();
@@ -382,6 +387,7 @@ mod tests {
         assert_eq!(mine.len(), 2);
     }
 
+    // @scenario: field_validation:Validation trust levels
     #[test]
     fn test_build_known_names_map_empty() {
         let (state, _temp) = create_state_with_identity();
