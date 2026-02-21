@@ -7,6 +7,7 @@
 //! Tauri-based desktop app for Vauchi.
 
 mod commands;
+pub mod error;
 mod relay;
 mod state;
 mod test_server;
