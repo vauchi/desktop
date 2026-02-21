@@ -335,7 +335,7 @@ mutation:incremental:
   script:
     - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --depth=100
     - git diff "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"...HEAD > mr.diff
-    - cd src-tauri && cargo mutants --no-default-features --features custom-protocol --in-diff ../mr.diff --timeout 120 --mutant-limit 50 --baseline skip
+    - cd src-tauri && cargo mutants --no-default-features --features custom-protocol --in-diff ../mr.diff --timeout 120 --baseline skip
   artifacts:
     paths:
       - src-tauri/mutants.out/
