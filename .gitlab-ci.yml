@@ -271,14 +271,15 @@ test:frontend:
 # NOTE: Requires Tauri runtime (Rust + GTK + WebKit). Cannot run in a
 # plain Node.js container. Allowed to fail until full Tauri CI image is
 # available. Run locally with: cd ui && npm run test:visual
+# Chained after test:frontend to avoid port 1420 conflict on shell runners
 test:visual-regression:
   extends: [.node-job, .timeout-standard]
   stage: test
   needs:
     - job: build:frontend-dist
       artifacts: true
-    - job: lint:frontend
-      optional: true
+    - job: test:frontend
+      artifacts: false
   allow_failure: true
   script:
     - cd ui && npm ci --prefer-offline
@@ -301,14 +302,15 @@ test:visual-regression:
 # Accessibility tests — axe-core critical violations fail the build (PI-12)
 # Runs the @a11y Playwright tests which use @axe-core/playwright to check
 # WCAG 2.0 AA compliance on all pages. Critical violations are blocking.
+# Chained after test:visual-regression to avoid port 1420 conflict on shell runners
 test:accessibility:
   extends: [.node-job, .timeout-standard]
   stage: test
   needs:
     - job: build:frontend-dist
       artifacts: true
-    - job: lint:frontend
-      optional: true
+    - job: test:visual-regression
+      artifacts: false
   script:
     - cd ui && npm ci --prefer-offline
     - npx playwright install chromium
