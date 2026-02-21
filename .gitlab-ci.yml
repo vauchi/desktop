@@ -73,10 +73,13 @@ variables:
       - src-tauri/target/
     policy: pull-push
 
-# Override shared test-quality jobs: use shell runners instead of Docker.
-# Use unique temp dirs to avoid collisions between concurrent shell jobs.
+# Override shared jobs to run on allyson (Linux shell runner).
+# nell (macOS) has persistent git/npm issues under concurrency.
+reuse-lint:
+  tags: [self-hosted, reuse, linux]
+
 quality:zero-assertions:
-  tags: [self-hosted, rust]
+  tags: [self-hosted, rust, linux]
   script:
     - |
       SCRIPTS_DIR=$(mktemp -d)
@@ -98,7 +101,7 @@ quality:zero-assertions:
       fi
 
 quality:test-ratio:
-  tags: [self-hosted, rust]
+  tags: [self-hosted, rust, linux]
   script:
     - |
       SCRIPTS_DIR=$(mktemp -d)
@@ -147,6 +150,7 @@ lint:html:
   tags:
     - self-hosted
     - node
+    - linux
   needs: []
   script:
     - htmlhint ui/index.html
