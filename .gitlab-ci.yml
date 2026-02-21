@@ -135,7 +135,7 @@ lint:css:
     - node
   needs: []
   script:
-    - cd ui && npm ci --prefer-offline && ./node_modules/.bin/stylelint "src/**/*.css"
+    - cd ui && npm ci --prefer-offline && npm run lint:css
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
