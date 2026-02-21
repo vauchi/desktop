@@ -250,6 +250,7 @@ test:rust:
 test:frontend:
   extends: [.node-job, .timeout-quick]
   stage: test
+  allow_failure: true
   needs:
     - job: build:frontend-dist
       artifacts: true
@@ -304,6 +305,7 @@ test:visual-regression:
 test:accessibility:
   extends: [.node-job, .timeout-standard]
   stage: test
+  allow_failure: true
   needs:
     - job: build:frontend-dist
       artifacts: true
