@@ -127,23 +127,6 @@ lint:html:
           - "ui/index.html"
           - ".gitlab-ci.yml"
 
-# CSS linting (runs on stylesheet changes)
-lint:css:
-  stage: lint
-  tags:
-    - self-hosted
-    - node
-  needs: []
-  script:
-    - cd ui && npm ci --prefer-offline && npm run lint:css
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        compare_to: refs/heads/main
-        paths:
-          - "ui/src/**/*.css"
-          - ".gitlab-ci.yml"
-
 # Rust linting (runs on Rust code changes)
 lint:rust-format:
   extends: [.rust-runner-nocache, .timeout-quick]
@@ -190,6 +173,7 @@ lint:frontend:
     policy: pull  # Read-only cache for lint
   script:
     - cd ui && npm ci --prefer-offline && npm run lint --if-present
+    - npm run lint:css --if-present
     - npm run typecheck --if-present
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
