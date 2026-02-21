@@ -9,6 +9,8 @@
 use serde::Serialize;
 use vauchi_core::contact_card::{is_allowed_scheme, ContactAction, ContactField, FieldType};
 
+use crate::error::CommandError;
+
 /// Result of opening a contact field.
 #[derive(Serialize)]
 pub struct OpenResult {
@@ -71,7 +73,7 @@ pub async fn open_contact_field(
     field_type: String,
     label: String,
     value: String,
-) -> Result<OpenResult, String> {
+) -> Result<OpenResult, CommandError> {
     // Parse field type and create a ContactField
     let ft = parse_field_type(&field_type);
     let field = ContactField::new(ft, &label, &value);

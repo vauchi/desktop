@@ -11,6 +11,7 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Visibility label info for the frontend.
@@ -37,13 +38,13 @@ pub struct LabelDetail {
 
 /// List all visibility labels.
 #[tauri::command]
-pub fn list_labels(state: State<'_, Mutex<AppState>>) -> Result<Vec<LabelInfo>, String> {
+pub fn list_labels(state: State<'_, Mutex<AppState>>) -> Result<Vec<LabelInfo>, CommandError> {
     let state = state.lock().unwrap();
 
     let labels = state
         .storage
         .load_all_labels()
-        .map_err(|e| format!("Failed to load labels: {:?}", e))?;
+        .map_err(|e| CommandError::Storage(format!("Failed to load labels: {:?}", e)))?;
 
     Ok(labels
         .iter()
@@ -60,13 +61,16 @@ pub fn list_labels(state: State<'_, Mutex<AppState>>) -> Result<Vec<LabelInfo>, 
 
 /// Create a new visibility label.
 #[tauri::command]
-pub fn create_label(name: String, state: State<'_, Mutex<AppState>>) -> Result<LabelInfo, String> {
+pub fn create_label(
+    name: String,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<LabelInfo, CommandError> {
     let state = state.lock().unwrap();
 
     let label = state
         .storage
         .create_label(&name)
-        .map_err(|e| format!("Failed to create label: {:?}", e))?;
+        .map_err(|e| CommandError::Storage(format!("Failed to create label: {:?}", e)))?;
 
     Ok(LabelInfo {
         id: label.id().to_string(),
@@ -83,13 +87,13 @@ pub fn create_label(name: String, state: State<'_, Mutex<AppState>>) -> Result<L
 pub fn get_label(
     label_id: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<LabelDetail, String> {
+) -> Result<LabelDetail, CommandError> {
     let state = state.lock().unwrap();
 
     let label = state
         .storage
         .load_label(&label_id)
-        .map_err(|e| format!("Failed to load label: {:?}", e))?;
+        .map_err(|e| CommandError::Storage(format!("Failed to load label: {:?}", e)))?;
 
     Ok(LabelDetail {
         id: label.id().to_string(),
@@ -107,24 +111,27 @@ pub fn rename_label(
     label_id: String,
     new_name: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
 
     state
         .storage
         .rename_label(&label_id, &new_name)
-        .map_err(|e| format!("Failed to rename label: {:?}", e))
+        .map_err(|e| CommandError::Storage(format!("Failed to rename label: {:?}", e)))
 }
 
 /// Delete a label.
 #[tauri::command]
-pub fn delete_label(label_id: String, state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+pub fn delete_label(
+    label_id: String,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
 
     state
         .storage
         .delete_label(&label_id)
-        .map_err(|e| format!("Failed to delete label: {:?}", e))
+        .map_err(|e| CommandError::Storage(format!("Failed to delete label: {:?}", e)))
 }
 
 /// Add a contact to a label.
@@ -133,13 +140,13 @@ pub fn add_contact_to_label(
     label_id: String,
     contact_id: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
 
     state
         .storage
         .add_contact_to_label(&label_id, &contact_id)
-        .map_err(|e| format!("Failed to add contact to label: {:?}", e))
+        .map_err(|e| CommandError::Storage(format!("Failed to add contact to label: {:?}", e)))
 }
 
 /// Remove a contact from a label.
@@ -148,13 +155,13 @@ pub fn remove_contact_from_label(
     label_id: String,
     contact_id: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
 
     state
         .storage
         .remove_contact_from_label(&label_id, &contact_id)
-        .map_err(|e| format!("Failed to remove contact from label: {:?}", e))
+        .map_err(|e| CommandError::Storage(format!("Failed to remove contact from label: {:?}", e)))
 }
 
 /// Get all labels that contain a contact.
@@ -162,13 +169,13 @@ pub fn remove_contact_from_label(
 pub fn get_labels_for_contact(
     contact_id: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<Vec<LabelInfo>, String> {
+) -> Result<Vec<LabelInfo>, CommandError> {
     let state = state.lock().unwrap();
 
     let labels = state
         .storage
         .get_labels_for_contact(&contact_id)
-        .map_err(|e| format!("Failed to get labels for contact: {:?}", e))?;
+        .map_err(|e| CommandError::Storage(format!("Failed to get labels for contact: {:?}", e)))?;
 
     Ok(labels
         .iter()
@@ -190,13 +197,13 @@ pub fn set_label_field_visibility(
     field_id: String,
     is_visible: bool,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
 
     state
         .storage
         .set_label_field_visibility(&label_id, &field_id, is_visible)
-        .map_err(|e| format!("Failed to set field visibility: {:?}", e))
+        .map_err(|e| CommandError::Storage(format!("Failed to set field visibility: {:?}", e)))
 }
 
 /// Set a per-contact override for field visibility.
@@ -206,13 +213,13 @@ pub fn set_contact_field_override(
     field_id: String,
     is_visible: bool,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
 
     state
         .storage
         .save_contact_override(&contact_id, &field_id, is_visible)
-        .map_err(|e| format!("Failed to set contact override: {:?}", e))
+        .map_err(|e| CommandError::Storage(format!("Failed to set contact override: {:?}", e)))
 }
 
 /// Remove a per-contact override for field visibility.
@@ -221,13 +228,13 @@ pub fn remove_contact_field_override(
     contact_id: String,
     field_id: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
 
     state
         .storage
         .delete_contact_override(&contact_id, &field_id)
-        .map_err(|e| format!("Failed to remove contact override: {:?}", e))
+        .map_err(|e| CommandError::Storage(format!("Failed to remove contact override: {:?}", e)))
 }
 
 /// Get suggested default labels.

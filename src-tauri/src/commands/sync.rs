@@ -27,6 +27,7 @@ use vauchi_core::sync::{
 };
 use vauchi_core::{Contact, ContactCard, Identity, IdentityBackup, Storage};
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Exchange response data: (recipient_id, exchange_key).
@@ -63,14 +64,14 @@ pub struct SyncStatus {
 }
 
 /// Connect to relay server via async WebSocket with timeout.
-async fn connect_to_relay(relay_url: &str) -> Result<WsStream, String> {
+async fn connect_to_relay(relay_url: &str) -> Result<WsStream, CommandError> {
     let (ws_stream, _) = tokio::time::timeout(
         Duration::from_secs(5),
         tokio_tungstenite::connect_async(relay_url),
     )
     .await
-    .map_err(|_| "Connection timed out".to_string())?
-    .map_err(|e| format!("WebSocket connection failed: {}", e))?;
+    .map_err(|_| CommandError::Network("Connection timed out".to_string()))?
+    .map_err(|e| CommandError::Network(format!("WebSocket connection failed: {}", e)))?;
 
     Ok(ws_stream)
 }
@@ -80,14 +81,15 @@ async fn send_handshake(
     socket: &mut WsStream,
     identity: &Identity,
     device_id: Option<&str>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let handshake = create_signed_handshake(identity, device_id.map(|s| s.to_string()));
     let envelope = create_simple_envelope(SimplePayload::Handshake(handshake));
-    let data = encode_simple_message(&envelope).map_err(|e| format!("Encode error: {}", e))?;
+    let data = encode_simple_message(&envelope)
+        .map_err(|e| CommandError::Network(format!("Encode error: {}", e)))?;
     socket
         .send(Message::Binary(data))
         .await
-        .map_err(|e| format!("Send error: {}", e))?;
+        .map_err(|e| CommandError::Network(format!("Send error: {}", e)))?;
     Ok(())
 }
 
@@ -99,7 +101,7 @@ struct ReceivedMessages {
 }
 
 /// Receive pending messages from relay with timeout.
-async fn receive_pending(socket: &mut WsStream) -> Result<ReceivedMessages, String> {
+async fn receive_pending(socket: &mut WsStream) -> Result<ReceivedMessages, CommandError> {
     let mut encrypted_exchange = Vec::new();
     let mut card_updates = Vec::new();
     let mut device_sync_messages = Vec::new();
@@ -170,7 +172,7 @@ fn process_exchanges_sync(
     identity: &Identity,
     storage: &Storage,
     encrypted_data: Vec<Vec<u8>>,
-) -> Result<(u32, ExchangeResponses), String> {
+) -> Result<(u32, ExchangeResponses), CommandError> {
     let mut added = 0u32;
     let mut responses = Vec::new();
     let our_x3dh = identity.x3dh_keypair();
@@ -191,7 +193,7 @@ fn process_exchanges_sync(
         // Check if contact exists
         if storage
             .load_contact(&public_id)
-            .map_err(|e| e.to_string())?
+            .map_err(CommandError::from)?
             .is_some()
         {
             continue;
@@ -201,7 +203,7 @@ fn process_exchanges_sync(
         let card = ContactCard::new(&payload.display_name);
         let contact = Contact::from_exchange(payload.identity_key, card, shared_secret.clone());
         let contact_id = contact.id().to_string();
-        storage.save_contact(&contact).map_err(|e| e.to_string())?;
+        storage.save_contact(&contact).map_err(CommandError::from)?;
 
         // Initialize ratchet
         let ratchet_dh = X3DHKeyPair::from_bytes(our_x3dh.secret_bytes());
@@ -221,7 +223,7 @@ async fn send_exchange_response(
     recipient_id: &str,
     recipient_exchange_key: &[u8; 32],
     relay_url: &str,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let mut socket = connect_to_relay(relay_url).await?;
 
     send_handshake(&mut socket, identity, None).await?;
@@ -234,7 +236,7 @@ async fn send_exchange_response(
         identity.signing_public_key(),
         identity.display_name(),
     )
-    .map_err(|e| format!("Failed to encrypt exchange: {:?}", e))?;
+    .map_err(|e| CommandError::Exchange(format!("Failed to encrypt exchange: {:?}", e)))?;
 
     let update = SimpleEncryptedUpdate {
         recipient_id: recipient_id.to_string(),
@@ -243,11 +245,12 @@ async fn send_exchange_response(
     };
 
     let envelope = create_simple_envelope(SimplePayload::EncryptedUpdate(update));
-    let data = encode_simple_message(&envelope).map_err(|e| e.to_string())?;
+    let data =
+        encode_simple_message(&envelope).map_err(|e| CommandError::Network(e.to_string()))?;
     socket
         .send(Message::Binary(data))
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Network(e.to_string()))?;
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let _ = socket.close(None).await;
@@ -263,15 +266,15 @@ async fn send_exchange_response(
 fn collect_pending_updates_data(
     identity: &Identity,
     storage: &Storage,
-) -> Result<Vec<(String, Vec<u8>)>, String> {
-    let contacts = storage.list_contacts().map_err(|e| e.to_string())?;
+) -> Result<Vec<(String, Vec<u8>)>, CommandError> {
+    let contacts = storage.list_contacts().map_err(CommandError::from)?;
     let our_id = identity.public_id();
     let mut result = Vec::new();
 
     for contact in contacts {
         let pending = storage
             .get_pending_updates(contact.id())
-            .map_err(|e| e.to_string())?;
+            .map_err(CommandError::from)?;
 
         for update in pending {
             let msg = SimpleEncryptedUpdate {
@@ -295,7 +298,7 @@ fn process_device_sync_messages(
     identity: &Identity,
     storage: &Storage,
     messages: Vec<SimpleDeviceSyncMessage>,
-) -> Result<u32, String> {
+) -> Result<u32, CommandError> {
     if messages.is_empty() {
         return Ok(0);
     }
@@ -362,17 +365,17 @@ fn process_device_sync_messages(
 }
 
 /// Apply a single sync item to local storage.
-fn apply_sync_item(storage: &Storage, item: &SyncItem) -> Result<(), String> {
+fn apply_sync_item(storage: &Storage, item: &SyncItem) -> Result<(), CommandError> {
     match item {
         SyncItem::ContactAdded { contact_data, .. } => {
             if let Ok(contact) = contact_data.to_contact() {
-                storage.save_contact(&contact).map_err(|e| e.to_string())?;
+                storage.save_contact(&contact).map_err(CommandError::from)?;
             }
         }
         SyncItem::ContactRemoved { contact_id, .. } => {
             storage
                 .delete_contact(contact_id)
-                .map_err(|e| e.to_string())?;
+                .map_err(CommandError::from)?;
         }
         SyncItem::CardUpdated {
             field_label,
@@ -381,7 +384,7 @@ fn apply_sync_item(storage: &Storage, item: &SyncItem) -> Result<(), String> {
         } => {
             if let Ok(Some(mut card)) = storage.load_own_card() {
                 if card.update_field_value(field_label, new_value).is_ok() {
-                    storage.save_own_card(&card).map_err(|e| e.to_string())?;
+                    storage.save_own_card(&card).map_err(CommandError::from)?;
                 }
             }
         }
@@ -393,14 +396,14 @@ fn apply_sync_item(storage: &Storage, item: &SyncItem) -> Result<(), String> {
         } => {
             if let Some(mut contact) = storage
                 .load_contact(contact_id)
-                .map_err(|e| e.to_string())?
+                .map_err(CommandError::from)?
             {
                 if *is_visible {
                     contact.visibility_rules_mut().set_everyone(field_label);
                 } else {
                     contact.visibility_rules_mut().set_nobody(field_label);
                 }
-                storage.save_contact(&contact).map_err(|e| e.to_string())?;
+                storage.save_contact(&contact).map_err(CommandError::from)?;
             }
         }
         SyncItem::LabelChange { .. } => {
@@ -421,17 +424,18 @@ async fn do_sync_async(
     data_dir: &std::path::Path,
     relay_url: &str,
     backup_password: &str,
-) -> Result<SyncResult, String> {
+) -> Result<SyncResult, CommandError> {
     // ── Phase 1: Reconstruct identity (Storage scoped, no await) ──
     let (identity, device_id_hex) = {
-        let storage = AppState::open_storage(data_dir).map_err(|e| e.to_string())?;
+        let storage =
+            AppState::open_storage(data_dir).map_err(|e| CommandError::Storage(e.to_string()))?;
         let (backup_data, _name) = storage
             .load_identity()
-            .map_err(|e| e.to_string())?
-            .ok_or("No identity found in storage")?;
+            .map_err(CommandError::from)?
+            .ok_or_else(|| CommandError::Identity("No identity found in storage".to_string()))?;
         let backup = IdentityBackup::new(backup_data);
         let identity = Identity::import_backup(&backup, backup_password)
-            .map_err(|e| format!("Failed to import identity: {:?}", e))?;
+            .map_err(|e| CommandError::Identity(format!("Failed to import identity: {:?}", e)))?;
         let device_id_hex = hex::encode(identity.device_id());
         (identity, device_id_hex)
         // storage dropped here
@@ -452,7 +456,8 @@ async fn do_sync_async(
         device_envelopes,
         pending_to_send,
     ) = {
-        let storage = AppState::open_storage(data_dir).map_err(|e| e.to_string())?;
+        let storage =
+            AppState::open_storage(data_dir).map_err(|e| CommandError::Storage(e.to_string()))?;
 
         // Process exchange messages
         let (added, responses) =
@@ -460,7 +465,7 @@ async fn do_sync_async(
 
         // Process card updates (core's secure pipeline)
         let card_result = process_card_updates(&identity, &storage, received.card_updates)
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| CommandError::Storage(e.to_string()))?;
 
         // Process device sync messages
         let device_synced =
@@ -510,7 +515,8 @@ async fn do_sync_async(
 
     // ── Phase 5: Cleanup sent updates (Storage scoped, no await) ──
     if !sent_ids.is_empty() {
-        let storage = AppState::open_storage(data_dir).map_err(|e| e.to_string())?;
+        let storage =
+            AppState::open_storage(data_dir).map_err(|e| CommandError::Storage(e.to_string()))?;
         for id in &sent_ids {
             let _ = storage.delete_pending_update(id);
         }
@@ -533,16 +539,20 @@ async fn do_sync_async(
 /// This sends pending updates to contacts and receives incoming updates.
 /// Fully async — no blocking I/O on the Tauri command thread.
 #[tauri::command]
-pub async fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
+pub async fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, CommandError> {
     // Extract what we need from state (hold lock briefly, then release)
     let (data_dir, relay_url, backup_password) = {
         let state_guard = state.lock().unwrap();
 
         if state_guard.identity.is_none() {
-            return Err("No identity found. Please create an identity first.".to_string());
+            return Err(CommandError::Identity(
+                "No identity found. Please create an identity first.".to_string(),
+            ));
         }
 
-        let backup_password = state_guard.backup_password().map_err(|e| e.to_string())?;
+        let backup_password = state_guard
+            .backup_password()
+            .map_err(|e| CommandError::Storage(e.to_string()))?;
 
         (
             state_guard.data_dir().to_path_buf(),
@@ -558,7 +568,7 @@ pub async fn sync(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, Strin
 
 /// Get the current sync status.
 #[tauri::command]
-pub fn get_sync_status(state: State<'_, Mutex<AppState>>) -> Result<SyncStatus, String> {
+pub fn get_sync_status(state: State<'_, Mutex<AppState>>) -> Result<SyncStatus, CommandError> {
     let state = state.lock().unwrap();
 
     if state.identity.is_none() {
@@ -570,10 +580,7 @@ pub fn get_sync_status(state: State<'_, Mutex<AppState>>) -> Result<SyncStatus, 
     }
 
     // Count pending updates across all contacts
-    let contacts = state
-        .storage
-        .list_contacts()
-        .map_err(|e| format!("Failed to list contacts: {:?}", e))?;
+    let contacts = state.storage.list_contacts()?;
 
     let mut total_pending = 0u32;
     for contact in &contacts {
@@ -593,14 +600,16 @@ pub fn get_sync_status(state: State<'_, Mutex<AppState>>) -> Result<SyncStatus, 
 
 /// Get the current relay URL.
 #[tauri::command]
-pub fn get_relay_url(state: State<'_, Mutex<AppState>>) -> Result<String, String> {
+pub fn get_relay_url(state: State<'_, Mutex<AppState>>) -> Result<String, CommandError> {
     let state = state.lock().unwrap();
     Ok(state.relay_url().to_string())
 }
 
 /// Set the relay URL.
 #[tauri::command]
-pub fn set_relay_url(state: State<'_, Mutex<AppState>>, url: String) -> Result<(), String> {
+pub fn set_relay_url(state: State<'_, Mutex<AppState>>, url: String) -> Result<(), CommandError> {
     let mut state = state.lock().unwrap();
-    state.set_relay_url(&url).map_err(|e| e.to_string())
+    state
+        .set_relay_url(&url)
+        .map_err(|e| CommandError::Config(e.to_string()))
 }

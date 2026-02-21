@@ -16,6 +16,7 @@ use tauri::State;
 use vauchi_core::exchange::{DeviceLinkQR, DeviceLinkResponder, DeviceLinkResponse};
 use vauchi_core::Identity;
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Device info for the frontend.
@@ -30,14 +31,14 @@ pub struct DeviceInfo {
 
 /// Get list of all linked devices.
 #[tauri::command]
-pub fn list_devices(state: State<'_, Mutex<AppState>>) -> Result<Vec<DeviceInfo>, String> {
+pub fn list_devices(state: State<'_, Mutex<AppState>>) -> Result<Vec<DeviceInfo>, CommandError> {
     let state = state.lock().unwrap();
 
     // Get current device info from identity
     let identity = state
         .identity
         .as_ref()
-        .ok_or_else(|| "No identity found".to_string())?;
+        .ok_or_else(|| CommandError::Identity("No identity found".to_string()))?;
 
     let current_device = identity.device_info();
     let current_device_id = hex::encode(current_device.device_id());
@@ -71,13 +72,13 @@ pub fn list_devices(state: State<'_, Mutex<AppState>>) -> Result<Vec<DeviceInfo>
 
 /// Get current device info.
 #[tauri::command]
-pub fn get_current_device(state: State<'_, Mutex<AppState>>) -> Result<DeviceInfo, String> {
+pub fn get_current_device(state: State<'_, Mutex<AppState>>) -> Result<DeviceInfo, CommandError> {
     let state = state.lock().unwrap();
 
     let identity = state
         .identity
         .as_ref()
-        .ok_or_else(|| "No identity found".to_string())?;
+        .ok_or_else(|| CommandError::Identity("No identity found".to_string()))?;
 
     let device = identity.device_info();
 
@@ -93,13 +94,13 @@ pub fn get_current_device(state: State<'_, Mutex<AppState>>) -> Result<DeviceInf
 /// Generate device link QR data for pairing a new device.
 #[deprecated(note = "Use generate_device_link_qr instead")]
 #[tauri::command]
-pub fn generate_device_link(state: State<'_, Mutex<AppState>>) -> Result<String, String> {
+pub fn generate_device_link(state: State<'_, Mutex<AppState>>) -> Result<String, CommandError> {
     let mut state = state.lock().unwrap();
 
     let identity = state
         .identity
         .as_ref()
-        .ok_or_else(|| "No identity found".to_string())?;
+        .ok_or_else(|| CommandError::Identity("No identity found".to_string()))?;
 
     // Generate device link QR
     let qr = DeviceLinkQR::generate(identity);
@@ -159,21 +160,25 @@ pub fn join_device(
     link_data: String,
     device_name: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<JoinStartResult, String> {
+) -> Result<JoinStartResult, CommandError> {
     let mut state = state.lock().unwrap();
 
     // Check if we already have an identity
     if state.identity.is_some() {
-        return Err("This device already has an identity. Cannot join another device.".to_string());
+        return Err(CommandError::Device(
+            "This device already has an identity. Cannot join another device.".to_string(),
+        ));
     }
 
     // Parse the link data
     let qr = DeviceLinkQR::from_data_string(&link_data)
-        .map_err(|e| format!("Invalid link data: {:?}", e))?;
+        .map_err(|e| CommandError::Device(format!("Invalid link data: {:?}", e)))?;
 
     // Check if the link has expired
     if qr.is_expired() {
-        return Err("This device link has expired. Please generate a new one.".to_string());
+        return Err(CommandError::Device(
+            "This device link has expired. Please generate a new one.".to_string(),
+        ));
     }
 
     // Extract the target identity hex before the QR is moved into the responder,
@@ -189,11 +194,11 @@ pub fn join_device(
 
     // Create responder and generate request (consumes qr)
     let mut responder = DeviceLinkResponder::from_qr(qr, device_name.clone())
-        .map_err(|e| format!("Failed to create responder: {:?}", e))?;
+        .map_err(|e| CommandError::Device(format!("Failed to create responder: {:?}", e)))?;
 
     let encrypted_request = responder
         .create_request()
-        .map_err(|e| format!("Failed to create request: {:?}", e))?;
+        .map_err(|e| CommandError::Device(format!("Failed to create request: {:?}", e)))?;
 
     // Compute confirmation code and fingerprint while we still have the responder
     let confirmation_code = responder
@@ -260,35 +265,36 @@ pub fn get_join_confirmation_code(
 pub fn finish_join_device(
     response_data: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<JoinFinishResult, String> {
+) -> Result<JoinFinishResult, CommandError> {
     let mut state = state.lock().unwrap();
 
     // Check if we already have an identity
     if state.identity.is_some() {
-        return Err("This device already has an identity.".to_string());
+        return Err(CommandError::Device(
+            "This device already has an identity.".to_string(),
+        ));
     }
 
     // Get pending join state
-    let pending_json = state
-        .pending_device_join
-        .take()
-        .ok_or("No pending device join. Call join_device first.")?;
+    let pending_json = state.pending_device_join.take().ok_or_else(|| {
+        CommandError::Device("No pending device join. Call join_device first.".to_string())
+    })?;
 
     let pending: PendingJoin = serde_json::from_str(&pending_json)
-        .map_err(|_| "Invalid pending join state".to_string())?;
+        .map_err(|_| CommandError::Device("Invalid pending join state".to_string()))?;
 
     // Parse the original QR data
     let qr = DeviceLinkQR::from_data_string(&pending.qr_data)
-        .map_err(|e| format!("Invalid QR data: {:?}", e))?;
+        .map_err(|e| CommandError::Device(format!("Invalid QR data: {:?}", e)))?;
 
     // Decode the response
-    let encrypted_response = BASE64
-        .decode(&response_data)
-        .map_err(|_| "Invalid response data (not valid base64)".to_string())?;
+    let encrypted_response = BASE64.decode(&response_data).map_err(|_| {
+        CommandError::Device("Invalid response data (not valid base64)".to_string())
+    })?;
 
     // Decrypt the response using the link key
     let response = DeviceLinkResponse::decrypt(&encrypted_response, qr.link_key())
-        .map_err(|e| format!("Failed to decrypt response: {:?}", e))?;
+        .map_err(|e| CommandError::Device(format!("Failed to decrypt response: {:?}", e)))?;
 
     // Create identity from the received seed
     let identity = Identity::from_device_link(
@@ -304,21 +310,21 @@ pub fn finish_join_device(
     // Save identity backup to storage
     let password = state
         .backup_password()
-        .map_err(|e| format!("Failed to get backup password: {:?}", e))?;
+        .map_err(|e| CommandError::Device(format!("Failed to get backup password: {:?}", e)))?;
     let backup = identity
         .export_backup(&password)
-        .map_err(|e| format!("Failed to export backup: {:?}", e))?;
+        .map_err(|e| CommandError::Device(format!("Failed to export backup: {:?}", e)))?;
 
     state
         .storage
         .save_identity(backup.as_bytes(), &display_name)
-        .map_err(|e| format!("Failed to save identity: {:?}", e))?;
+        .map_err(|e| CommandError::Storage(format!("Failed to save identity: {:?}", e)))?;
 
     // Save device registry
     state
         .storage
         .save_device_registry(response.registry())
-        .map_err(|e| format!("Failed to save device registry: {:?}", e))?;
+        .map_err(|e| CommandError::Storage(format!("Failed to save device registry: {:?}", e)))?;
 
     // Set identity in app state
     state.identity = Some(identity);
@@ -341,32 +347,32 @@ pub fn finish_join_device(
 pub fn complete_device_link(
     request_data: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let state = state.lock().unwrap();
 
-    let identity = state
-        .identity
-        .as_ref()
-        .ok_or("No identity found. Cannot complete device link.")?;
+    let identity = state.identity.as_ref().ok_or_else(|| {
+        CommandError::Identity("No identity found. Cannot complete device link.".to_string())
+    })?;
 
     // Check for pending link QR
-    let pending_qr_data = state
-        .pending_device_link_qr
-        .as_ref()
-        .ok_or("No pending device link. Generate a link QR first.")?;
+    let pending_qr_data = state.pending_device_link_qr.as_ref().ok_or_else(|| {
+        CommandError::Device("No pending device link. Generate a link QR first.".to_string())
+    })?;
 
     let saved_qr = DeviceLinkQR::from_data_string(pending_qr_data)
-        .map_err(|e| format!("Invalid saved QR data: {:?}", e))?;
+        .map_err(|e| CommandError::Device(format!("Invalid saved QR data: {:?}", e)))?;
 
     if saved_qr.is_expired() {
-        return Err("Device link QR has expired. Generate a new one.".to_string());
+        return Err(CommandError::Device(
+            "Device link QR has expired. Generate a new one.".to_string(),
+        ));
     }
 
     // Get or create device registry
     let registry = state
         .storage
         .load_device_registry()
-        .map_err(|e| format!("Failed to load registry: {:?}", e))?
+        .map_err(|e| CommandError::Storage(format!("Failed to load registry: {:?}", e)))?
         .unwrap_or_else(|| identity.initial_device_registry());
 
     // Restore the initiator
@@ -375,25 +381,25 @@ pub fn complete_device_link(
     // Decode and process the request
     let encrypted_request = BASE64
         .decode(&request_data)
-        .map_err(|_| "Invalid request data (not valid base64)".to_string())?;
+        .map_err(|_| CommandError::Device("Invalid request data (not valid base64)".to_string()))?;
 
     // Decrypt request and get confirmation details
     let (_confirmation, request) = initiator
         .prepare_confirmation(&encrypted_request)
-        .map_err(|e| format!("Failed to prepare confirmation: {:?}", e))?;
+        .map_err(|e| CommandError::Device(format!("Failed to prepare confirmation: {:?}", e)))?;
 
     // Desktop uses QR scan for proximity proof
     initiator.set_proximity_verified();
 
     let (encrypted_response, updated_registry, _new_device) = initiator
         .confirm_link(&request)
-        .map_err(|e| format!("Failed to confirm link: {:?}", e))?;
+        .map_err(|e| CommandError::Device(format!("Failed to confirm link: {:?}", e)))?;
 
     // Save the updated registry
     state
         .storage
         .save_device_registry(&updated_registry)
-        .map_err(|e| format!("Failed to save registry: {:?}", e))?;
+        .map_err(|e| CommandError::Storage(format!("Failed to save registry: {:?}", e)))?;
 
     // Return the response for the new device
     Ok(BASE64.encode(&encrypted_response))
@@ -620,52 +626,56 @@ pub fn generate_device_link_qr(
 ///
 /// This removes a device from the device registry, preventing it from syncing.
 #[tauri::command]
-pub fn revoke_device(device_id: String, state: State<'_, Mutex<AppState>>) -> Result<bool, String> {
+pub fn revoke_device(
+    device_id: String,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<bool, CommandError> {
     let state = state.lock().unwrap();
 
     let identity = state
         .identity
         .as_ref()
-        .ok_or_else(|| "No identity found".to_string())?;
+        .ok_or_else(|| CommandError::Identity("No identity found".to_string()))?;
 
     // Get current device ID to prevent self-revocation
     let current_device_id = hex::encode(identity.device_info().device_id());
     if device_id == current_device_id {
-        return Err(
+        return Err(CommandError::Device(
             "Cannot revoke the current device. Use a different device to revoke this one."
                 .to_string(),
-        );
+        ));
     }
 
     // Load device registry
     let mut registry = state
         .storage
         .load_device_registry()
-        .map_err(|e| format!("Failed to load device registry: {:?}", e))?
-        .ok_or_else(|| "No device registry found".to_string())?;
+        .map_err(|e| CommandError::Storage(format!("Failed to load device registry: {:?}", e)))?
+        .ok_or_else(|| CommandError::Device("No device registry found".to_string()))?;
 
     // Find and revoke the device
-    let device_id_bytes =
-        hex::decode(&device_id).map_err(|_| "Invalid device ID format".to_string())?;
+    let device_id_bytes = hex::decode(&device_id)?;
 
     if device_id_bytes.len() != 32 {
-        return Err("Device ID must be 32 bytes".to_string());
+        return Err(CommandError::Validation(
+            "Device ID must be 32 bytes".to_string(),
+        ));
     }
 
     let device_id_array: [u8; 32] = device_id_bytes
         .try_into()
-        .map_err(|_| "Invalid device ID length".to_string())?;
+        .map_err(|_| CommandError::Validation("Invalid device ID length".to_string()))?;
 
     // Revoke the device using the registry method
     registry
         .revoke_device(&device_id_array, identity.signing_keypair())
-        .map_err(|e| format!("Failed to revoke device: {:?}", e))?;
+        .map_err(|e| CommandError::Device(format!("Failed to revoke device: {:?}", e)))?;
 
     // Save updated registry
     state
         .storage
         .save_device_registry(&registry)
-        .map_err(|e| format!("Failed to save device registry: {:?}", e))?;
+        .map_err(|e| CommandError::Storage(format!("Failed to save device registry: {:?}", e)))?;
 
     Ok(true)
 }

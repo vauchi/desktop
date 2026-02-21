@@ -11,6 +11,7 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Tor config information for the frontend.
@@ -33,12 +34,12 @@ pub struct TorConfigInput {
 
 /// Get the current Tor configuration.
 #[tauri::command]
-pub fn get_tor_config(state: State<'_, Mutex<AppState>>) -> Result<TorConfigInfo, String> {
+pub fn get_tor_config(state: State<'_, Mutex<AppState>>) -> Result<TorConfigInfo, CommandError> {
     let state = state.lock().unwrap();
     let config = state
         .storage
         .load_or_create_tor_config()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Config(e.to_string()))?;
     Ok(TorConfigInfo {
         enabled: config.enabled,
         bridges: config.bridges,
@@ -52,7 +53,7 @@ pub fn get_tor_config(state: State<'_, Mutex<AppState>>) -> Result<TorConfigInfo
 pub fn save_tor_config(
     config: TorConfigInput,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
     let tc = vauchi_core::TorConfig {
         enabled: config.enabled,
@@ -63,5 +64,5 @@ pub fn save_tor_config(
     state
         .storage
         .save_tor_config(&tc)
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::Config(e.to_string()))
 }

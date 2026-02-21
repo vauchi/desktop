@@ -17,6 +17,7 @@ use vauchi_core::exchange::{
     ExchangeEvent, ExchangeQR, ExchangeSession, ExchangeState, ManualConfirmationVerifier,
 };
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Exchange QR data for the frontend.
@@ -48,16 +49,20 @@ pub struct ExchangeResult {
 /// Creates an ExchangeSession via `new_qr`, triggers `StartQR` to
 /// generate our QR code, and stores the session in AppState.
 #[tauri::command]
-pub fn start_exchange(state: State<'_, Mutex<AppState>>) -> Result<ExchangeQRResponse, String> {
+pub fn start_exchange(
+    state: State<'_, Mutex<AppState>>,
+) -> Result<ExchangeQRResponse, CommandError> {
     let mut state = state.lock().unwrap();
 
     if !state.has_identity() {
-        return Err("No identity found. Please create an identity first.".to_string());
+        return Err(CommandError::Identity(
+            "No identity found. Please create an identity first.".to_string(),
+        ));
     }
 
     let identity = state
         .create_owned_identity()
-        .map_err(|e| format!("Failed to load identity: {}", e))?;
+        .map_err(|e| CommandError::Identity(format!("Failed to load identity: {}", e)))?;
 
     let our_card = state
         .storage
@@ -74,11 +79,11 @@ pub fn start_exchange(state: State<'_, Mutex<AppState>>) -> Result<ExchangeQRRes
     // Generate QR via StartQR
     session
         .apply(ExchangeEvent::StartQR)
-        .map_err(|e| format!("Failed to generate QR: {:?}", e))?;
+        .map_err(|e| CommandError::Exchange(format!("Failed to generate QR: {:?}", e)))?;
 
     let (data, qr_ascii) = match session.qr() {
         Some(qr) => (qr.to_data_string(), qr.to_qr_image_string()),
-        None => return Err("QR code not generated".to_string()),
+        None => return Err(CommandError::Exchange("QR code not generated".to_string())),
     };
 
     state.exchange_session = Some(session);
@@ -95,16 +100,21 @@ pub fn start_exchange(state: State<'_, Mutex<AppState>>) -> Result<ExchangeQRRes
 /// Creates a QR ExchangeSession, applies `StartQR` to initialise it,
 /// then applies `ProcessQR` with the scanned data.
 #[tauri::command]
-pub fn process_scanned_qr(data: String, state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+pub fn process_scanned_qr(
+    data: String,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<(), CommandError> {
     let mut state = state.lock().unwrap();
 
     if !state.has_identity() {
-        return Err("No identity found. Please create an identity first.".to_string());
+        return Err(CommandError::Identity(
+            "No identity found. Please create an identity first.".to_string(),
+        ));
     }
 
     let identity = state
         .create_owned_identity()
-        .map_err(|e| format!("Failed to load identity: {}", e))?;
+        .map_err(|e| CommandError::Identity(format!("Failed to load identity: {}", e)))?;
 
     let our_card = state
         .storage
@@ -113,11 +123,13 @@ pub fn process_scanned_qr(data: String, state: State<'_, Mutex<AppState>>) -> Re
         .flatten()
         .unwrap_or_else(|| ContactCard::new(identity.display_name()));
 
-    let qr =
-        ExchangeQR::from_data_string(&data).map_err(|e| format!("Invalid QR code: {:?}", e))?;
+    let qr = ExchangeQR::from_data_string(&data)
+        .map_err(|e| CommandError::Exchange(format!("Invalid QR code: {:?}", e)))?;
 
     if qr.is_expired() {
-        return Err("This QR code has expired. Please ask them to generate a new one.".to_string());
+        return Err(CommandError::Exchange(
+            "This QR code has expired. Please ask them to generate a new one.".to_string(),
+        ));
     }
 
     let verifier = ManualConfirmationVerifier::new();
@@ -126,11 +138,11 @@ pub fn process_scanned_qr(data: String, state: State<'_, Mutex<AppState>>) -> Re
     // Initialise the session, then process the scanned QR
     session
         .apply(ExchangeEvent::StartQR)
-        .map_err(|e| format!("Failed to start QR session: {:?}", e))?;
+        .map_err(|e| CommandError::Exchange(format!("Failed to start QR session: {:?}", e)))?;
 
     session
         .apply(ExchangeEvent::ProcessQR(qr))
-        .map_err(|e| format!("Failed to process QR: {:?}", e))?;
+        .map_err(|e| CommandError::Exchange(format!("Failed to process QR: {:?}", e)))?;
 
     state.exchange_session = Some(session);
 
@@ -142,17 +154,17 @@ pub fn process_scanned_qr(data: String, state: State<'_, Mutex<AppState>>) -> Re
 /// In the mutual QR flow the frontend calls this after detecting (or the
 /// user confirming) that the other party has successfully scanned our QR.
 #[tauri::command]
-pub fn confirm_peer_scan(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+pub fn confirm_peer_scan(state: State<'_, Mutex<AppState>>) -> Result<(), CommandError> {
     let mut state = state.lock().unwrap();
 
     let session = state
         .exchange_session
         .as_mut()
-        .ok_or("No exchange session active")?;
+        .ok_or_else(|| CommandError::Exchange("No exchange session active".to_string()))?;
 
     session
         .apply(ExchangeEvent::TheyScannedOurQR)
-        .map_err(|e| format!("Peer scan confirmation failed: {:?}", e))?;
+        .map_err(|e| CommandError::Exchange(format!("Peer scan confirmation failed: {:?}", e)))?;
 
     Ok(())
 }
@@ -161,26 +173,32 @@ pub fn confirm_peer_scan(state: State<'_, Mutex<AppState>>) -> Result<(), String
 ///
 /// Performs key agreement, exchanges cards, saves the contact.
 #[tauri::command]
-pub fn complete_exchange(state: State<'_, Mutex<AppState>>) -> Result<ExchangeResult, String> {
+pub fn complete_exchange(
+    state: State<'_, Mutex<AppState>>,
+) -> Result<ExchangeResult, CommandError> {
     let mut state = state.lock().unwrap();
 
     // Take the session out of state so we can use state.storage later
     let mut session = state
         .exchange_session
         .take()
-        .ok_or("No exchange session active")?;
+        .ok_or_else(|| CommandError::Exchange("No exchange session active".to_string()))?;
 
     // Perform key agreement
     session
         .apply(ExchangeEvent::PerformKeyAgreement)
-        .map_err(|e| format!("Key agreement failed: {:?}", e))?;
+        .map_err(|e| CommandError::Exchange(format!("Key agreement failed: {:?}", e)))?;
 
     // Get their public key for the contact ID
     let their_public_key = match session.state() {
         ExchangeState::AwaitingCardExchange {
             their_public_key, ..
         } => *their_public_key,
-        _ => return Err("Session not in expected state after key agreement".to_string()),
+        _ => {
+            return Err(CommandError::Exchange(
+                "Session not in expected state after key agreement".to_string(),
+            ))
+        }
     };
 
     let contact_id = hex::encode(their_public_key);
@@ -207,18 +225,22 @@ pub fn complete_exchange(state: State<'_, Mutex<AppState>>) -> Result<ExchangeRe
 
     session
         .apply(ExchangeEvent::CompleteExchange(card))
-        .map_err(|e| format!("Card exchange failed: {:?}", e))?;
+        .map_err(|e| CommandError::Exchange(format!("Card exchange failed: {:?}", e)))?;
 
     // Extract contact and save
     let contact = match session.state() {
         ExchangeState::Complete { contact } => contact.clone(),
-        _ => return Err("Session not in Complete state".to_string()),
+        _ => {
+            return Err(CommandError::Exchange(
+                "Session not in Complete state".to_string(),
+            ))
+        }
     };
 
     state
         .storage
         .save_contact(&contact)
-        .map_err(|e| format!("Failed to save contact: {:?}", e))?;
+        .map_err(|e| CommandError::Contact(format!("Failed to save contact: {:?}", e)))?;
 
     let contact_name = contact.display_name().to_string();
 

@@ -13,6 +13,7 @@ use serde::Serialize;
 use tauri::State;
 use vauchi_core::{ProfileValidation, ValidationStatus};
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Validation status information for the frontend.
@@ -47,19 +48,19 @@ pub fn validate_contact_field(
     field_id: String,
     field_value: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<FieldValidationInfo, String> {
+) -> Result<FieldValidationInfo, CommandError> {
     let state = state.lock().unwrap();
 
     let identity = state
         .identity
         .as_ref()
-        .ok_or_else(|| "No identity found".to_string())?;
+        .ok_or_else(|| CommandError::Identity("No identity found".to_string()))?;
 
     // Check sybil resistance — don't allow duplicate validations
     let existing = state
         .storage
         .load_validations_for_field(&contact_id, &field_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
 
     let my_id = hex::encode(identity.signing_public_key());
     let full_field_id = format!("{}:{}", contact_id, field_id);
@@ -68,7 +69,9 @@ pub fn validate_contact_field(
         .any(|v| v.validator_id() == my_id && v.field_id() == full_field_id);
 
     if already_validated {
-        return Err("You have already validated this field".to_string());
+        return Err(CommandError::Validation(
+            "You have already validated this field".to_string(),
+        ));
     }
 
     // Create signed validation
@@ -79,7 +82,7 @@ pub fn validate_contact_field(
     state
         .storage
         .save_validation(&validation)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
 
     Ok(FieldValidationInfo {
         contact_id: validation.contact_id().unwrap_or("").to_string(),
@@ -97,13 +100,13 @@ pub fn get_field_validation_status(
     field_id: String,
     field_value: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<ValidationStatusInfo, String> {
+) -> Result<ValidationStatusInfo, CommandError> {
     let state = state.lock().unwrap();
 
     let validations = state
         .storage
         .load_validations_for_field(&contact_id, &field_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
 
     let my_id = state
         .identity
@@ -133,20 +136,20 @@ pub fn revoke_field_validation(
     contact_id: String,
     field_id: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<bool, String> {
+) -> Result<bool, CommandError> {
     let state = state.lock().unwrap();
 
     let identity = state
         .identity
         .as_ref()
-        .ok_or_else(|| "No identity found".to_string())?;
+        .ok_or_else(|| CommandError::Identity("No identity found".to_string()))?;
 
     let my_id = hex::encode(identity.signing_public_key());
 
     state
         .storage
         .delete_validation(&contact_id, &field_id, &my_id)
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::Storage(e.to_string()))
 }
 
 /// Get the validation count for a specific field.
@@ -155,13 +158,13 @@ pub fn get_field_validation_count(
     contact_id: String,
     field_id: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<u32, String> {
+) -> Result<u32, CommandError> {
     let state = state.lock().unwrap();
 
     let count = state
         .storage
         .count_validations_for_field(&contact_id, &field_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
 
     Ok(count as u32)
 }
@@ -170,20 +173,20 @@ pub fn get_field_validation_count(
 #[tauri::command]
 pub fn list_my_validations(
     state: State<'_, Mutex<AppState>>,
-) -> Result<Vec<FieldValidationInfo>, String> {
+) -> Result<Vec<FieldValidationInfo>, CommandError> {
     let state = state.lock().unwrap();
 
     let identity = state
         .identity
         .as_ref()
-        .ok_or_else(|| "No identity found".to_string())?;
+        .ok_or_else(|| CommandError::Identity("No identity found".to_string()))?;
 
     let my_id = hex::encode(identity.signing_public_key());
 
     let validations = state
         .storage
         .load_validations_by_validator(&my_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
 
     Ok(validations
         .iter()

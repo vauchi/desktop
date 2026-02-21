@@ -14,6 +14,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Serialize;
 use tauri::State;
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Backup result containing encrypted data.
@@ -66,17 +67,15 @@ pub fn import_backup(
     backup_data: String,
     password: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     use vauchi_core::IdentityBackup;
 
-    let bytes = STANDARD
-        .decode(&backup_data)
-        .map_err(|e| format!("Invalid backup data: {}", e))?;
+    let bytes = STANDARD.decode(&backup_data)?;
 
     let backup = IdentityBackup::new(bytes);
 
     let identity = vauchi_core::Identity::import_backup(&backup, &password)
-        .map_err(|e| format!("Restore failed: {:?}", e))?;
+        .map_err(|e| CommandError::Backup(format!("Restore failed: {:?}", e)))?;
 
     let display_name = identity.display_name().to_string();
 
@@ -84,19 +83,19 @@ pub fn import_backup(
     let state = state.lock().unwrap();
     let backup_data = identity
         .export_backup(&password)
-        .map_err(|e| format!("Failed to re-export backup: {:?}", e))?;
+        .map_err(|e| CommandError::Backup(format!("Failed to re-export backup: {:?}", e)))?;
 
     state
         .storage
         .save_identity(backup_data.as_bytes(), &display_name)
-        .map_err(|e| format!("Failed to save identity: {:?}", e))?;
+        .map_err(|e| CommandError::Storage(format!("Failed to save identity: {:?}", e)))?;
 
     Ok(format!("Restored identity: {}", display_name))
 }
 
 /// Check password strength before backup.
 #[tauri::command]
-pub fn check_password_strength(password: String) -> Result<String, String> {
+pub fn check_password_strength(password: String) -> Result<String, CommandError> {
     use vauchi_core::identity::password::{password_feedback, validate_password, PasswordStrength};
 
     match validate_password(&password) {
@@ -110,11 +109,11 @@ pub fn check_password_strength(password: String) -> Result<String, String> {
         }
         Err(_) => {
             let feedback = password_feedback(&password);
-            Err(if feedback.is_empty() {
+            Err(CommandError::Validation(if feedback.is_empty() {
                 "Password too weak. Use a longer passphrase.".to_string()
             } else {
                 feedback
-            })
+            }))
         }
     }
 }

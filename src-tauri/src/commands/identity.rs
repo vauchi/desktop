@@ -9,6 +9,7 @@ use std::sync::Mutex;
 use serde::Serialize;
 use tauri::State;
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Identity information for the frontend.
@@ -30,10 +31,12 @@ pub fn has_identity(state: State<'_, Mutex<AppState>>) -> bool {
 pub fn create_identity(
     name: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<IdentityInfo, String> {
+) -> Result<IdentityInfo, CommandError> {
     let mut state = state.lock().unwrap();
 
-    state.create_identity(&name).map_err(|e| e.to_string())?;
+    state
+        .create_identity(&name)
+        .map_err(|e| CommandError::Identity(e.to_string()))?;
 
     Ok(IdentityInfo {
         display_name: state.display_name().unwrap_or("").to_string(),
@@ -43,11 +46,11 @@ pub fn create_identity(
 
 /// Get identity information.
 #[tauri::command]
-pub fn get_identity_info(state: State<'_, Mutex<AppState>>) -> Result<IdentityInfo, String> {
+pub fn get_identity_info(state: State<'_, Mutex<AppState>>) -> Result<IdentityInfo, CommandError> {
     let state = state.lock().unwrap();
 
     if !state.has_identity() {
-        return Err("No identity found".to_string());
+        return Err(CommandError::Identity("No identity found".to_string()));
     }
 
     Ok(IdentityInfo {
@@ -61,12 +64,12 @@ pub fn get_identity_info(state: State<'_, Mutex<AppState>>) -> Result<IdentityIn
 pub fn update_display_name(
     name: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<IdentityInfo, String> {
+) -> Result<IdentityInfo, CommandError> {
     let mut state = state.lock().unwrap();
 
     state
         .update_display_name(&name)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Identity(e.to_string()))?;
 
     Ok(IdentityInfo {
         display_name: state.display_name().unwrap_or("").to_string(),

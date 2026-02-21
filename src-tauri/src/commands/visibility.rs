@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use vauchi_core::contact::FieldVisibility;
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Visibility level for a field (frontend-friendly).
@@ -51,15 +52,14 @@ pub struct FieldVisibilityInfo {
 pub fn get_visibility_rules(
     contact_id: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<Vec<FieldVisibilityInfo>, String> {
+) -> Result<Vec<FieldVisibilityInfo>, CommandError> {
     let state = state.lock().unwrap();
 
     // Load the specific contact
     let contact = state
         .storage
-        .load_contact(&contact_id)
-        .map_err(|e| format!("Failed to load contact: {:?}", e))?
-        .ok_or_else(|| "Contact not found".to_string())?;
+        .load_contact(&contact_id)?
+        .ok_or_else(|| CommandError::Contact("Contact not found".to_string()))?;
 
     let rules = contact.visibility_rules();
     let mut result = Vec::new();
@@ -91,15 +91,14 @@ pub fn set_field_visibility(
     field_id: String,
     visibility: VisibilityLevel,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
 
     // Load the contact
     let mut contact = state
         .storage
-        .load_contact(&contact_id)
-        .map_err(|e| format!("Failed to load contact: {:?}", e))?
-        .ok_or_else(|| "Contact not found".to_string())?;
+        .load_contact(&contact_id)?
+        .ok_or_else(|| CommandError::Contact("Contact not found".to_string()))?;
 
     // Update visibility rules
     let rules = contact.visibility_rules_mut();
@@ -115,7 +114,7 @@ pub fn set_field_visibility(
     state
         .storage
         .save_contact(&contact)
-        .map_err(|e| format!("Failed to save contact: {:?}", e))?;
+        .map_err(|e| CommandError::Contact(format!("Failed to save contact: {:?}", e)))?;
 
     Ok(())
 }
@@ -124,13 +123,10 @@ pub fn set_field_visibility(
 #[tauri::command]
 pub fn get_contacts_for_visibility(
     state: State<'_, Mutex<AppState>>,
-) -> Result<Vec<ContactOption>, String> {
+) -> Result<Vec<ContactOption>, CommandError> {
     let state = state.lock().unwrap();
 
-    let contacts = state
-        .storage
-        .list_contacts()
-        .map_err(|e| format!("Failed to list contacts: {:?}", e))?;
+    let contacts = state.storage.list_contacts()?;
 
     Ok(contacts
         .into_iter()
@@ -161,13 +157,10 @@ pub struct ContactFieldVisibility {
 pub fn get_field_viewers(
     field_id: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<Vec<ContactFieldVisibility>, String> {
+) -> Result<Vec<ContactFieldVisibility>, CommandError> {
     let state = state.lock().unwrap();
 
-    let contacts = state
-        .storage
-        .list_contacts()
-        .map_err(|e| format!("Failed to list contacts: {:?}", e))?;
+    let contacts = state.storage.list_contacts()?;
 
     let mut result = Vec::new();
     for contact in contacts {

@@ -10,6 +10,7 @@ use serde::Serialize;
 use tauri::State;
 use vauchi_core::{ContactCard, ContactField, FieldType};
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Field information for the frontend.
@@ -30,10 +31,10 @@ pub struct CardInfo {
 
 /// Get the user's contact card.
 #[tauri::command]
-pub fn get_card(state: State<'_, Mutex<AppState>>) -> Result<CardInfo, String> {
+pub fn get_card(state: State<'_, Mutex<AppState>>) -> Result<CardInfo, CommandError> {
     let state = state.lock().unwrap();
 
-    let card = state.storage.load_own_card().map_err(|e| e.to_string())?;
+    let card = state.storage.load_own_card()?;
 
     match card {
         Some(c) => Ok(CardInfo {
@@ -67,7 +68,7 @@ pub fn add_field(
     label: String,
     value: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
 
     // Parse field type
@@ -83,40 +84,37 @@ pub fn add_field(
     // Get or create card
     let mut card = state
         .storage
-        .load_own_card()
-        .map_err(|e| e.to_string())?
+        .load_own_card()?
         .unwrap_or_else(|| ContactCard::new(state.display_name().unwrap_or("User")));
 
     // Add field
     let field = ContactField::new(ft, &label, &value);
-    card.add_field(field).map_err(|e| format!("{}", e))?;
+    card.add_field(field)
+        .map_err(|e| CommandError::Card(format!("{}", e)))?;
 
     // Save card
-    state
-        .storage
-        .save_own_card(&card)
-        .map_err(|e| e.to_string())?;
+    state.storage.save_own_card(&card)?;
 
     Ok(())
 }
 
 /// Remove a field from the card.
 #[tauri::command]
-pub fn remove_field(field_id: String, state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+pub fn remove_field(
+    field_id: String,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
 
     let mut card = state
         .storage
-        .load_own_card()
-        .map_err(|e| e.to_string())?
-        .ok_or("No card found")?;
+        .load_own_card()?
+        .ok_or_else(|| CommandError::Card("No card found".to_string()))?;
 
-    card.remove_field(&field_id).map_err(|e| format!("{}", e))?;
+    card.remove_field(&field_id)
+        .map_err(|e| CommandError::Card(format!("{}", e)))?;
 
-    state
-        .storage
-        .save_own_card(&card)
-        .map_err(|e| e.to_string())?;
+    state.storage.save_own_card(&card)?;
 
     Ok(())
 }
@@ -127,29 +125,25 @@ pub fn update_field(
     field_id: String,
     new_value: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
 
     let mut card = state
         .storage
-        .load_own_card()
-        .map_err(|e| e.to_string())?
-        .ok_or("No card found")?;
+        .load_own_card()?
+        .ok_or_else(|| CommandError::Card("No card found".to_string()))?;
 
     // Find and update the field
     let field = card
         .fields_mut()
         .iter_mut()
         .find(|f| f.id() == field_id)
-        .ok_or("Field not found")?;
+        .ok_or_else(|| CommandError::Card("Field not found".to_string()))?;
 
     field.set_value(&new_value);
 
     // Save the card
-    state
-        .storage
-        .save_own_card(&card)
-        .map_err(|e| e.to_string())?;
+    state.storage.save_own_card(&card)?;
 
     Ok(())
 }

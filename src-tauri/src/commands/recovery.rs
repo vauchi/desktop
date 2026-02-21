@@ -13,6 +13,7 @@ use serde::Serialize;
 use tauri::State;
 use vauchi_core::recovery::{RecoveryClaim, RecoverySettings, RecoveryVoucher};
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Recovery status for the frontend.
@@ -55,7 +56,7 @@ pub struct VerificationInfo {
 #[tauri::command]
 pub fn get_recovery_settings(
     state: State<'_, Mutex<AppState>>,
-) -> Result<RecoverySettingsInfo, String> {
+) -> Result<RecoverySettingsInfo, CommandError> {
     let settings = RecoverySettings::default();
     let trusted_count = {
         let state = state.lock().unwrap();
@@ -74,19 +75,21 @@ pub fn get_recovery_settings(
 pub fn create_recovery_claim(
     old_pk_hex: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let state = state.lock().unwrap();
 
     let identity = state
         .identity
         .as_ref()
-        .ok_or_else(|| "No identity found".to_string())?;
+        .ok_or_else(|| CommandError::Identity("No identity found".to_string()))?;
 
     // Parse old public key
-    let old_pk_bytes = hex::decode(&old_pk_hex).map_err(|e| format!("Invalid hex: {}", e))?;
+    let old_pk_bytes = hex::decode(&old_pk_hex)?;
 
     if old_pk_bytes.len() != 32 {
-        return Err("Public key must be 32 bytes".to_string());
+        return Err(CommandError::Validation(
+            "Public key must be 32 bytes".to_string(),
+        ));
     }
 
     let mut old_pk = [0u8; 32];
@@ -96,7 +99,9 @@ pub fn create_recovery_claim(
 
     // Sanity check
     if old_pk == *new_pk {
-        return Err("Cannot create claim for your own current key".to_string());
+        return Err(CommandError::Validation(
+            "Cannot create claim for your own current key".to_string(),
+        ));
     }
 
     let claim = RecoveryClaim::new(&old_pk, new_pk);
@@ -110,29 +115,27 @@ pub fn create_recovery_claim(
 pub fn create_recovery_voucher(
     claim_b64: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let state = state.lock().unwrap();
 
     let identity = state
         .identity
         .as_ref()
-        .ok_or_else(|| "No identity found".to_string())?;
+        .ok_or_else(|| CommandError::Identity("No identity found".to_string()))?;
 
     // Parse claim
-    let claim_bytes = BASE64
-        .decode(&claim_b64)
-        .map_err(|e| format!("Invalid base64: {}", e))?;
+    let claim_bytes = BASE64.decode(&claim_b64)?;
 
-    let claim =
-        RecoveryClaim::from_bytes(&claim_bytes).map_err(|e| format!("Invalid claim: {:?}", e))?;
+    let claim = RecoveryClaim::from_bytes(&claim_bytes)
+        .map_err(|e| CommandError::Backup(format!("Invalid claim: {:?}", e)))?;
 
     if claim.is_expired() {
-        return Err("Claim has expired".to_string());
+        return Err(CommandError::Validation("Claim has expired".to_string()));
     }
 
     // Create voucher
     let voucher = RecoveryVoucher::create_from_claim(&claim, identity.signing_keypair())
-        .map_err(|e| format!("Failed to create voucher: {:?}", e))?;
+        .map_err(|e| CommandError::Backup(format!("Failed to create voucher: {:?}", e)))?;
 
     let voucher_b64 = BASE64.encode(voucher.to_bytes());
     Ok(voucher_b64)
@@ -143,24 +146,19 @@ pub fn create_recovery_voucher(
 pub fn check_recovery_claim(
     claim_b64: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<Option<String>, String> {
+) -> Result<Option<String>, CommandError> {
     let state = state.lock().unwrap();
 
     // Parse claim
-    let claim_bytes = BASE64
-        .decode(&claim_b64)
-        .map_err(|e| format!("Invalid base64: {}", e))?;
+    let claim_bytes = BASE64.decode(&claim_b64)?;
 
-    let claim =
-        RecoveryClaim::from_bytes(&claim_bytes).map_err(|e| format!("Invalid claim: {:?}", e))?;
+    let claim = RecoveryClaim::from_bytes(&claim_bytes)
+        .map_err(|e| CommandError::Backup(format!("Invalid claim: {:?}", e)))?;
 
     let old_pk_hex = hex::encode(claim.old_pk());
 
     // Check if old_pk matches any contact
-    let contacts = state
-        .storage
-        .list_contacts()
-        .map_err(|e| format!("Failed to list contacts: {:?}", e))?;
+    let contacts = state.storage.list_contacts()?;
 
     for contact in contacts {
         if hex::encode(contact.public_key()) == old_pk_hex {
@@ -184,24 +182,19 @@ pub struct ClaimInfo {
 pub fn parse_recovery_claim(
     claim_b64: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<ClaimInfo, String> {
+) -> Result<ClaimInfo, CommandError> {
     let state = state.lock().unwrap();
 
-    let claim_bytes = BASE64
-        .decode(&claim_b64)
-        .map_err(|e| format!("Invalid base64: {}", e))?;
+    let claim_bytes = BASE64.decode(&claim_b64)?;
 
-    let claim =
-        RecoveryClaim::from_bytes(&claim_bytes).map_err(|e| format!("Invalid claim: {:?}", e))?;
+    let claim = RecoveryClaim::from_bytes(&claim_bytes)
+        .map_err(|e| CommandError::Backup(format!("Invalid claim: {:?}", e)))?;
 
     let old_pk_hex = hex::encode(claim.old_pk());
     let new_pk_hex = hex::encode(claim.new_pk());
 
     // Check if old_pk matches any contact
-    let contacts = state
-        .storage
-        .list_contacts()
-        .map_err(|e| format!("Failed to list contacts: {:?}", e))?;
+    let contacts = state.storage.list_contacts()?;
 
     let contact_name = contacts
         .iter()

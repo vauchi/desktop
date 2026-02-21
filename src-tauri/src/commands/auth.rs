@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use vauchi_core::{AppPasswordConfig, AuthResult, DuressSettings};
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Duress status information for the frontend.
@@ -40,27 +41,31 @@ pub struct DuressSettingsInput {
 pub fn setup_app_password(
     password: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
 
-    let config = AppPasswordConfig::create(&password).map_err(|e| e.to_string())?;
+    let config =
+        AppPasswordConfig::create(&password).map_err(|e| CommandError::Auth(e.to_string()))?;
     state
         .storage
         .save_app_password(config.password_hash(), config.password_salt())
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
 
     Ok(())
 }
 
 /// Verify a password/PIN and return the auth result.
 #[tauri::command]
-pub fn authenticate(pin: String, state: State<'_, Mutex<AppState>>) -> Result<String, String> {
+pub fn authenticate(
+    pin: String,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<String, CommandError> {
     let state = state.lock().unwrap();
 
     let config = state
         .storage
         .load_password_config()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
 
     match config {
         Some(config) => match config.verify(&pin) {
@@ -68,7 +73,7 @@ pub fn authenticate(pin: String, state: State<'_, Mutex<AppState>>) -> Result<St
             AuthResult::Duress => Ok("duress".to_string()),
             AuthResult::Invalid => Ok("invalid".to_string()),
         },
-        None => Err("No app password configured".to_string()),
+        None => Err(CommandError::Auth("No app password configured".to_string())),
     }
 }
 
@@ -77,33 +82,36 @@ pub fn authenticate(pin: String, state: State<'_, Mutex<AppState>>) -> Result<St
 pub fn setup_duress_pin(
     duress_pin: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
 
     let mut config = state
         .storage
         .load_password_config()
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "App password not set. Set it up first.".to_string())?;
+        .map_err(|e| CommandError::Storage(e.to_string()))?
+        .ok_or_else(|| CommandError::Auth("App password not set. Set it up first.".to_string()))?;
 
     config
         .setup_duress(&duress_pin)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Auth(e.to_string()))?;
 
     state
         .storage
         .save_duress_password(config.duress_hash().unwrap(), config.duress_salt().unwrap())
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
 
     Ok(())
 }
 
 /// Disable duress PIN.
 #[tauri::command]
-pub fn disable_duress(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+pub fn disable_duress(state: State<'_, Mutex<AppState>>) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
 
-    state.storage.disable_duress().map_err(|e| e.to_string())?;
+    state
+        .storage
+        .disable_duress()
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
     let _ = state.storage.delete_duress_settings();
 
     Ok(())
@@ -111,13 +119,13 @@ pub fn disable_duress(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
 
 /// Get duress status (password enabled, duress enabled).
 #[tauri::command]
-pub fn get_duress_status(state: State<'_, Mutex<AppState>>) -> Result<DuressStatus, String> {
+pub fn get_duress_status(state: State<'_, Mutex<AppState>>) -> Result<DuressStatus, CommandError> {
     let state = state.lock().unwrap();
 
     let config = state
         .storage
         .load_password_config()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
 
     Ok(DuressStatus {
         password_enabled: config.is_some(),
@@ -129,13 +137,13 @@ pub fn get_duress_status(state: State<'_, Mutex<AppState>>) -> Result<DuressStat
 #[tauri::command]
 pub fn get_duress_settings(
     state: State<'_, Mutex<AppState>>,
-) -> Result<Option<DuressSettingsInfo>, String> {
+) -> Result<Option<DuressSettingsInfo>, CommandError> {
     let state = state.lock().unwrap();
 
     let settings = state
         .storage
         .load_duress_settings()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
 
     Ok(settings.map(|s| DuressSettingsInfo {
         alert_contact_ids: s.alert_contact_ids,
@@ -149,7 +157,7 @@ pub fn get_duress_settings(
 pub fn save_duress_settings(
     settings: DuressSettingsInput,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
 
     let duress_settings = DuressSettings {
@@ -161,7 +169,7 @@ pub fn save_duress_settings(
     state
         .storage
         .save_duress_settings(&duress_settings)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
 
     Ok(())
 }

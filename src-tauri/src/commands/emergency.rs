@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use vauchi_core::api::EmergencyBroadcastConfig;
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Emergency config information for the frontend.
@@ -34,12 +35,12 @@ pub struct EmergencyConfigInput {
 #[tauri::command]
 pub fn get_emergency_config(
     state: State<'_, Mutex<AppState>>,
-) -> Result<Option<EmergencyConfigInfo>, String> {
+) -> Result<Option<EmergencyConfigInfo>, CommandError> {
     let state = state.lock().unwrap();
     let config = state
         .storage
         .load_emergency_config()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
     Ok(config.map(|c| EmergencyConfigInfo {
         trusted_contact_ids: c.trusted_contact_ids,
         message: c.message,
@@ -52,7 +53,7 @@ pub fn get_emergency_config(
 pub fn save_emergency_config(
     config: EmergencyConfigInput,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
     let ec = EmergencyBroadcastConfig {
         trusted_contact_ids: config.trusted_contact_ids,
@@ -62,15 +63,15 @@ pub fn save_emergency_config(
     state
         .storage
         .save_emergency_config(&ec)
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::Storage(e.to_string()))
 }
 
 /// Delete emergency broadcast configuration.
 #[tauri::command]
-pub fn delete_emergency_config(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+pub fn delete_emergency_config(state: State<'_, Mutex<AppState>>) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
     state
         .storage
         .delete_emergency_config()
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::Storage(e.to_string()))
 }

@@ -10,6 +10,7 @@ use serde::Serialize;
 use tauri::State;
 use vauchi_core::ContactField;
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Contact information for the frontend.
@@ -33,10 +34,10 @@ pub struct ContactDetails {
 
 /// List all contacts.
 #[tauri::command]
-pub fn list_contacts(state: State<'_, Mutex<AppState>>) -> Result<Vec<ContactInfo>, String> {
+pub fn list_contacts(state: State<'_, Mutex<AppState>>) -> Result<Vec<ContactInfo>, CommandError> {
     let state = state.lock().unwrap();
 
-    let contacts = state.storage.list_contacts().map_err(|e| e.to_string())?;
+    let contacts = state.storage.list_contacts()?;
 
     Ok(contacts
         .into_iter()
@@ -55,13 +56,12 @@ pub fn list_contacts_paginated(
     offset: u32,
     limit: u32,
     state: State<'_, Mutex<AppState>>,
-) -> Result<Vec<ContactInfo>, String> {
+) -> Result<Vec<ContactInfo>, CommandError> {
     let state = state.lock().unwrap();
 
     let contacts = state
         .storage
-        .list_contacts_paginated(offset as usize, limit as usize)
-        .map_err(|e| e.to_string())?;
+        .list_contacts_paginated(offset as usize, limit as usize)?;
 
     Ok(contacts
         .into_iter()
@@ -79,13 +79,10 @@ pub fn list_contacts_paginated(
 pub fn search_contacts(
     query: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<Vec<ContactInfo>, String> {
+) -> Result<Vec<ContactInfo>, CommandError> {
     let state = state.lock().unwrap();
 
-    let contacts = state
-        .storage
-        .search_contacts(&query)
-        .map_err(|e| e.to_string())?;
+    let contacts = state.storage.search_contacts(&query)?;
 
     Ok(contacts
         .into_iter()
@@ -103,14 +100,13 @@ pub fn search_contacts(
 pub fn get_contact(
     id: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<ContactDetails, String> {
+) -> Result<ContactDetails, CommandError> {
     let state = state.lock().unwrap();
 
     let contact = state
         .storage
-        .load_contact(&id)
-        .map_err(|e: vauchi_core::StorageError| e.to_string())?
-        .ok_or("Contact not found")?;
+        .load_contact(&id)?
+        .ok_or_else(|| CommandError::Contact("Contact not found".to_string()))?;
 
     let fields: Vec<super::card::FieldInfo> = contact
         .card()
@@ -135,10 +131,13 @@ pub fn get_contact(
 
 /// Remove a contact.
 #[tauri::command]
-pub fn remove_contact(id: String, state: State<'_, Mutex<AppState>>) -> Result<bool, String> {
+pub fn remove_contact(id: String, state: State<'_, Mutex<AppState>>) -> Result<bool, CommandError> {
     let state = state.lock().unwrap();
 
-    state.storage.delete_contact(&id).map_err(|e| e.to_string())
+    state
+        .storage
+        .delete_contact(&id)
+        .map_err(CommandError::from)
 }
 
 /// Fingerprint info for verification.
@@ -159,19 +158,18 @@ pub struct FingerprintInfo {
 pub fn get_contact_fingerprint(
     id: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<FingerprintInfo, String> {
+) -> Result<FingerprintInfo, CommandError> {
     let state = state.lock().unwrap();
 
     let identity = state
         .identity
         .as_ref()
-        .ok_or_else(|| "No identity found".to_string())?;
+        .ok_or_else(|| CommandError::Identity("No identity found".to_string()))?;
 
     let contact = state
         .storage
-        .load_contact(&id)
-        .map_err(|e| e.to_string())?
-        .ok_or("Contact not found")?;
+        .load_contact(&id)?
+        .ok_or_else(|| CommandError::Contact("Contact not found".to_string()))?;
 
     // Get raw public key bytes
     let their_pk_bytes = contact.public_key();
@@ -202,15 +200,14 @@ pub fn get_contact_fingerprint(
 
 /// Mark a contact as verified.
 #[tauri::command]
-pub fn verify_contact(id: String, state: State<'_, Mutex<AppState>>) -> Result<bool, String> {
+pub fn verify_contact(id: String, state: State<'_, Mutex<AppState>>) -> Result<bool, CommandError> {
     let state = state.lock().unwrap();
 
     // Load the contact
     let mut contact = state
         .storage
-        .load_contact(&id)
-        .map_err(|e| e.to_string())?
-        .ok_or("Contact not found")?;
+        .load_contact(&id)?
+        .ok_or_else(|| CommandError::Contact("Contact not found".to_string()))?;
 
     // Mark as verified
     contact.mark_fingerprint_verified();
@@ -219,24 +216,25 @@ pub fn verify_contact(id: String, state: State<'_, Mutex<AppState>>) -> Result<b
     state
         .storage
         .save_contact(&contact)
-        .map_err(|e| format!("Failed to save contact: {:?}", e))?;
+        .map_err(|e| CommandError::Contact(format!("Failed to save contact: {:?}", e)))?;
 
     Ok(true)
 }
 
 /// Mark a contact as trusted for recovery.
 #[tauri::command]
-pub fn trust_contact(id: String, state: State<'_, Mutex<AppState>>) -> Result<bool, String> {
+pub fn trust_contact(id: String, state: State<'_, Mutex<AppState>>) -> Result<bool, CommandError> {
     let state = state.lock().unwrap();
 
     let mut contact = state
         .storage
-        .load_contact(&id)
-        .map_err(|e| e.to_string())?
-        .ok_or("Contact not found")?;
+        .load_contact(&id)?
+        .ok_or_else(|| CommandError::Contact("Contact not found".to_string()))?;
 
     if contact.is_blocked() {
-        return Err("Blocked contacts cannot be trusted for recovery".to_string());
+        return Err(CommandError::Contact(
+            "Blocked contacts cannot be trusted for recovery".to_string(),
+        ));
     }
 
     contact.trust_for_recovery();
@@ -244,38 +242,40 @@ pub fn trust_contact(id: String, state: State<'_, Mutex<AppState>>) -> Result<bo
     state
         .storage
         .save_contact(&contact)
-        .map_err(|e| format!("Failed to save contact: {:?}", e))?;
+        .map_err(|e| CommandError::Contact(format!("Failed to save contact: {:?}", e)))?;
 
     Ok(true)
 }
 
 /// Remove recovery trust from a contact.
 #[tauri::command]
-pub fn untrust_contact(id: String, state: State<'_, Mutex<AppState>>) -> Result<bool, String> {
+pub fn untrust_contact(
+    id: String,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<bool, CommandError> {
     let state = state.lock().unwrap();
 
     let mut contact = state
         .storage
-        .load_contact(&id)
-        .map_err(|e| e.to_string())?
-        .ok_or("Contact not found")?;
+        .load_contact(&id)?
+        .ok_or_else(|| CommandError::Contact("Contact not found".to_string()))?;
 
     contact.untrust_for_recovery();
 
     state
         .storage
         .save_contact(&contact)
-        .map_err(|e| format!("Failed to save contact: {:?}", e))?;
+        .map_err(|e| CommandError::Contact(format!("Failed to save contact: {:?}", e)))?;
 
     Ok(true)
 }
 
 /// Get the number of contacts trusted for recovery.
 #[tauri::command]
-pub fn trusted_contact_count(state: State<'_, Mutex<AppState>>) -> Result<u32, String> {
+pub fn trusted_contact_count(state: State<'_, Mutex<AppState>>) -> Result<u32, CommandError> {
     let state = state.lock().unwrap();
 
-    let contacts = state.storage.list_contacts().map_err(|e| e.to_string())?;
+    let contacts = state.storage.list_contacts()?;
     let count = contacts.iter().filter(|c| c.is_recovery_trusted()).count();
 
     Ok(count as u32)

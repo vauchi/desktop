@@ -11,6 +11,7 @@ use std::sync::Mutex;
 use tauri::State;
 use vauchi_core::content::{ApplyResult, ContentConfig, ContentManager, ContentType, UpdateStatus};
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Status of a content update check.
@@ -58,7 +59,7 @@ pub struct ContentSettings {
 #[tauri::command]
 pub async fn check_content_updates(
     state: State<'_, Mutex<AppState>>,
-) -> Result<ContentUpdateStatus, String> {
+) -> Result<ContentUpdateStatus, CommandError> {
     let (settings, data_dir) = {
         let state = state.lock().unwrap();
         let settings = load_content_settings(&state)?;
@@ -84,7 +85,7 @@ pub async fn check_content_updates(
     };
 
     let manager = ContentManager::new(config)
-        .map_err(|e| format!("Failed to create content manager: {}", e))?;
+        .map_err(|e| CommandError::Config(format!("Failed to create content manager: {}", e)))?;
 
     // Check for updates
     let status = manager.check_for_updates().await;
@@ -145,7 +146,7 @@ fn content_type_name(ct: ContentType) -> String {
 #[tauri::command]
 pub async fn apply_content_updates(
     state: State<'_, Mutex<AppState>>,
-) -> Result<ContentApplyResult, String> {
+) -> Result<ContentApplyResult, CommandError> {
     let (settings, data_dir) = {
         let state = state.lock().unwrap();
         let settings = load_content_settings(&state)?;
@@ -170,7 +171,7 @@ pub async fn apply_content_updates(
     };
 
     let manager = ContentManager::new(config)
-        .map_err(|e| format!("Failed to create content manager: {}", e))?;
+        .map_err(|e| CommandError::Config(format!("Failed to create content manager: {}", e)))?;
 
     // Apply updates
     match manager.apply_updates().await {
@@ -208,7 +209,9 @@ pub async fn apply_content_updates(
 
 /// Get current content update settings.
 #[tauri::command]
-pub fn get_content_settings(state: State<'_, Mutex<AppState>>) -> Result<ContentSettings, String> {
+pub fn get_content_settings(
+    state: State<'_, Mutex<AppState>>,
+) -> Result<ContentSettings, CommandError> {
     let state = state.lock().unwrap();
     load_content_settings(&state)
 }
@@ -218,30 +221,34 @@ pub fn get_content_settings(state: State<'_, Mutex<AppState>>) -> Result<Content
 pub fn set_content_updates_enabled(
     state: State<'_, Mutex<AppState>>,
     enabled: bool,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
     let config_path = state.data_dir().join("content_settings.json");
 
     let mut settings = load_content_settings(&state)?;
     settings.enabled = enabled;
 
-    let json = serde_json::to_string_pretty(&settings)
-        .map_err(|e| format!("Failed to serialize settings: {}", e))?;
+    let json = serde_json::to_string_pretty(&settings)?;
 
-    std::fs::write(&config_path, json).map_err(|e| format!("Failed to save settings: {}", e))?;
+    std::fs::write(&config_path, json)
+        .map_err(|e| CommandError::Config(format!("Failed to save settings: {}", e)))?;
 
     Ok(())
 }
 
 /// Set the content update URL.
 #[tauri::command]
-pub fn set_content_url(state: State<'_, Mutex<AppState>>, url: String) -> Result<(), String> {
+pub fn set_content_url(state: State<'_, Mutex<AppState>>, url: String) -> Result<(), CommandError> {
     let url = url.trim();
     if url.is_empty() {
-        return Err("Content URL cannot be empty".to_string());
+        return Err(CommandError::Validation(
+            "Content URL cannot be empty".to_string(),
+        ));
     }
     if !url.starts_with("https://") {
-        return Err("Content URL must use HTTPS".to_string());
+        return Err(CommandError::Validation(
+            "Content URL must use HTTPS".to_string(),
+        ));
     }
 
     let state = state.lock().unwrap();
@@ -250,10 +257,10 @@ pub fn set_content_url(state: State<'_, Mutex<AppState>>, url: String) -> Result
     let mut settings = load_content_settings(&state)?;
     settings.content_url = url.to_string();
 
-    let json = serde_json::to_string_pretty(&settings)
-        .map_err(|e| format!("Failed to serialize settings: {}", e))?;
+    let json = serde_json::to_string_pretty(&settings)?;
 
-    std::fs::write(&config_path, json).map_err(|e| format!("Failed to save settings: {}", e))?;
+    std::fs::write(&config_path, json)
+        .map_err(|e| CommandError::Config(format!("Failed to save settings: {}", e)))?;
 
     Ok(())
 }
@@ -264,7 +271,7 @@ pub fn set_content_url(state: State<'_, Mutex<AppState>>, url: String) -> Result
 #[tauri::command]
 pub fn get_social_networks(
     state: State<'_, Mutex<AppState>>,
-) -> Result<Vec<SocialNetworkInfo>, String> {
+) -> Result<Vec<SocialNetworkInfo>, CommandError> {
     let data_dir = {
         let state = state.lock().unwrap();
         state.data_dir().to_path_buf()
@@ -310,13 +317,13 @@ pub struct SocialNetworkInfo {
 // === Helper Functions ===
 
 /// Load content settings from disk.
-fn load_content_settings(state: &AppState) -> Result<ContentSettings, String> {
+fn load_content_settings(state: &AppState) -> Result<ContentSettings, CommandError> {
     let config_path = state.data_dir().join("content_settings.json");
 
     if config_path.exists() {
         let json = std::fs::read_to_string(&config_path)
-            .map_err(|e| format!("Failed to read settings: {}", e))?;
-        serde_json::from_str(&json).map_err(|e| format!("Failed to parse settings: {}", e))
+            .map_err(|e| CommandError::Config(format!("Failed to read settings: {}", e)))?;
+        serde_json::from_str(&json).map_err(|e| CommandError::Config(e.to_string()))
     } else {
         Ok(ContentSettings {
             enabled: true,

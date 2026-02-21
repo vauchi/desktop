@@ -11,6 +11,7 @@ use std::sync::Mutex;
 use serde::Serialize;
 use tauri::State;
 
+use crate::error::CommandError;
 use crate::state::AppState;
 
 /// Deletion state information for the frontend.
@@ -34,51 +35,52 @@ pub struct ConsentRecordInfo {
 
 /// Export all user data as GDPR-compliant JSON.
 #[tauri::command]
-pub fn export_gdpr_data(state: State<'_, Mutex<AppState>>) -> Result<String, String> {
+pub fn export_gdpr_data(state: State<'_, Mutex<AppState>>) -> Result<String, CommandError> {
     let state = state.lock().unwrap();
     let export = vauchi_core::api::export_all_data(&state.storage)
-        .map_err(|e| format!("Export failed: {}", e))?;
+        .map_err(|e| CommandError::Privacy(format!("Export failed: {}", e)))?;
 
-    serde_json::to_string_pretty(&export).map_err(|e| format!("Serialization failed: {}", e))
+    serde_json::to_string_pretty(&export)
+        .map_err(|e| CommandError::Privacy(format!("Serialization failed: {}", e)))
 }
 
 /// Schedule account deletion with 7-day grace period.
 #[tauri::command]
 pub fn schedule_account_deletion(
     state: State<'_, Mutex<AppState>>,
-) -> Result<DeletionInfo, String> {
+) -> Result<DeletionInfo, CommandError> {
     let state = state.lock().unwrap();
     let manager = vauchi_core::api::DeletionManager::new(&state.storage);
 
     manager
         .schedule_deletion()
-        .map_err(|e| format!("Schedule failed: {}", e))?;
+        .map_err(|e| CommandError::Privacy(format!("Schedule failed: {}", e)))?;
 
     let deletion_state = manager
         .deletion_state()
-        .map_err(|e| format!("Failed to get state: {}", e))?;
+        .map_err(|e| CommandError::Privacy(format!("Failed to get state: {}", e)))?;
 
     Ok(deletion_state_to_info(&deletion_state))
 }
 
 /// Cancel a scheduled account deletion.
 #[tauri::command]
-pub fn cancel_account_deletion(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+pub fn cancel_account_deletion(state: State<'_, Mutex<AppState>>) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
     let manager = vauchi_core::api::DeletionManager::new(&state.storage);
     manager
         .cancel_deletion()
-        .map_err(|e| format!("Cancel failed: {}", e))
+        .map_err(|e| CommandError::Privacy(format!("Cancel failed: {}", e)))
 }
 
 /// Get current deletion state.
 #[tauri::command]
-pub fn get_deletion_state(state: State<'_, Mutex<AppState>>) -> Result<DeletionInfo, String> {
+pub fn get_deletion_state(state: State<'_, Mutex<AppState>>) -> Result<DeletionInfo, CommandError> {
     let state = state.lock().unwrap();
     let manager = vauchi_core::api::DeletionManager::new(&state.storage);
     let deletion_state = manager
         .deletion_state()
-        .map_err(|e| format!("Failed to get state: {}", e))?;
+        .map_err(|e| CommandError::Privacy(format!("Failed to get state: {}", e)))?;
 
     Ok(deletion_state_to_info(&deletion_state))
 }
@@ -88,13 +90,13 @@ pub fn get_deletion_state(state: State<'_, Mutex<AppState>>) -> Result<DeletionI
 pub fn grant_consent(
     consent_type: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
     let ct = parse_consent_type(&consent_type)?;
     let manager = vauchi_core::api::ConsentManager::new(&state.storage);
     manager
         .grant(ct)
-        .map_err(|e| format!("Grant failed: {}", e))
+        .map_err(|e| CommandError::Privacy(format!("Grant failed: {}", e)))
 }
 
 /// Revoke consent for a specific type.
@@ -102,25 +104,25 @@ pub fn grant_consent(
 pub fn revoke_consent(
     consent_type: String,
     state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let state = state.lock().unwrap();
     let ct = parse_consent_type(&consent_type)?;
     let manager = vauchi_core::api::ConsentManager::new(&state.storage);
     manager
         .revoke(ct)
-        .map_err(|e| format!("Revoke failed: {}", e))
+        .map_err(|e| CommandError::Privacy(format!("Revoke failed: {}", e)))
 }
 
 /// Get all consent records.
 #[tauri::command]
 pub fn get_consent_records(
     state: State<'_, Mutex<AppState>>,
-) -> Result<Vec<ConsentRecordInfo>, String> {
+) -> Result<Vec<ConsentRecordInfo>, CommandError> {
     let state = state.lock().unwrap();
     let manager = vauchi_core::api::ConsentManager::new(&state.storage);
     let records = manager
         .export_consent_log_with_version()
-        .map_err(|e| format!("Failed to get records: {}", e))?;
+        .map_err(|e| CommandError::Privacy(format!("Failed to get records: {}", e)))?;
 
     Ok(records
         .iter()
@@ -148,7 +150,7 @@ pub struct ShredReportInfo {
 #[allow(unused_variables)]
 fn create_secure_storage(
     data_dir: &std::path::Path,
-) -> Result<Box<dyn vauchi_core::storage::secure::SecureStorage>, String> {
+) -> Result<Box<dyn vauchi_core::storage::secure::SecureStorage>, CommandError> {
     #[cfg(feature = "secure-storage")]
     {
         Ok(Box::new(
@@ -159,7 +161,7 @@ fn create_secure_storage(
     #[cfg(not(feature = "secure-storage"))]
     {
         let fallback_key = crate::state::load_or_generate_fallback_key(data_dir)
-            .map_err(|e| format!("Failed to load fallback key: {}", e))?;
+            .map_err(|e| CommandError::Storage(format!("Failed to load fallback key: {}", e)))?;
         let key_dir = data_dir.join("keys");
         Ok(Box::new(vauchi_core::storage::secure::FileKeyStorage::new(
             key_dir,
@@ -172,7 +174,8 @@ fn create_secure_storage(
 fn create_shred_relay_client(
     relay_url: &str,
     identity_id: &str,
-) -> Result<vauchi_core::network::RelayClient<vauchi_core::network::WebSocketTransport>, String> {
+) -> Result<vauchi_core::network::RelayClient<vauchi_core::network::WebSocketTransport>, CommandError>
+{
     use vauchi_core::network::{
         RelayClient, RelayClientConfig, TransportConfig, WebSocketTransport,
     };
@@ -188,7 +191,7 @@ fn create_shred_relay_client(
     let mut client = RelayClient::new(transport, config, identity_id.to_string());
     client
         .connect()
-        .map_err(|e| format!("Failed to connect to relay: {}", e))?;
+        .map_err(|e| CommandError::Network(format!("Failed to connect to relay: {}", e)))?;
     Ok(client)
 }
 
@@ -196,14 +199,17 @@ fn create_shred_relay_client(
 #[tauri::command]
 pub fn execute_account_deletion(
     state: State<'_, Mutex<AppState>>,
-) -> Result<ShredReportInfo, String> {
+) -> Result<ShredReportInfo, CommandError> {
     let state = state.lock().unwrap();
-    let identity = state.identity.as_ref().ok_or("No identity loaded")?;
+    let identity = state
+        .identity
+        .as_ref()
+        .ok_or_else(|| CommandError::Identity("No identity loaded".to_string()))?;
 
     let manager = vauchi_core::api::DeletionManager::new(&state.storage);
     let deletion_state = manager
         .deletion_state()
-        .map_err(|e| format!("Failed to get deletion state: {}", e))?;
+        .map_err(|e| CommandError::Privacy(format!("Failed to get deletion state: {}", e)))?;
 
     let token = match deletion_state {
         vauchi_core::storage::DeletionState::Scheduled {
@@ -215,20 +221,21 @@ pub fn execute_account_deletion(
                 .map(|d| d.as_secs())
                 .unwrap_or(0);
             if now < execute_at {
-                return Err("Grace period has not elapsed yet".to_string());
+                return Err(CommandError::Privacy(
+                    "Grace period has not elapsed yet".to_string(),
+                ));
             }
             vauchi_core::api::ShredToken::from_created_at(scheduled_at)
         }
         vauchi_core::storage::DeletionState::None => {
-            return Err("No deletion scheduled".to_string());
+            return Err(CommandError::Privacy("No deletion scheduled".to_string()));
         }
         vauchi_core::storage::DeletionState::Executed { .. } => {
-            return Err("Account already deleted".to_string());
+            return Err(CommandError::Privacy("Account already deleted".to_string()));
         }
     };
 
-    let secure_storage =
-        create_secure_storage(state.data_dir()).map_err(|e| format!("Secure storage: {}", e))?;
+    let secure_storage = create_secure_storage(state.data_dir())?;
     let identity_id = hex::encode(identity.signing_public_key());
     let shred_manager = vauchi_core::api::ShredManager::new(
         &state.storage,
@@ -242,7 +249,7 @@ pub fn execute_account_deletion(
 
     let report = shred_manager
         .hard_shred(token, Some(&mut purge_client), Some(&mut revocation_client))
-        .map_err(|e| format!("Shred failed: {}", e))?;
+        .map_err(|e| CommandError::Privacy(format!("Shred failed: {}", e)))?;
 
     let verification = shred_manager.verify_shred();
 
@@ -257,12 +264,14 @@ pub fn execute_account_deletion(
 
 /// Emergency immediate deletion — no grace period.
 #[tauri::command]
-pub fn panic_shred(state: State<'_, Mutex<AppState>>) -> Result<ShredReportInfo, String> {
+pub fn panic_shred(state: State<'_, Mutex<AppState>>) -> Result<ShredReportInfo, CommandError> {
     let state = state.lock().unwrap();
-    let identity = state.identity.as_ref().ok_or("No identity loaded")?;
+    let identity = state
+        .identity
+        .as_ref()
+        .ok_or_else(|| CommandError::Identity("No identity loaded".to_string()))?;
 
-    let secure_storage =
-        create_secure_storage(state.data_dir()).map_err(|e| format!("Secure storage: {}", e))?;
+    let secure_storage = create_secure_storage(state.data_dir())?;
     let identity_id = hex::encode(identity.signing_public_key());
     let shred_manager = vauchi_core::api::ShredManager::new(
         &state.storage,
@@ -284,7 +293,7 @@ pub fn panic_shred(state: State<'_, Mutex<AppState>>) -> Result<ShredReportInfo,
                 .as_mut()
                 .map(|c| c as &mut dyn vauchi_core::api::RevocationSender),
         )
-        .map_err(|e| format!("Panic shred failed: {}", e))?;
+        .map_err(|e| CommandError::Privacy(format!("Panic shred failed: {}", e)))?;
 
     let verification = shred_manager.verify_shred();
 
@@ -330,11 +339,11 @@ fn deletion_state_to_info(state: &vauchi_core::storage::DeletionState) -> Deleti
     }
 }
 
-fn parse_consent_type(s: &str) -> Result<vauchi_core::api::ConsentType, String> {
+fn parse_consent_type(s: &str) -> Result<vauchi_core::api::ConsentType, CommandError> {
     vauchi_core::api::ConsentType::parse(s).ok_or_else(|| {
-        format!(
+        CommandError::Validation(format!(
             "Unknown consent type: '{}'. Valid: data_processing, contact_sharing, analytics, recovery_vouching",
             s
-        )
+        ))
     })
 }
