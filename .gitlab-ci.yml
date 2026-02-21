@@ -21,7 +21,7 @@
 # Include shared templates
 include:
   - project: 'vauchi/scripts'
-    ref: main
+    ref: fix/ci-pipeline-speedup
     file:
       - '/ci-templates/rust-base.yml'
       - '/ci-templates/security.yml'
@@ -48,9 +48,10 @@ variables:
   before_script:
     - if [ ! -d ../locales ]; then git clone --depth=1 https://gitlab.com/vauchi/locales.git ../locales; else git -C ../locales pull --ff-only 2>/dev/null || true; fi
 
-# Node.js jobs run on self-hosted shell runners (node pre-installed)
+# Node.js jobs run on allyson (Linux shell runner).
+# nell (macOS) has persistent npm crashes ("Exit handler never called").
 .node-job:
-  tags: [self-hosted, node]
+  tags: [self-hosted, node, linux]
   variables:
     npm_config_cache: ${CI_PROJECT_DIR}/.npm
     PLAYWRIGHT_BROWSERS_PATH: ${CI_PROJECT_DIR}/.playwright
