@@ -257,7 +257,7 @@ test:frontend:
       optional: true
   script:
     - cd ui && npm ci --prefer-offline
-    - npx playwright install --with-deps chromium
+    - npx playwright install chromium
     - npx playwright test --project=chromium --grep-invert "@visual|@a11y"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -282,7 +282,7 @@ test:visual-regression:
   allow_failure: true
   script:
     - cd ui && npm ci --prefer-offline
-    - npx playwright install --with-deps chromium
+    - npx playwright install chromium
     - npx playwright test --grep @visual --project visual-chromium --reporter=html
   artifacts:
     when: always
@@ -311,7 +311,7 @@ test:accessibility:
       optional: true
   script:
     - cd ui && npm ci --prefer-offline
-    - npx playwright install --with-deps chromium
+    - npx playwright install chromium
     - npx playwright test --grep @a11y --project chromium --reporter=html
   artifacts:
     when: always
