@@ -7,8 +7,7 @@
 # Tauri desktop application with SolidJS frontend
 #
 # Performance optimizations:
-#   - Self-hosted runners: sccache, persistent caches, load-balanced
-#   - Docker executor for Node.js jobs (allyson-docker)
+#   - Self-hosted shell runners: sccache, persistent caches, load-balanced
 #   - Change-based rules: Jobs run only when relevant files change
 #   - Timeouts: Prevent runaway jobs from blocking runners
 #   - Read-only cache for lint jobs
@@ -49,21 +48,12 @@ variables:
   before_script:
     - if [ ! -d ../locales ]; then git clone --depth=1 https://gitlab.com/vauchi/locales.git ../locales; else git -C ../locales pull --ff-only 2>/dev/null || true; fi
 
-# Node.js jobs run on allyson-docker (Docker executor)
+# Node.js jobs run on self-hosted shell runners (node pre-installed)
 .node-job:
-  image: node:20
-  tags: [docker]
+  tags: [self-hosted, node]
   variables:
     npm_config_cache: ${CI_PROJECT_DIR}/.npm
     PLAYWRIGHT_BROWSERS_PATH: ${CI_PROJECT_DIR}/.playwright
-  cache:
-    key: ${CI_COMMIT_REF_SLUG}-node
-    fallback_keys:
-      - ${CI_DEFAULT_BRANCH}-node
-      - node
-    paths:
-      - .npm/
-      - .playwright/
 
 # Desktop Rust cache — Cargo.lock and target/ are in src-tauri/
 .desktop-cache:
@@ -81,6 +71,13 @@ variables:
       - .cargo/registry/cache/
       - src-tauri/target/
     policy: pull-push
+
+# Override shared test-quality jobs: use shell runners instead of Docker
+quality:zero-assertions:
+  tags: [self-hosted, rust]
+
+quality:test-ratio:
+  tags: [self-hosted, rust]
 
 # ============================================================
 # Lint Stage — Preflight Gate (change-based)
@@ -169,8 +166,6 @@ lint:frontend:
   extends: [.node-job, .timeout-quick]
   stage: lint
   needs: []
-  cache:
-    policy: pull  # Read-only cache for lint
   script:
     - cd ui && npm ci --prefer-offline && npm run lint --if-present
     - npm run lint:css --if-present
@@ -224,7 +219,7 @@ test:frontend:
       optional: true
   script:
     - cd ui && npm ci --prefer-offline
-    - npx playwright install --with-deps chromium
+    - npx playwright install chromium
     - npx playwright test --project=chromium --grep-invert "@visual|@a11y"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -249,7 +244,7 @@ test:visual-regression:
   allow_failure: true
   script:
     - cd ui && npm ci --prefer-offline
-    - npx playwright install --with-deps chromium
+    - npx playwright install chromium
     - npx playwright test --grep @visual --project visual-chromium --reporter=html
   artifacts:
     when: always
@@ -278,7 +273,7 @@ test:accessibility:
       optional: true
   script:
     - cd ui && npm ci --prefer-offline
-    - npx playwright install --with-deps chromium
+    - npx playwright install chromium
     - npx playwright test --grep @a11y --project chromium --reporter=html
   artifacts:
     when: always
@@ -412,8 +407,6 @@ security:npm-audit:
   needs:
     - job: lint:frontend
       optional: true
-  cache:
-    policy: pull
   script:
     - cd ui && npm ci --prefer-offline && npm audit --audit-level=moderate || true
   rules:
