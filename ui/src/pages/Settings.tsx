@@ -909,6 +909,7 @@ function Settings(props: SettingsProps) {
                 setSecurityError('');
                 setShowPasswordDialog(true);
               }}
+              aria-label="Set app password"
             >
               Set App Password
             </button>
@@ -929,12 +930,13 @@ function Settings(props: SettingsProps) {
                   setSecurityError('');
                   setShowDuressDialog(true);
                 }}
+                aria-label="Set duress PIN"
               >
                 Set Duress PIN
               </button>
             </Show>
             <Show when={duressEnabled()}>
-              <button class="danger" onClick={handleDisableDuress}>
+              <button class="danger" onClick={handleDisableDuress} aria-label="Disable duress PIN">
                 Disable Duress PIN
               </button>
             </Show>
@@ -961,6 +963,7 @@ function Settings(props: SettingsProps) {
               role="dialog"
               aria-modal="true"
               aria-labelledby="password-dialog-title"
+              tabIndex={-1}
               onClick={(e) => e.stopPropagation()}
             >
               <h3 id="password-dialog-title">Set App Password</h3>
@@ -976,6 +979,7 @@ function Settings(props: SettingsProps) {
                   value={appPassword()}
                   onInput={(e) => setAppPassword(e.currentTarget.value)}
                   placeholder="Enter password"
+                  aria-label="App password"
                 />
               </label>
               <label>
@@ -985,13 +989,18 @@ function Settings(props: SettingsProps) {
                   value={appPasswordConfirm()}
                   onInput={(e) => setAppPasswordConfirm(e.currentTarget.value)}
                   placeholder="Confirm password"
+                  aria-label="Confirm app password"
                 />
               </label>
               <div class="dialog-actions">
-                <button class="secondary" onClick={() => setShowPasswordDialog(false)}>
+                <button
+                  class="secondary"
+                  onClick={() => setShowPasswordDialog(false)}
+                  aria-label="Cancel setting app password"
+                >
                   Cancel
                 </button>
-                <button class="primary" onClick={handleSetupPassword}>
+                <button class="primary" onClick={handleSetupPassword} aria-label="Set app password">
                   Set Password
                 </button>
               </div>
@@ -1014,10 +1023,12 @@ function Settings(props: SettingsProps) {
               role="dialog"
               aria-modal="true"
               aria-labelledby="duress-dialog-title"
+              aria-describedby="duress-dialog-description"
+              tabIndex={-1}
               onClick={(e) => e.stopPropagation()}
             >
               <h3 id="duress-dialog-title">Set Duress PIN</h3>
-              <p class="setting-description">
+              <p id="duress-dialog-description" class="setting-description">
                 When this PIN is entered instead of the app password, contacts will be replaced with
                 decoy data.
               </p>
@@ -1033,6 +1044,7 @@ function Settings(props: SettingsProps) {
                   value={duressPin()}
                   onInput={(e) => setDuressPin(e.currentTarget.value)}
                   placeholder="Enter duress PIN"
+                  aria-label="Duress PIN"
                 />
               </label>
               <label>
@@ -1042,13 +1054,18 @@ function Settings(props: SettingsProps) {
                   value={dressPinConfirm()}
                   onInput={(e) => setDressPinConfirm(e.currentTarget.value)}
                   placeholder="Confirm duress PIN"
+                  aria-label="Confirm duress PIN"
                 />
               </label>
               <div class="dialog-actions">
-                <button class="secondary" onClick={() => setShowDuressDialog(false)}>
+                <button
+                  class="secondary"
+                  onClick={() => setShowDuressDialog(false)}
+                  aria-label="Cancel setting duress PIN"
+                >
                   Cancel
                 </button>
-                <button class="primary" onClick={handleSetupDuress}>
+                <button class="primary" onClick={handleSetupDuress} aria-label="Set duress PIN">
                   Set Duress PIN
                 </button>
               </div>
@@ -1116,10 +1133,12 @@ function Settings(props: SettingsProps) {
               role="dialog"
               aria-modal="true"
               aria-labelledby="emergency-dialog-title"
+              aria-describedby="emergency-dialog-description"
+              tabIndex={-1}
               onClick={(e) => e.stopPropagation()}
             >
               <h3 id="emergency-dialog-title">Emergency Broadcast Configuration</h3>
-              <p class="setting-description">
+              <p id="emergency-dialog-description" class="setting-description">
                 Choose up to 10 trusted contacts to receive an encrypted alert. Alerts look like
                 normal sync traffic on the wire.
               </p>
@@ -1170,10 +1189,18 @@ function Settings(props: SettingsProps) {
               </div>
 
               <div class="dialog-actions">
-                <button class="secondary" onClick={() => setShowEmergencyDialog(false)}>
+                <button
+                  class="secondary"
+                  onClick={() => setShowEmergencyDialog(false)}
+                  aria-label="Cancel emergency broadcast configuration"
+                >
                   Cancel
                 </button>
-                <button class="primary" onClick={handleSaveEmergencyConfig}>
+                <button
+                  class="primary"
+                  onClick={handleSaveEmergencyConfig}
+                  aria-label="Save emergency broadcast configuration"
+                >
                   Save Configuration
                 </button>
               </div>
@@ -1246,6 +1273,7 @@ function Settings(props: SettingsProps) {
               setTorMessage('');
               setShowBridgeDialog(true);
             }}
+            aria-label="Manage Tor bridge addresses"
           >
             Manage Bridges
           </button>
@@ -1266,10 +1294,12 @@ function Settings(props: SettingsProps) {
               role="dialog"
               aria-modal="true"
               aria-labelledby="bridges-dialog-title"
+              aria-describedby="bridges-dialog-description"
+              tabIndex={-1}
               onClick={(e) => e.stopPropagation()}
             >
               <h3 id="bridges-dialog-title">Manage Bridges</h3>
-              <p class="setting-description">
+              <p id="bridges-dialog-description" class="setting-description">
                 Add obfs4 bridge addresses for censored networks. One per line.
               </p>
               <label>
@@ -1283,10 +1313,18 @@ function Settings(props: SettingsProps) {
                 />
               </label>
               <div class="dialog-actions">
-                <button class="secondary" onClick={() => setShowBridgeDialog(false)}>
+                <button
+                  class="secondary"
+                  onClick={() => setShowBridgeDialog(false)}
+                  aria-label="Cancel bridge configuration"
+                >
                   Cancel
                 </button>
-                <button class="primary" onClick={handleSaveBridges}>
+                <button
+                  class="primary"
+                  onClick={handleSaveBridges}
+                  aria-label="Save bridge addresses"
+                >
                   Save Bridges
                 </button>
               </div>
@@ -1708,22 +1746,32 @@ function Settings(props: SettingsProps) {
           >
             <div
               class="dialog"
-              role="dialog"
+              role="alertdialog"
               aria-modal="true"
               aria-labelledby="shred-dialog-title"
+              aria-describedby="shred-dialog-description"
+              tabIndex={-1}
               onClick={(e) => e.stopPropagation()}
             >
               <h3 id="shred-dialog-title">Emergency Shred</h3>
-              <p>
+              <p id="shred-dialog-description">
                 This will <strong>immediately and irreversibly</strong> destroy all your data,
                 including contacts, identity, and encryption keys. This cannot be undone.
               </p>
               <p>Are you sure you want to proceed?</p>
               <div class="dialog-actions">
-                <button class="secondary" onClick={() => setShowShredConfirm(false)}>
+                <button
+                  class="secondary"
+                  onClick={() => setShowShredConfirm(false)}
+                  aria-label="Cancel emergency shred"
+                >
                   Cancel
                 </button>
-                <button class="danger" onClick={handlePanicShred}>
+                <button
+                  class="danger"
+                  onClick={handlePanicShred}
+                  aria-label="Destroy all data immediately"
+                >
                   Destroy All Data
                 </button>
               </div>
@@ -1807,6 +1855,7 @@ function Settings(props: SettingsProps) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="backup-dialog-title"
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="backup-dialog-title">Export Backup</h3>
@@ -1921,6 +1970,7 @@ function Settings(props: SettingsProps) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="import-dialog-title"
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="import-dialog-title">Import Backup</h3>

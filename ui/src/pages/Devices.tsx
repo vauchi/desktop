@@ -910,7 +910,7 @@ function Devices(props: DevicesProps) {
         <p>All devices share the same identity and stay in sync.</p>
       </section>
 
-      {/* Revoke Confirmation Dialog (unchanged) */}
+      {/* Revoke Confirmation Dialog */}
       <Show when={showRevokeConfirm()}>
         <div
           class="dialog-overlay"
@@ -928,6 +928,7 @@ function Devices(props: DevicesProps) {
             aria-modal="true"
             aria-labelledby="revoke-dialog-title"
             aria-describedby="revoke-dialog-description"
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="revoke-dialog-title">{t('devices.revoke')}</h3>

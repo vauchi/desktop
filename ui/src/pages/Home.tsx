@@ -338,6 +338,7 @@ function Home(props: HomeProps) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="visibility-dialog-title"
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="visibility-dialog-title">Who can see "{selectedFieldLabel()}"?</h3>
@@ -424,6 +425,7 @@ function Home(props: HomeProps) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="edit-dialog-title"
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="edit-dialog-title">
@@ -528,6 +530,7 @@ function AddFieldDialog(props: AddFieldDialogProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-field-title"
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         <h3 id="add-field-title">{t('card.add_field')}</h3>

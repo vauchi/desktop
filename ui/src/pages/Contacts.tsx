@@ -478,6 +478,7 @@ function Contacts(props: ContactsProps) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="contact-detail-title"
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
           >
             <Show
@@ -747,7 +748,11 @@ function Contacts(props: ContactsProps) {
                           )}
                         </For>
                       </div>
-                      <button class="secondary small" onClick={() => setShowVisibility(false)}>
+                      <button
+                        class="secondary small"
+                        onClick={() => setShowVisibility(false)}
+                        aria-label="Hide visibility settings"
+                      >
                         Hide visibility settings
                       </button>
                     </div>
