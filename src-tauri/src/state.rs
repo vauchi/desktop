@@ -15,9 +15,8 @@ use vauchi_core::exchange::{
 use vauchi_core::{Identity, IdentityBackup, Storage, SymmetricKey};
 
 #[cfg(feature = "secure-storage")]
-use vauchi_core::storage::secure::{PlatformKeyring, SecureStorage};
+use vauchi_core::storage::secure::PlatformKeyring;
 
-#[cfg(not(feature = "secure-storage"))]
 use vauchi_core::storage::secure::{FileKeyStorage, SecureStorage};
 
 /// Legacy hardcoded password used before per-installation backup passwords.
@@ -72,9 +71,8 @@ pub struct AppState {
 
 /// Loads or generates a per-installation random fallback key from `data_dir/.fallback-key`.
 ///
-/// Used only when the `secure-storage` feature is disabled. Each installation
-/// gets a unique random key instead of a hardcoded constant.
-#[cfg(not(feature = "secure-storage"))]
+/// Used as fallback when the OS keychain is unavailable or non-functional.
+/// Each installation gets a unique random key instead of a hardcoded constant.
 pub(crate) fn load_or_generate_fallback_key(data_dir: &Path) -> Result<SymmetricKey> {
     let key_path = data_dir.join(".fallback-key");
 
@@ -159,74 +157,153 @@ impl AppState {
         load_or_generate_backup_password(&self.data_dir)
     }
 
-    /// Loads or creates the storage encryption key using SecureStorage.
+    /// Loads or creates the storage encryption key.
     ///
-    /// When the `secure-storage` feature is enabled, uses the OS keychain.
-    /// Otherwise, falls back to encrypted file storage.
-    #[allow(unused_variables)]
+    /// When the `secure-storage` feature is enabled, tries the OS keychain first
+    /// (scoped to the data directory to prevent cross-instance conflicts).
+    /// Verifies the keychain actually persists keys; if not (e.g. no Secret Service
+    /// daemon on Linux), automatically falls back to encrypted file storage.
     fn load_or_create_storage_key(data_dir: &Path) -> Result<SymmetricKey> {
         const KEY_NAME: &str = "storage_key";
 
+        // Try OS keychain first when secure-storage is enabled
         #[cfg(feature = "secure-storage")]
         {
-            let storage = PlatformKeyring::new("vauchi-desktop");
-            match storage.load_key(KEY_NAME) {
-                Ok(Some(bytes)) if bytes.len() == 32 => {
+            let service_name = Self::keyring_service_name(data_dir);
+            let keyring = PlatformKeyring::new(&service_name);
+
+            // Check if key already exists in scoped keychain
+            if let Ok(Some(bytes)) = keyring.load_key(KEY_NAME) {
+                if bytes.len() == 32 {
                     let mut arr = [0u8; 32];
                     arr.copy_from_slice(&bytes);
-                    Ok(SymmetricKey::from_bytes(arr))
-                }
-                Ok(Some(_)) => {
-                    anyhow::bail!("Invalid storage key length in keychain");
-                }
-                Ok(None) => {
-                    let key = SymmetricKey::generate();
-                    storage
-                        .save_key(KEY_NAME, key.as_bytes())
-                        .map_err(|e| anyhow::anyhow!("Failed to save key to keychain: {}", e))?;
-                    Ok(key)
-                }
-                Err(e) => {
-                    anyhow::bail!("Keychain error: {}", e);
+                    return Ok(SymmetricKey::from_bytes(arr));
                 }
             }
+
+            // Try legacy global service name for migration
+            let legacy = PlatformKeyring::new("vauchi-desktop");
+            if let Ok(Some(bytes)) = legacy.load_key(KEY_NAME) {
+                if bytes.len() == 32 {
+                    // Verify scoped keychain works by saving and reading back
+                    if keyring.save_key(KEY_NAME, &bytes).is_ok() {
+                        if let Ok(Some(verify)) = keyring.load_key(KEY_NAME) {
+                            if verify == bytes {
+                                let _ = legacy.delete_key(KEY_NAME);
+                                let mut arr = [0u8; 32];
+                                arr.copy_from_slice(&bytes);
+                                return Ok(SymmetricKey::from_bytes(arr));
+                            }
+                        }
+                    }
+                    // Keychain not functional — fall through to file storage
+                    // but use the legacy key bytes
+                    let mut arr = [0u8; 32];
+                    arr.copy_from_slice(&bytes);
+                    let key = SymmetricKey::from_bytes(arr);
+                    return Self::save_key_to_file_storage(data_dir, KEY_NAME, Some(key));
+                }
+            }
+
+            // No key in any keychain — generate new and try to save
+            let key = SymmetricKey::generate();
+            if keyring.save_key(KEY_NAME, key.as_bytes()).is_ok() {
+                // Verify the keychain actually persisted it
+                if let Ok(Some(verify)) = keyring.load_key(KEY_NAME) {
+                    if verify == key.as_bytes() {
+                        return Ok(key);
+                    }
+                }
+            }
+
+            // Keychain not functional — fall back to file storage
+            Self::save_key_to_file_storage(data_dir, KEY_NAME, Some(key))
         }
 
+        // No secure-storage feature — use file storage directly
         #[cfg(not(feature = "secure-storage"))]
         {
-            eprintln!(
-                "WARNING: secure-storage feature is disabled. \
-                 Using file-based key storage with a per-install random key. \
-                 This is NOT recommended for production use. \
-                 Enable the secure-storage feature for OS keychain support."
-            );
+            Self::load_or_create_key_from_file_storage(data_dir, KEY_NAME)
+        }
+    }
 
-            let fallback_key = load_or_generate_fallback_key(data_dir)?;
+    /// Load or create a storage key using encrypted file storage.
+    #[cfg(not(feature = "secure-storage"))]
+    fn load_or_create_key_from_file_storage(
+        data_dir: &Path,
+        key_name: &str,
+    ) -> Result<SymmetricKey> {
+        let fallback_key = load_or_generate_fallback_key(data_dir)?;
+        let key_dir = data_dir.join("keys");
+        let storage = FileKeyStorage::new(key_dir, fallback_key);
 
-            let key_dir = data_dir.join("keys");
-            let storage = FileKeyStorage::new(key_dir, fallback_key);
-
-            match storage.load_key(KEY_NAME) {
-                Ok(Some(bytes)) if bytes.len() == 32 => {
-                    let mut arr = [0u8; 32];
-                    arr.copy_from_slice(&bytes);
-                    Ok(SymmetricKey::from_bytes(arr))
-                }
-                Ok(Some(_)) => {
-                    anyhow::bail!("Invalid storage key length");
-                }
-                Ok(None) => {
-                    let key = SymmetricKey::generate();
-                    storage
-                        .save_key(KEY_NAME, key.as_bytes())
-                        .map_err(|e| anyhow::anyhow!("Failed to save storage key: {}", e))?;
-                    Ok(key)
-                }
-                Err(e) => {
-                    anyhow::bail!("Storage error: {}", e);
-                }
+        match storage.load_key(key_name) {
+            Ok(Some(bytes)) if bytes.len() == 32 => {
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(&bytes);
+                Ok(SymmetricKey::from_bytes(arr))
+            }
+            Ok(Some(_)) => {
+                anyhow::bail!("Invalid storage key length in file storage");
+            }
+            Ok(None) => {
+                let key = SymmetricKey::generate();
+                storage
+                    .save_key(key_name, key.as_bytes())
+                    .map_err(|e| anyhow::anyhow!("Failed to save storage key: {}", e))?;
+                Ok(key)
+            }
+            Err(e) => {
+                anyhow::bail!("File storage error: {}", e);
             }
         }
+    }
+
+    /// Save an existing key to file storage, or load from it if one already exists.
+    ///
+    /// Used when the OS keychain is non-functional and we need a persistent fallback.
+    #[cfg(feature = "secure-storage")]
+    fn save_key_to_file_storage(
+        data_dir: &Path,
+        key_name: &str,
+        key: Option<SymmetricKey>,
+    ) -> Result<SymmetricKey> {
+        let fallback_key = load_or_generate_fallback_key(data_dir)?;
+        let key_dir = data_dir.join("keys");
+        let storage = FileKeyStorage::new(key_dir, fallback_key);
+
+        // Check if file storage already has a key (from a previous fallback)
+        if let Ok(Some(bytes)) = storage.load_key(key_name) {
+            if bytes.len() == 32 {
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(&bytes);
+                return Ok(SymmetricKey::from_bytes(arr));
+            }
+        }
+
+        // Save the provided key (or generate a new one)
+        let key = key.unwrap_or_else(SymmetricKey::generate);
+        storage
+            .save_key(key_name, key.as_bytes())
+            .map_err(|e| anyhow::anyhow!("Failed to save storage key to file: {}", e))?;
+        Ok(key)
+    }
+
+    /// Generate a keyring service name scoped to the data directory.
+    ///
+    /// Each data directory gets its own keychain entry, preventing conflicts
+    /// between parallel test instances and multiple installations.
+    #[cfg(feature = "secure-storage")]
+    fn keyring_service_name(data_dir: &Path) -> String {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let canonical = data_dir
+            .canonicalize()
+            .unwrap_or_else(|_| data_dir.to_path_buf());
+        let mut hasher = DefaultHasher::new();
+        canonical.hash(&mut hasher);
+        format!("vauchi-desktop-{:016x}", hasher.finish())
     }
 
     /// Create a new application state.
@@ -525,18 +602,23 @@ mod tests {
     #[test]
     fn test_identity_persistence() {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let dir = temp_dir.path();
 
         // Create identity in first state
         {
-            let mut state = AppState::new(temp_dir.path()).expect("Failed to create state");
+            let mut state = AppState::new(dir).expect("Failed to create state");
             state
                 .create_identity("Alice Smith")
                 .expect("Failed to create identity");
+            assert!(
+                state.has_identity(),
+                "has_identity false right after create"
+            );
         }
 
-        // Load in second state
+        // Load in second state — must recover identity from same keychain-scoped key
         {
-            let state = AppState::new(temp_dir.path()).expect("Failed to load state");
+            let state = AppState::new(dir).expect("Failed to load state");
             assert!(state.has_identity());
             assert_eq!(state.display_name(), Some("Alice Smith"));
         }
