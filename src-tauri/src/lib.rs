@@ -4,7 +4,7 @@
 
 //! Vauchi Desktop Application
 //!
-//! Tauri-based desktop app for Vauchi.
+//! Tauri-based desktop application for Vauchi.
 
 mod commands;
 pub mod error;
