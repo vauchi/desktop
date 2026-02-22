@@ -21,7 +21,7 @@
 # Include shared templates
 include:
   - project: 'vauchi/scripts'
-    ref: fix/ci-pipeline-speedup
+    ref: main
     file:
       - '/ci-templates/rust-base.yml'
       - '/ci-templates/security.yml'
