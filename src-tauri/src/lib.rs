@@ -132,6 +132,7 @@ pub fn run() {
             commands::devices::generate_device_link_qr,
             commands::devices::join_device,
             commands::devices::finish_join_device,
+            commands::devices::get_join_confirmation_code,
             commands::devices::complete_device_link,
             commands::devices::prepare_device_confirmation,
             commands::devices::confirm_device_link_approved,

@@ -141,6 +141,10 @@ struct PendingJoin {
     qr_data: String,
     /// The device name for this new device.
     device_name: String,
+    /// Confirmation code computed after creating the request (stored because nonce is not recoverable).
+    confirmation_code: String,
+    /// Identity fingerprint from the QR code.
+    fingerprint: String,
 }
 
 /// Start joining another device using link data (Step 1).
@@ -184,13 +188,21 @@ pub fn join_device(
         .create_request()
         .map_err(|e| format!("Failed to create request: {:?}", e))?;
 
+    // Compute confirmation code and fingerprint while we still have the responder
+    let confirmation_code = responder
+        .compute_confirmation_code()
+        .map_err(|e| format!("Failed to compute confirmation code: {:?}", e))?;
+    let fingerprint = responder.identity_fingerprint();
+
     // Encode request for transmission
     let request_b64 = BASE64.encode(&encrypted_request);
 
-    // Store pending join state
+    // Store pending join state (includes confirmation info since nonce is not recoverable)
     let pending = PendingJoin {
         qr_data: link_data,
         device_name,
+        confirmation_code,
+        fingerprint,
     };
     state.pending_device_join = Some(serde_json::to_string(&pending).unwrap_or_default());
 
@@ -198,6 +210,38 @@ pub fn join_device(
         success: true,
         request_data: Some(request_b64),
         message: "Send this request to the existing device and get the response.".to_string(),
+    })
+}
+
+/// Confirmation details for the responder (new device) side of device linking.
+#[derive(Serialize)]
+pub struct JoinConfirmation {
+    /// The confirmation code to compare with the initiator's display.
+    pub confirmation_code: String,
+    /// The identity fingerprint from the QR code.
+    pub fingerprint: String,
+}
+
+/// Get the confirmation code and fingerprint for a pending device join.
+///
+/// Call this after `join_device` to retrieve the confirmation details that the
+/// user should compare with the initiator's screen before proceeding.
+#[tauri::command]
+pub fn get_join_confirmation_code(
+    state: State<'_, Mutex<AppState>>,
+) -> Result<JoinConfirmation, String> {
+    let state = state.lock().unwrap();
+
+    let pending_json = state
+        .pending_device_join
+        .as_ref()
+        .ok_or("No pending device join")?;
+    let pending: PendingJoin =
+        serde_json::from_str(pending_json).map_err(|_| "Invalid pending join state")?;
+
+    Ok(JoinConfirmation {
+        confirmation_code: pending.confirmation_code,
+        fingerprint: pending.fingerprint,
     })
 }
 
@@ -670,5 +714,21 @@ mod tests {
             svg.contains(r#"fill="black""#),
             "SVG should contain dark modules"
         );
+    }
+
+    #[test]
+    fn test_pending_join_serialization_includes_confirmation() {
+        let pending = PendingJoin {
+            qr_data: "WBDL-test".to_string(),
+            device_name: "My Desktop".to_string(),
+            confirmation_code: "123-456".to_string(),
+            fingerprint: "AB:CD:EF".to_string(),
+        };
+        let json = serde_json::to_string(&pending).unwrap();
+        let deserialized: PendingJoin = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.confirmation_code, "123-456");
+        assert_eq!(deserialized.fingerprint, "AB:CD:EF");
+        assert_eq!(deserialized.qr_data, "WBDL-test");
+        assert_eq!(deserialized.device_name, "My Desktop");
     }
 }
