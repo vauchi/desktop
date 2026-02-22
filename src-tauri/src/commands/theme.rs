@@ -7,7 +7,10 @@
 //! Handles theme management for the desktop app.
 
 use serde::Serialize;
-use vauchi_core::theme::{get_bundled_themes, get_theme_by_id, Theme, ThemeColors, ThemeMode};
+use vauchi_core::theme::{load_themes_from_json, Theme, ThemeColors, ThemeMode};
+
+/// Themes embedded at compile time from the themes repo.
+const THEMES_JSON: &[u8] = include_bytes!("../../../../themes/themes.json");
 
 /// Theme information for the frontend.
 #[derive(Serialize)]
@@ -68,16 +71,23 @@ impl From<&ThemeColors> for ThemeColorsInfo {
     }
 }
 
+fn load_themes() -> Vec<Theme> {
+    load_themes_from_json(THEMES_JSON).unwrap_or_default()
+}
+
 /// Get all available themes.
 #[tauri::command]
 pub fn get_available_themes() -> Vec<ThemeInfo> {
-    get_bundled_themes().iter().map(ThemeInfo::from).collect()
+    load_themes().iter().map(ThemeInfo::from).collect()
 }
 
 /// Get a specific theme by ID.
 #[tauri::command]
 pub fn get_theme(theme_id: String) -> Option<ThemeInfo> {
-    get_theme_by_id(&theme_id).map(|t| ThemeInfo::from(&t))
+    load_themes()
+        .iter()
+        .find(|t| t.id == theme_id)
+        .map(ThemeInfo::from)
 }
 
 /// Get the default theme ID based on system preference.

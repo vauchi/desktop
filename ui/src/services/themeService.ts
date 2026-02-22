@@ -33,6 +33,7 @@ export interface Theme {
 }
 
 const THEME_STORAGE_KEY = 'selected-theme';
+const FOLLOW_SYSTEM_KEY = 'theme-follow-system';
 
 /**
  * Get all available themes.
@@ -61,6 +62,54 @@ export async function getDefaultThemeId(): Promise<string> {
  */
 export function getSelectedThemeId(): string | null {
   return localStorage.getItem(THEME_STORAGE_KEY);
+}
+
+/**
+ * Check if "Follow System" is enabled.
+ */
+export function getFollowSystem(): boolean {
+  const stored = localStorage.getItem(FOLLOW_SYSTEM_KEY);
+  // Default to true when no preference has been saved
+  return stored === null ? true : stored === 'true';
+}
+
+/**
+ * Set "Follow System" preference.
+ */
+export function setFollowSystem(enabled: boolean): void {
+  localStorage.setItem(FOLLOW_SYSTEM_KEY, String(enabled));
+}
+
+let systemThemeCleanup: (() => void) | null = null;
+
+/**
+ * Start listening for system color scheme changes.
+ * When "Follow System" is enabled, automatically switches to the
+ * appropriate default theme when the OS toggles dark/light mode.
+ */
+export function startSystemThemeListener(): void {
+  stopSystemThemeListener();
+
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  const handler = async () => {
+    if (getFollowSystem()) {
+      const defaultId = await getDefaultThemeId();
+      await selectTheme(defaultId);
+    }
+  };
+
+  mediaQuery.addEventListener('change', handler);
+  systemThemeCleanup = () => mediaQuery.removeEventListener('change', handler);
+}
+
+/**
+ * Stop listening for system color scheme changes.
+ */
+export function stopSystemThemeListener(): void {
+  if (systemThemeCleanup) {
+    systemThemeCleanup();
+    systemThemeCleanup = null;
+  }
 }
 
 // Constructable stylesheet for theme variables — avoids 'unsafe-inline' in CSP (#243)
@@ -114,13 +163,21 @@ export async function selectTheme(themeId: string): Promise<void> {
 
 /**
  * Initialize theme from saved preference or system default.
+ * Starts the system theme listener for automatic switching.
  */
 export async function initializeTheme(): Promise<void> {
-  const savedThemeId = getSelectedThemeId();
-  if (savedThemeId) {
-    await selectTheme(savedThemeId);
-  } else {
+  if (getFollowSystem()) {
     const defaultId = await getDefaultThemeId();
     await selectTheme(defaultId);
+  } else {
+    const savedThemeId = getSelectedThemeId();
+    if (savedThemeId) {
+      await selectTheme(savedThemeId);
+    } else {
+      const defaultId = await getDefaultThemeId();
+      await selectTheme(defaultId);
+    }
   }
+
+  startSystemThemeListener();
 }

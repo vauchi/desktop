@@ -9,6 +9,9 @@ import {
   getAvailableThemes,
   selectTheme,
   getSelectedThemeId,
+  getFollowSystem,
+  setFollowSystem,
+  getDefaultThemeId,
   type Theme,
 } from '../services/themeService';
 import {
@@ -164,6 +167,7 @@ function Settings(props: SettingsProps) {
   // Theme and locale state
   const [availableThemes, setAvailableThemes] = createSignal<Theme[]>([]);
   const [selectedThemeId, setSelectedThemeId] = createSignal<string>('');
+  const [followSystem, setFollowSystemSignal] = createSignal(getFollowSystem());
   const [availableLocales, setAvailableLocales] = createSignal<LocaleInfo[]>([]);
   const [selectedLocaleCode, setSelectedLocaleCode] = createSignal<string>('en');
 
@@ -310,10 +314,32 @@ function Settings(props: SettingsProps) {
     try {
       await selectTheme(themeId);
       setSelectedThemeId(themeId);
+      // Explicit selection disables follow-system
+      setFollowSystem(false);
+      setFollowSystemSignal(false);
     } catch (e) {
       console.error('Failed to change theme:', e);
     }
   };
+
+  const handleFollowSystemToggle = async () => {
+    const newValue = !followSystem();
+    setFollowSystem(newValue);
+    setFollowSystemSignal(newValue);
+    if (newValue) {
+      // Reset to system-appropriate default
+      try {
+        const defaultId = await getDefaultThemeId();
+        await selectTheme(defaultId);
+        setSelectedThemeId(defaultId);
+      } catch (e) {
+        console.error('Failed to apply system theme:', e);
+      }
+    }
+  };
+
+  const darkThemes = () => availableThemes().filter((t) => t.mode === 'dark');
+  const lightThemes = () => availableThemes().filter((t) => t.mode === 'light');
 
   const handleLocaleChange = (code: string) => {
     setLocale(code);
@@ -1418,24 +1444,126 @@ function Settings(props: SettingsProps) {
         </p>
 
         <div class="setting-item">
-          <span class="setting-label" id="theme-label">
-            {t('settings.theme')}
-          </span>
-          <select
-            class="setting-select"
-            value={selectedThemeId()}
-            onChange={(e) => handleThemeChange(e.target.value)}
-            aria-labelledby="theme-label"
-          >
-            <For each={availableThemes()}>
-              {(theme) => (
-                <option value={theme.id}>
-                  {theme.name} ({theme.mode})
-                </option>
-              )}
-            </For>
-          </select>
+          <label for="follow-system-toggle" class="setting-label">
+            Follow System
+            <span class="toggle-description">
+              Automatically switch between dark and light themes based on your system preference
+            </span>
+          </label>
+          <div class="toggle-switch">
+            <input
+              type="checkbox"
+              id="follow-system-toggle"
+              checked={followSystem()}
+              onChange={handleFollowSystemToggle}
+            />
+            <span class="toggle-slider" aria-hidden="true" />
+          </div>
         </div>
+
+        <Show when={!followSystem()}>
+          <div class="theme-section">
+            <h3 class="theme-group-title">Dark Themes</h3>
+            <div class="theme-grid" role="radiogroup" aria-label="Dark themes">
+              <For each={darkThemes()}>
+                {(theme) => (
+                  <button
+                    class={`theme-card ${selectedThemeId() === theme.id ? 'selected' : ''}`}
+                    onClick={() => handleThemeChange(theme.id)}
+                    role="radio"
+                    aria-checked={selectedThemeId() === theme.id}
+                    aria-label={theme.name}
+                  >
+                    <div
+                      class="theme-card-preview"
+                      style={{
+                        'background-color': theme.colors.bg_primary,
+                        'border-color': theme.colors.border,
+                      }}
+                    >
+                      <span class="theme-card-name" style={{ color: theme.colors.text_primary }}>
+                        {theme.name}
+                      </span>
+                      <div class="theme-color-swatches">
+                        <span
+                          class="color-swatch"
+                          style={{ 'background-color': theme.colors.accent }}
+                          title="Accent"
+                        />
+                        <span
+                          class="color-swatch"
+                          style={{ 'background-color': theme.colors.success }}
+                          title="Success"
+                        />
+                        <span
+                          class="color-swatch"
+                          style={{ 'background-color': theme.colors.error }}
+                          title="Error"
+                        />
+                        <span
+                          class="color-swatch"
+                          style={{ 'background-color': theme.colors.warning }}
+                          title="Warning"
+                        />
+                      </div>
+                    </div>
+                  </button>
+                )}
+              </For>
+            </div>
+          </div>
+
+          <div class="theme-section">
+            <h3 class="theme-group-title">Light Themes</h3>
+            <div class="theme-grid" role="radiogroup" aria-label="Light themes">
+              <For each={lightThemes()}>
+                {(theme) => (
+                  <button
+                    class={`theme-card ${selectedThemeId() === theme.id ? 'selected' : ''}`}
+                    onClick={() => handleThemeChange(theme.id)}
+                    role="radio"
+                    aria-checked={selectedThemeId() === theme.id}
+                    aria-label={theme.name}
+                  >
+                    <div
+                      class="theme-card-preview"
+                      style={{
+                        'background-color': theme.colors.bg_primary,
+                        'border-color': theme.colors.border,
+                      }}
+                    >
+                      <span class="theme-card-name" style={{ color: theme.colors.text_primary }}>
+                        {theme.name}
+                      </span>
+                      <div class="theme-color-swatches">
+                        <span
+                          class="color-swatch"
+                          style={{ 'background-color': theme.colors.accent }}
+                          title="Accent"
+                        />
+                        <span
+                          class="color-swatch"
+                          style={{ 'background-color': theme.colors.success }}
+                          title="Success"
+                        />
+                        <span
+                          class="color-swatch"
+                          style={{ 'background-color': theme.colors.error }}
+                          title="Error"
+                        />
+                        <span
+                          class="color-swatch"
+                          style={{ 'background-color': theme.colors.warning }}
+                          title="Warning"
+                        />
+                      </div>
+                    </div>
+                  </button>
+                )}
+              </For>
+            </div>
+          </div>
+        </Show>
 
         <div class="setting-item">
           <span class="setting-label" id="language-label">
