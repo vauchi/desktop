@@ -48,6 +48,11 @@ variables:
   before_script:
     - if [ ! -d ../locales ]; then git clone --depth=1 https://gitlab.com/vauchi/locales.git ../locales; else git -C ../locales pull --ff-only 2>/dev/null || true; fi
 
+# Clone sibling themes repo (needed by include_bytes! in theme commands)
+.clone-themes:
+  before_script:
+    - if [ ! -d ../themes ]; then git clone --depth=1 https://gitlab.com/vauchi/themes.git ../themes; else git -C ../themes pull --ff-only 2>/dev/null || true; fi
+
 # Node.js jobs run on allyson (Linux shell runner).
 # nell (macOS) has persistent npm crashes ("Exit handler never called").
 .node-job:
@@ -187,6 +192,7 @@ lint:rust-clippy:
   before_script:
     - !reference [.self-hosted, before_script]
     - !reference [.clone-locales, before_script]
+    - !reference [.clone-themes, before_script]
   script:
     - cd src-tauri && cargo clippy --all-targets --no-default-features --features custom-protocol -- -D warnings
   rules:
@@ -234,6 +240,7 @@ test:rust:
   before_script:
     - !reference [.self-hosted, before_script]
     - !reference [.clone-locales, before_script]
+    - !reference [.clone-themes, before_script]
   script:
     - cd src-tauri && cargo nextest run --all-targets --no-default-features --features custom-protocol
   rules:
@@ -343,6 +350,7 @@ mutation:nightly:
   before_script:
     - !reference [.self-hosted, before_script]
     - !reference [.clone-locales, before_script]
+    - !reference [.clone-themes, before_script]
   script:
     - cd src-tauri && cargo mutants --no-default-features --features custom-protocol --timeout 60 --output target/mutants
   artifacts:
@@ -367,6 +375,7 @@ mutation:incremental:
   before_script:
     - !reference [.self-hosted, before_script]
     - !reference [.clone-locales, before_script]
+    - !reference [.clone-themes, before_script]
   script:
     - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --depth=100
     - git diff "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"...HEAD > mr.diff
@@ -473,5 +482,6 @@ verify:upstream-compat:
   before_script:
     - !reference [.self-hosted, before_script]
     - !reference [.clone-locales, before_script]
+    - !reference [.clone-themes, before_script]
   script:
     - cd src-tauri && cargo nextest run --all-targets --no-default-features --features custom-protocol
