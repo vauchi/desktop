@@ -6,6 +6,8 @@ import { createResource, createSignal, For, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { t } from '../services/i18nService';
 
+// --- Domain types ---
+
 interface DeviceInfo {
   device_id: string;
   device_name: string;
@@ -14,11 +16,57 @@ interface DeviceInfo {
   is_active: boolean;
 }
 
-interface JoinDeviceResult {
-  success: boolean;
+interface DeviceLinkQRResult {
+  qr_data: string;
+  qr_svg: string;
+  fingerprint: string;
+}
+
+interface DeviceConfirmation {
   device_name: string;
+  confirmation_code: string;
+  fingerprint: string;
+}
+
+interface JoinStartResult {
+  success: boolean;
+  request_data: string | null;
   message: string;
 }
+
+interface JoinConfirmation {
+  confirmation_code: string;
+  fingerprint: string;
+}
+
+interface JoinFinishResult {
+  success: boolean;
+  display_name: string | null;
+  device_index: number | null;
+  message: string;
+}
+
+interface DeviceLinkResponseData {
+  response_data: string;
+}
+
+// --- State machine ---
+
+type DeviceLinkState =
+  | { step: 'idle' }
+  | { step: 'selectTransport' }
+  | { step: 'selectRole'; transport: 'relay' | 'offline' }
+  | { step: 'generatingQR'; transport: 'relay' | 'offline' }
+  | { step: 'waitingForRequest'; transport: 'relay' | 'offline'; qrData: string; qrSvg: string; fingerprint: string }
+  | { step: 'confirmingDevice'; transport: 'relay' | 'offline'; deviceName: string; confirmationCode: string; fingerprint: string }
+  | { step: 'completing' }
+  | { step: 'success'; deviceName: string }
+  | { step: 'failed'; error: string }
+  | { step: 'joinPaste'; transport: 'relay' | 'offline' }
+  | { step: 'joinWaiting'; transport: 'relay' | 'offline'; confirmationCode: string; fingerprint: string }
+  | { step: 'joinSuccess'; displayName: string };
+
+// --- Props ---
 
 interface DevicesProps {
   onNavigate: (
@@ -26,63 +74,135 @@ interface DevicesProps {
   ) => void;
 }
 
+// --- Data fetcher ---
+
 async function fetchDevices(): Promise<DeviceInfo[]> {
   return await invoke('list_devices');
 }
 
+// --- Component ---
+
 function Devices(props: DevicesProps) {
   const [devices, { refetch }] = createResource(fetchDevices);
-  const [showLinkDialog, setShowLinkDialog] = createSignal(false);
-  const [showJoinDialog, setShowJoinDialog] = createSignal(false);
+
+  // State machine for device linking flow
+  const [linkState, setLinkState] = createSignal<DeviceLinkState>({ step: 'idle' });
+
+  // Input signals for join flow
+  const [joinInputData, setJoinInputData] = createSignal('');
+  const [deviceNameInput, setDeviceNameInput] = createSignal('');
+
+  // Revoke dialog state (kept separate)
   const [showRevokeConfirm, setShowRevokeConfirm] = createSignal<DeviceInfo | null>(null);
-  const [linkData, setLinkData] = createSignal('');
-  const [joinData, setJoinData] = createSignal('');
-  const [error, setError] = createSignal('');
-  const [joinMessage, setJoinMessage] = createSignal('');
-  const [isJoining, setIsJoining] = createSignal(false);
   const [isRevoking, setIsRevoking] = createSignal(false);
+  const [error, setError] = createSignal('');
 
-  const generateLink = async () => {
+  // --- Initiator flow ---
+
+  const startInitiatorFlow = async (transport: 'relay' | 'offline') => {
+    setLinkState({ step: 'generatingQR', transport });
     try {
-      const data = (await invoke('generate_device_link')) as string;
-      setLinkData(data);
-      setShowLinkDialog(true);
-      setError('');
-    } catch (e) {
-      setError(String(e));
-    }
-  };
+      const result = await invoke<DeviceLinkQRResult>('generate_device_link_qr');
+      setLinkState({
+        step: 'waitingForRequest',
+        transport,
+        qrData: result.qr_data,
+        qrSvg: result.qr_svg,
+        fingerprint: result.fingerprint,
+      });
 
-  const copyLinkData = () => {
-    navigator.clipboard.writeText(linkData());
-  };
-
-  const handleJoinDevice = async () => {
-    if (!joinData().trim()) {
-      setJoinMessage('Please paste the device link data');
-      return;
-    }
-
-    setIsJoining(true);
-    setJoinMessage('');
-
-    try {
-      const result = (await invoke('join_device', { linkData: joinData() })) as JoinDeviceResult;
-      setJoinMessage(result.message);
-      if (result.success) {
-        refetch();
-        setTimeout(() => {
-          setShowJoinDialog(false);
-          setJoinData('');
-          setJoinMessage('');
-        }, 2000);
+      if (transport === 'relay') {
+        const requestData = await invoke<string>('relay_listen_for_request');
+        const confirmation = await invoke<DeviceConfirmation>('prepare_device_confirmation', {
+          requestData,
+        });
+        setLinkState({
+          step: 'confirmingDevice',
+          transport,
+          deviceName: confirmation.device_name,
+          confirmationCode: confirmation.confirmation_code,
+          fingerprint: confirmation.fingerprint,
+        });
       }
     } catch (e) {
-      setJoinMessage(String(e));
+      setLinkState({ step: 'failed', error: String(e) });
     }
-
-    setIsJoining(false);
   };
+
+  const approveLink = async () => {
+    const state = linkState();
+    if (state.step !== 'confirmingDevice') return;
+    const transport = state.transport;
+    const deviceName = state.deviceName;
+
+    setLinkState({ step: 'completing' });
+    try {
+      const result = await invoke<DeviceLinkResponseData>('confirm_device_link_approved');
+      if (transport === 'relay') {
+        await invoke('relay_send_response', { responseData: result.response_data });
+      }
+      setLinkState({ step: 'success', deviceName });
+      refetch();
+    } catch (e) {
+      setLinkState({ step: 'failed', error: String(e) });
+    }
+  };
+
+  const denyLink = async () => {
+    await invoke('deny_device_link');
+    setLinkState({ step: 'idle' });
+  };
+
+  // --- Responder (join) flow ---
+
+  const startJoinFlow = async (transport: 'relay' | 'offline') => {
+    const data = joinInputData();
+    const name = deviceNameInput();
+    if (!data.trim()) return;
+
+    try {
+      const joinResult = await invoke<JoinStartResult>('join_device', {
+        linkData: data,
+        deviceName: name || 'Desktop',
+      });
+      if (!joinResult.success) {
+        setLinkState({ step: 'failed', error: joinResult.message });
+        return;
+      }
+
+      const confirmation = await invoke<JoinConfirmation>('get_join_confirmation_code');
+      setLinkState({
+        step: 'joinWaiting',
+        transport,
+        confirmationCode: confirmation.confirmation_code,
+        fingerprint: confirmation.fingerprint,
+      });
+
+      if (transport === 'relay' && joinResult.request_data) {
+        const targetIdentity = joinInputData().split('|')[1] || '';
+        const responseData = await invoke<string>('relay_join_via_relay', {
+          requestData: joinResult.request_data,
+          targetIdentity,
+        });
+        const finishResult = await invoke<JoinFinishResult>('finish_join_device', {
+          responseData,
+        });
+        if (finishResult.success) {
+          setLinkState({
+            step: 'joinSuccess',
+            displayName: finishResult.display_name || 'Unknown',
+          });
+          refetch();
+        } else {
+          setLinkState({ step: 'failed', error: finishResult.message });
+        }
+      }
+    } catch (e) {
+      setLinkState({ step: 'failed', error: String(e) });
+    }
+  };
+
+  // --- Revoke flow (unchanged) ---
 
   const handleRevokeDevice = async (device: DeviceInfo) => {
     setIsRevoking(true);
@@ -98,6 +218,8 @@ function Devices(props: DevicesProps) {
 
     setIsRevoking(false);
   };
+
+  // --- Render ---
 
   return (
     <div class="page devices" role="main" aria-labelledby="devices-title">
@@ -121,22 +243,286 @@ function Devices(props: DevicesProps) {
       <section class="devices-section" aria-labelledby="linked-devices-title">
         <div class="section-header">
           <h2 id="linked-devices-title">{t('devices.linked')}</h2>
-          <div class="header-buttons" role="group" aria-label="Device actions">
-            <button
-              class="small secondary"
-              onClick={() => setShowJoinDialog(true)}
-              aria-label="Join this device to another account"
-            >
-              Join Another
-            </button>
-            <button
-              class="small primary"
-              onClick={generateLink}
-              aria-label="Generate link to add a new device"
-            >
-              {t('devices.generate_link')}
-            </button>
-          </div>
+          <Show when={linkState().step === 'idle'}>
+            <div class="header-buttons" role="group" aria-label="Device actions">
+              <button
+                class="small primary"
+                onClick={() => setLinkState({ step: 'selectTransport' })}
+                aria-label="Start device linking flow"
+              >
+                {t('devices.generate_link')}
+              </button>
+            </div>
+          </Show>
+        </div>
+
+        {/* --- State machine inline UI --- */}
+        <div aria-live="polite">
+          {/* Select Transport */}
+          <Show when={linkState().step === 'selectTransport'}>
+            <div class="link-flow" role="group" aria-label="Choose transport">
+              <h3>{t('devices.link.choose_transport') || 'How do you want to link?'}</h3>
+              <button
+                class="transport-option"
+                onClick={() => setLinkState({ step: 'selectRole', transport: 'relay' })}
+              >
+                {t('devices.link.via_internet') || 'Link via Internet'}
+              </button>
+              <button
+                class="transport-option"
+                onClick={() => setLinkState({ step: 'selectRole', transport: 'offline' })}
+              >
+                {t('devices.link.via_offline') || 'Link Offline (QR Code)'}
+              </button>
+              <button class="small secondary" onClick={() => setLinkState({ step: 'idle' })}>
+                {t('action.cancel')}
+              </button>
+            </div>
+          </Show>
+
+          {/* Select Role */}
+          <Show when={linkState().step === 'selectRole'}>
+            {(() => {
+              const state = linkState() as Extract<DeviceLinkState, { step: 'selectRole' }>;
+              return (
+                <div class="link-flow" role="group" aria-label="Choose role">
+                  <h3>{t('devices.link.choose_role') || 'What would you like to do?'}</h3>
+                  <button
+                    class="transport-option"
+                    onClick={() => startInitiatorFlow(state.transport)}
+                  >
+                    {t('devices.link.role_initiator') || 'Link a new device to this account'}
+                  </button>
+                  <button
+                    class="transport-option"
+                    onClick={() =>
+                      setLinkState({ step: 'joinPaste', transport: state.transport })
+                    }
+                  >
+                    {t('devices.link.role_responder') || 'Join this device to another account'}
+                  </button>
+                  <button
+                    class="small secondary"
+                    onClick={() => setLinkState({ step: 'idle' })}
+                  >
+                    {t('action.cancel')}
+                  </button>
+                </div>
+              );
+            })()}
+          </Show>
+
+          {/* Generating QR */}
+          <Show when={linkState().step === 'generatingQR'}>
+            <div class="link-flow">
+              <p>Generating QR code...</p>
+            </div>
+          </Show>
+
+          {/* Waiting for Request */}
+          <Show when={linkState().step === 'waitingForRequest'}>
+            {(() => {
+              const state = linkState() as Extract<
+                DeviceLinkState,
+                { step: 'waitingForRequest' }
+              >;
+              return (
+                <div class="link-flow qr-display">
+                  <h3>
+                    {t('devices.link.scan_qr') || 'Scan this code on your new device'}
+                  </h3>
+                  <div class="qr-container" innerHTML={state.qrSvg} />
+                  <div class="qr-actions">
+                    <button
+                      class="small"
+                      onClick={() => navigator.clipboard.writeText(state.qrData)}
+                    >
+                      {t('devices.link.copy_data') || 'Copy Link Data'}
+                    </button>
+                  </div>
+                  <p class="fingerprint">Fingerprint: {state.fingerprint}</p>
+                  <Show when={state.transport === 'relay'}>
+                    <p class="waiting-indicator">Waiting for device to connect...</p>
+                  </Show>
+                  <button
+                    class="secondary"
+                    onClick={() => {
+                      invoke('deny_device_link');
+                      setLinkState({ step: 'idle' });
+                    }}
+                  >
+                    {t('action.cancel')}
+                  </button>
+                </div>
+              );
+            })()}
+          </Show>
+
+          {/* Confirming Device */}
+          <Show when={linkState().step === 'confirmingDevice'}>
+            {(() => {
+              const state = linkState() as Extract<
+                DeviceLinkState,
+                { step: 'confirmingDevice' }
+              >;
+              return (
+                <div class="link-flow confirmation-card">
+                  <h3>
+                    {t('devices.link.confirm_title') || 'Confirm Device Link'}
+                  </h3>
+                  <p>
+                    Device: <strong>{state.deviceName}</strong>
+                  </p>
+                  <div class="confirmation-code" aria-label="Confirmation code">
+                    {state.confirmationCode}
+                  </div>
+                  <p>
+                    {t('devices.link.confirm_code_match') ||
+                      'Verify this code matches on your new device.'}
+                  </p>
+                  <div class="dialog-actions">
+                    <button class="primary" onClick={approveLink}>
+                      {t('devices.link.approve') || 'Approve'}
+                    </button>
+                    <button class="danger" onClick={denyLink}>
+                      {t('devices.link.deny') || 'Deny'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </Show>
+
+          {/* Completing */}
+          <Show when={linkState().step === 'completing'}>
+            <div class="link-flow">
+              <p>Completing device link...</p>
+            </div>
+          </Show>
+
+          {/* Success */}
+          <Show when={linkState().step === 'success'}>
+            {(() => {
+              const state = linkState() as Extract<DeviceLinkState, { step: 'success' }>;
+              return (
+                <div class="link-flow">
+                  <h3>{t('devices.link.success') || 'Device linked successfully!'}</h3>
+                  <p>
+                    Device <strong>{state.deviceName}</strong> has been linked.
+                  </p>
+                  <button class="primary" onClick={() => setLinkState({ step: 'idle' })}>
+                    Done
+                  </button>
+                </div>
+              );
+            })()}
+          </Show>
+
+          {/* Failed */}
+          <Show when={linkState().step === 'failed'}>
+            {(() => {
+              const state = linkState() as Extract<DeviceLinkState, { step: 'failed' }>;
+              return (
+                <div class="link-flow">
+                  <p class="error" role="alert">
+                    {state.error}
+                  </p>
+                  <button
+                    class="secondary"
+                    onClick={() => setLinkState({ step: 'idle' })}
+                  >
+                    Try Again
+                  </button>
+                </div>
+              );
+            })()}
+          </Show>
+
+          {/* Join Paste */}
+          <Show when={linkState().step === 'joinPaste'}>
+            {(() => {
+              const state = linkState() as Extract<DeviceLinkState, { step: 'joinPaste' }>;
+              return (
+                <div class="link-flow join-paste">
+                  <h3>{t('devices.link.join_title') || 'Join Existing Account'}</h3>
+                  <input
+                    type="text"
+                    placeholder={t('devices.link.device_name') || 'Name for this device'}
+                    value={deviceNameInput()}
+                    onInput={(e) => setDeviceNameInput(e.target.value)}
+                  />
+                  <textarea
+                    placeholder={
+                      t('devices.link.paste_data') ||
+                      'Paste link data from your other device...'
+                    }
+                    value={joinInputData()}
+                    onInput={(e) => setJoinInputData(e.target.value)}
+                    rows={4}
+                  />
+                  <div class="dialog-actions">
+                    <button
+                      class="primary"
+                      onClick={() => startJoinFlow(state.transport)}
+                      disabled={!joinInputData().trim()}
+                    >
+                      Join
+                    </button>
+                    <button
+                      class="secondary"
+                      onClick={() => setLinkState({ step: 'idle' })}
+                    >
+                      {t('action.cancel')}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </Show>
+
+          {/* Join Waiting */}
+          <Show when={linkState().step === 'joinWaiting'}>
+            {(() => {
+              const state = linkState() as Extract<
+                DeviceLinkState,
+                { step: 'joinWaiting' }
+              >;
+              return (
+                <div class="link-flow join-waiting">
+                  <h3>
+                    {t('devices.link.waiting_approval') || 'Waiting for Approval'}
+                  </h3>
+                  <div class="confirmation-code">{state.confirmationCode}</div>
+                  <p>
+                    Verify this code matches on your other device, then approve there.
+                  </p>
+                  <p class="fingerprint">Fingerprint: {state.fingerprint}</p>
+                </div>
+              );
+            })()}
+          </Show>
+
+          {/* Join Success */}
+          <Show when={linkState().step === 'joinSuccess'}>
+            {(() => {
+              const state = linkState() as Extract<
+                DeviceLinkState,
+                { step: 'joinSuccess' }
+              >;
+              return (
+                <div class="link-flow">
+                  <h3>{t('devices.link.join_success') || 'Successfully joined!'}</h3>
+                  <p>
+                    Connected to {state.displayName}'s account. Run sync to fetch
+                    contacts.
+                  </p>
+                  <button class="primary" onClick={() => setLinkState({ step: 'idle' })}>
+                    Done
+                  </button>
+                </div>
+              );
+            })()}
+          </Show>
         </div>
 
         <div class="devices-list" role="list" aria-label="List of linked devices">
@@ -194,128 +580,7 @@ function Devices(props: DevicesProps) {
         <p>All devices share the same identity and stay in sync.</p>
       </section>
 
-      {/* Link Device Dialog */}
-      <Show when={showLinkDialog()}>
-        <div
-          class="dialog-overlay"
-          onClick={() => setShowLinkDialog(false)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setShowLinkDialog(false);
-          }}
-          role="presentation"
-        >
-          <div
-            class="dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="link-dialog-title"
-            aria-describedby="link-dialog-description"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="link-dialog-title">{t('devices.generate_link')}</h3>
-            <p id="link-dialog-description">
-              Scan this code with your new device, or copy the data below:
-            </p>
-
-            <div class="link-data" role="group" aria-label="Device link data">
-              <code aria-label="Link data preview">{linkData().substring(0, 50)}...</code>
-              <button class="small" onClick={copyLinkData} aria-label="Copy link data to clipboard">
-                Copy
-              </button>
-            </div>
-
-            <p class="warning" role="alert">
-              This code expires in 10 minutes.
-            </p>
-
-            <div class="dialog-actions">
-              <button
-                class="secondary"
-                onClick={() => setShowLinkDialog(false)}
-                aria-label="Close dialog"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      </Show>
-
-      {/* Join Device Dialog */}
-      <Show when={showJoinDialog()}>
-        <div
-          class="dialog-overlay"
-          onClick={() => {
-            if (!isJoining()) {
-              setShowJoinDialog(false);
-              setJoinData('');
-              setJoinMessage('');
-            }
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape' && !isJoining()) {
-              setShowJoinDialog(false);
-              setJoinData('');
-              setJoinMessage('');
-            }
-          }}
-          role="presentation"
-        >
-          <div
-            class="dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="join-dialog-title"
-            aria-describedby="join-dialog-description"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="join-dialog-title">Join Another Device</h3>
-            <p id="join-dialog-description">Paste the device link data from your other device:</p>
-
-            <textarea
-              value={joinData()}
-              onInput={(e) => setJoinData(e.target.value)}
-              placeholder="Paste device link data here..."
-              rows={4}
-              disabled={isJoining()}
-              aria-label="Device link data"
-              aria-required="true"
-            />
-
-            <Show when={joinMessage()}>
-              <p class="info-message" role="status" aria-live="polite">
-                {joinMessage()}
-              </p>
-            </Show>
-
-            <div class="dialog-actions">
-              <button
-                class="primary"
-                onClick={handleJoinDevice}
-                disabled={isJoining() || !joinData().trim()}
-                aria-busy={isJoining()}
-                aria-label={isJoining() ? 'Joining device' : 'Join this device to the account'}
-              >
-                {isJoining() ? 'Joining...' : 'Join'}
-              </button>
-              <button
-                class="secondary"
-                onClick={() => {
-                  setShowJoinDialog(false);
-                  setJoinData('');
-                  setJoinMessage('');
-                }}
-                disabled={isJoining()}
-                aria-label="Cancel joining"
-              >
-                {t('action.cancel')}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Show>
-
-      {/* Revoke Confirmation Dialog */}
+      {/* Revoke Confirmation Dialog (unchanged) */}
       <Show when={showRevokeConfirm()}>
         <div
           class="dialog-overlay"
