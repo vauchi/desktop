@@ -167,6 +167,26 @@ lint:html:
           - "ui/index.html"
           - ".gitlab-ci.yml"
 
+# Security assertion: devtools feature must never appear in production Cargo.toml.
+# The devtools Cargo feature enables Tauri's WebView inspector in release builds,
+# which would expose app internals. This check prevents accidental regression.
+security:no-devtools:
+  stage: lint
+  tags:
+    - self-hosted
+    - rust
+    - linux
+  needs: []
+  script:
+    - "! grep -q 'devtools' src-tauri/Cargo.toml || (echo 'ERROR: devtools feature found in src-tauri/Cargo.toml — this must not be enabled in production builds' && exit 1)"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        compare_to: refs/heads/main
+        paths:
+          - "src-tauri/Cargo.toml"
+          - ".gitlab-ci.yml"
+
 # Rust linting (runs on Rust code changes)
 lint:rust-format:
   extends: [.rust-runner-nocache, .timeout-quick]
