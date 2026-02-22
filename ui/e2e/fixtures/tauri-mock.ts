@@ -151,7 +151,24 @@ export function tauriMockScript(): string {
         }],
 
         generate_device_link: () => 'vauchi://link/mock-data',
-        join_device: () => ({ success: true }),
+        generate_device_link_qr: () => ({
+          qr_data: 'WBDL|abcd1234|mock-qr-payload',
+          qr_svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="black" x="10" y="10" width="10" height="10"/></svg>',
+          fingerprint: 'AB:CD:EF:12:34:56',
+        }),
+        prepare_device_confirmation: () => ({
+          device_name: 'Mock New Device',
+          confirmation_code: '123456',
+          fingerprint: 'AB:CD:EF:12:34:56',
+        }),
+        confirm_device_link_approved: () => ({ response_data: btoa('mock-response') }),
+        deny_device_link: () => null,
+        join_device: () => ({ success: true, request_data: btoa('mock-request'), message: 'Joined', target_identity: 'abcd1234' }),
+        get_join_confirmation_code: () => ({ confirmation_code: '654321', fingerprint: '12:34:56:AB:CD:EF' }),
+        generate_multipart_qr: () => ([{ frame_number: 1, total_frames: 1, svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="black" x="10" y="10" width="10" height="10"/></svg>' }]),
+        relay_listen_for_request: () => btoa('mock-encrypted-request'),
+        relay_send_response: () => null,
+        relay_join_via_relay: () => btoa('mock-encrypted-response'),
         revoke_device: () => null,
 
         get_sync_status: () => ({

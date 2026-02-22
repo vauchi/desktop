@@ -37,29 +37,30 @@ test.describe('Devices Page', () => {
     await expect(deviceItem).toContainText('This device');
   });
 
-  test('should generate device link', async ({ page }) => {
+  test('should start device linking flow and show transport selection', async ({ page }) => {
     await goToDevices(page);
 
-    await page.click('button[aria-label="Generate link to add a new device"]');
-    await page.waitForSelector('[role="dialog"]', { timeout: 5000 });
+    await page.click('button[aria-label="Start device linking flow"]');
 
-    // Dialog should show link data
-    await expect(page.locator('[aria-label="Link data preview"]')).toBeVisible();
-    // Expiration warning should be visible
-    await expect(page.locator('.warning')).toContainText('expires');
+    // Should show transport selection (relay vs offline)
+    const transportGroup = page.locator('[aria-label="Choose transport"]');
+    await expect(transportGroup).toBeVisible({ timeout: 5000 });
+    await expect(transportGroup.locator('button.transport-option')).toHaveCount(2);
   });
 
-  test('should open join device dialog', async ({ page }) => {
+  test('should show role selection after choosing transport', async ({ page }) => {
     await goToDevices(page);
 
-    await page.click('button[aria-label="Join this device to another account"]');
-    await page.waitForSelector('[role="dialog"]', { timeout: 5000 });
+    await page.click('button[aria-label="Start device linking flow"]');
+    await page.waitForSelector('[aria-label="Choose transport"]', { timeout: 5000 });
 
-    // Dialog should have textarea for link data
-    await expect(page.locator('[aria-label="Device link data"]')).toBeVisible();
-    // Join button should be disabled when empty
-    const joinBtn = page.locator('button[aria-label="Join this device to the account"]');
-    await expect(joinBtn).toBeDisabled();
+    // Select relay transport
+    await page.click('button.transport-option >> nth=0');
+
+    // Should show role selection (initiator vs responder)
+    const roleGroup = page.locator('[aria-label="Choose role"]');
+    await expect(roleGroup).toBeVisible({ timeout: 5000 });
+    await expect(roleGroup.locator('button.transport-option')).toHaveCount(2);
   });
 
   test('should not show revoke button on current device', async ({ page }) => {
