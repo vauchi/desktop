@@ -19,6 +19,7 @@ use tauri::Manager;
 use state::AppState;
 
 /// Initialize and run the Tauri application.
+#[allow(deprecated)] // complete_device_link is deprecated but still registered for backward compat
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()

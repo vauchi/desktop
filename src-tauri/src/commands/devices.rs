@@ -328,6 +328,7 @@ pub fn finish_join_device(
 /// This is called on the device that generated the link QR to approve the new device.
 /// Returns a JSON object with `response` (base64 encrypted response) and
 /// `confirmation` (device name, confirmation code, fingerprint) for UI display.
+#[deprecated(note = "Use prepare_device_confirmation + confirm_device_link_approved instead")]
 #[tauri::command]
 pub fn complete_device_link(
     request_data: String,
