@@ -129,6 +129,7 @@ pub fn run() {
             commands::devices::list_devices,
             commands::devices::get_current_device,
             commands::devices::generate_device_link,
+            commands::devices::generate_device_link_qr,
             commands::devices::join_device,
             commands::devices::finish_join_device,
             commands::devices::complete_device_link,

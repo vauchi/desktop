@@ -6,9 +6,11 @@
 //!
 //! Commands for multi-device linking and management.
 
+use std::fmt::Write;
 use std::sync::Mutex;
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use qrcode::QrCode;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 use vauchi_core::exchange::{DeviceLinkQR, DeviceLinkResponder, DeviceLinkResponse};
@@ -344,6 +346,92 @@ pub fn complete_device_link(
     Ok(BASE64.encode(&encrypted_response))
 }
 
+/// Generate an SVG string from QR data.
+///
+/// Creates a QR code from the given data and renders it as an SVG string
+/// with dark modules drawn as black rectangles on a white background.
+/// Includes a 4-module quiet zone around the code per QR spec.
+pub fn generate_qr_svg(data: &str) -> String {
+    let code = QrCode::new(data.as_bytes()).expect("Failed to encode QR code");
+    let width = code.width();
+    let quiet_zone = 4;
+    let total = width + quiet_zone * 2;
+
+    let mut svg = String::new();
+    write!(
+        svg,
+        r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {total} {total}" shape-rendering="crispEdges">"#,
+    )
+    .unwrap();
+
+    // White background covering the full area including quiet zone
+    write!(
+        svg,
+        r#"<rect width="{total}" height="{total}" fill="white"/>"#,
+    )
+    .unwrap();
+
+    // Draw dark modules
+    let colors = code.to_colors();
+    for y in 0..width {
+        for x in 0..width {
+            if colors[y * width + x] == qrcode::Color::Dark {
+                let sx = x + quiet_zone;
+                let sy = y + quiet_zone;
+                write!(
+                    svg,
+                    r#"<rect x="{sx}" y="{sy}" width="1" height="1" fill="black"/>"#,
+                )
+                .unwrap();
+            }
+        }
+    }
+
+    svg.push_str("</svg>");
+    svg
+}
+
+/// Result of generating a device link QR with SVG.
+#[derive(Serialize)]
+pub struct DeviceLinkQRResult {
+    /// The raw QR data string.
+    pub qr_data: String,
+    /// The QR code rendered as an SVG string.
+    pub qr_svg: String,
+    /// The identity fingerprint for verification.
+    pub fingerprint: String,
+}
+
+/// Generate device link QR with SVG rendering and fingerprint.
+#[tauri::command]
+pub fn generate_device_link_qr(
+    state: State<'_, Mutex<AppState>>,
+) -> Result<DeviceLinkQRResult, String> {
+    let mut state = state.lock().unwrap();
+
+    let identity = state
+        .identity
+        .as_ref()
+        .ok_or_else(|| "No identity found".to_string())?;
+
+    // Generate device link QR
+    let qr = DeviceLinkQR::generate(identity);
+    let qr_data = qr.to_data_string();
+    let fingerprint = qr.identity_fingerprint();
+
+    // Render QR data as SVG
+    let qr_svg = generate_qr_svg(&qr_data);
+
+    // Store the QR data for use in complete_device_link
+    state.pending_device_link_qr = Some(qr_data.clone());
+
+    Ok(DeviceLinkQRResult {
+        qr_data,
+        qr_svg,
+        fingerprint,
+    })
+}
+
 /// Revoke a linked device.
 ///
 /// This removes a device from the device registry, preventing it from syncing.
@@ -396,4 +484,28 @@ pub fn revoke_device(device_id: String, state: State<'_, Mutex<AppState>>) -> Re
         .map_err(|e| format!("Failed to save device registry: {:?}", e))?;
 
     Ok(true)
+}
+
+// INLINE_TEST_REQUIRED: Tests exercise the private generate_qr_svg helper
+// which is not accessible from external test modules.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_qr_svg_contains_svg_element() {
+        let svg = generate_qr_svg("WBDL-test-data-string");
+        assert!(svg.starts_with("<svg"), "SVG should start with <svg tag");
+        assert!(svg.contains("</svg>"), "SVG should contain closing tag");
+    }
+
+    #[test]
+    fn test_qr_svg_contains_dark_modules() {
+        let svg = generate_qr_svg("test-data");
+        // QR codes have dark modules rendered as black rects
+        assert!(
+            svg.contains(r#"fill="black""#),
+            "SVG should contain dark modules"
+        );
+    }
 }
