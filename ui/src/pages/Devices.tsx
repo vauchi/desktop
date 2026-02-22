@@ -31,6 +31,7 @@ interface DeviceConfirmation {
 interface JoinStartResult {
   success: boolean;
   request_data: string | null;
+  target_identity: string | null;
   message: string;
 }
 
@@ -234,11 +235,10 @@ function Devices(props: DevicesProps) {
         fingerprint: confirmation.fingerprint,
       });
 
-      if (transport === 'relay' && joinResult.request_data) {
-        const targetIdentity = joinInputData().split('|')[1] || '';
+      if (transport === 'relay' && joinResult.request_data && joinResult.target_identity) {
         const responseData = await invoke<string>('relay_join_via_relay', {
           requestData: joinResult.request_data,
-          targetIdentity,
+          targetIdentity: joinResult.target_identity,
         });
         const finishResult = await invoke<JoinFinishResult>('finish_join_device', {
           responseData,

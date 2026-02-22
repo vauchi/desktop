@@ -91,6 +91,7 @@ pub fn get_current_device(state: State<'_, Mutex<AppState>>) -> Result<DeviceInf
 }
 
 /// Generate device link QR data for pairing a new device.
+#[deprecated(note = "Use generate_device_link_qr instead")]
 #[tauri::command]
 pub fn generate_device_link(state: State<'_, Mutex<AppState>>) -> Result<String, String> {
     let mut state = state.lock().unwrap();
@@ -117,6 +118,8 @@ pub struct JoinStartResult {
     pub success: bool,
     /// The join request data to send to the existing device.
     pub request_data: Option<String>,
+    /// The hex-encoded identity public key from the QR code (relay target).
+    pub target_identity: Option<String>,
     /// Message for the user.
     pub message: String,
 }
@@ -173,6 +176,10 @@ pub fn join_device(
         return Err("This device link has expired. Please generate a new one.".to_string());
     }
 
+    // Extract the target identity hex before the QR is moved into the responder,
+    // so the frontend never needs to parse protocol data.
+    let target_identity = hex::encode(qr.identity_public_key());
+
     // Use provided device name or default
     let device_name = if device_name.is_empty() {
         "Desktop Device".to_string()
@@ -180,7 +187,7 @@ pub fn join_device(
         device_name
     };
 
-    // Create responder and generate request
+    // Create responder and generate request (consumes qr)
     let mut responder = DeviceLinkResponder::from_qr(qr, device_name.clone())
         .map_err(|e| format!("Failed to create responder: {:?}", e))?;
 
@@ -209,6 +216,7 @@ pub fn join_device(
     Ok(JoinStartResult {
         success: true,
         request_data: Some(request_b64),
+        target_identity: Some(target_identity),
         message: "Send this request to the existing device and get the response.".to_string(),
     })
 }
@@ -526,8 +534,9 @@ pub fn deny_device_link(state: State<'_, Mutex<AppState>>) -> Result<(), String>
 /// Creates a QR code from the given data and renders it as an SVG string
 /// with dark modules drawn as black rectangles on a white background.
 /// Includes a 4-module quiet zone around the code per QR spec.
-pub fn generate_qr_svg(data: &str) -> String {
-    let code = QrCode::new(data.as_bytes()).expect("Failed to encode QR code");
+pub fn generate_qr_svg(data: &str) -> Result<String, String> {
+    let code =
+        QrCode::new(data.as_bytes()).map_err(|e| format!("Failed to encode QR code: {e}"))?;
     let width = code.width();
     let quiet_zone = 4;
     let total = width + quiet_zone * 2;
@@ -563,7 +572,7 @@ pub fn generate_qr_svg(data: &str) -> String {
     }
 
     svg.push_str("</svg>");
-    svg
+    Ok(svg)
 }
 
 /// Result of generating a device link QR with SVG.
@@ -595,7 +604,7 @@ pub fn generate_device_link_qr(
     let fingerprint = qr.identity_fingerprint();
 
     // Render QR data as SVG
-    let qr_svg = generate_qr_svg(&qr_data);
+    let qr_svg = generate_qr_svg(&qr_data)?;
 
     // Store the QR data for use in complete_device_link
     state.pending_device_link_qr = Some(qr_data.clone());
@@ -775,21 +784,29 @@ pub struct MultipartQRFrame {
 pub fn generate_multipart_qr(data: String) -> Result<Vec<MultipartQRFrame>, String> {
     let bytes = data.as_bytes();
     let chunk_size = 1500; // Safe QR alphanumeric capacity
+
+    // Empty input produces a single frame with empty base64 payload
+    if bytes.is_empty() {
+        let frame_data = format!("WBMP|1|1|{}", BASE64.encode(b""));
+        return Ok(vec![MultipartQRFrame {
+            frame_number: 1,
+            total_frames: 1,
+            svg: generate_qr_svg(&frame_data)?,
+        }]);
+    }
+
     let chunks: Vec<&[u8]> = bytes.chunks(chunk_size).collect();
     let total = chunks.len();
 
-    let frames: Vec<MultipartQRFrame> = chunks
-        .iter()
-        .enumerate()
-        .map(|(i, chunk)| {
-            let frame_data = format!("WBMP|{}|{}|{}", i + 1, total, BASE64.encode(chunk));
-            MultipartQRFrame {
-                frame_number: i + 1,
-                total_frames: total,
-                svg: generate_qr_svg(&frame_data),
-            }
-        })
-        .collect();
+    let mut frames = Vec::with_capacity(total);
+    for (i, chunk) in chunks.iter().enumerate() {
+        let frame_data = format!("WBMP|{}|{}|{}", i + 1, total, BASE64.encode(chunk));
+        frames.push(MultipartQRFrame {
+            frame_number: i + 1,
+            total_frames: total,
+            svg: generate_qr_svg(&frame_data)?,
+        });
+    }
 
     Ok(frames)
 }
@@ -802,7 +819,7 @@ mod tests {
 
     #[test]
     fn test_qr_svg_contains_svg_element() {
-        let svg = generate_qr_svg("WBDL-test-data-string");
+        let svg = generate_qr_svg("WBDL-test-data-string").unwrap();
         assert!(svg.starts_with("<svg"), "SVG should start with <svg tag");
         assert!(svg.contains("</svg>"), "SVG should contain closing tag");
     }
@@ -842,7 +859,7 @@ mod tests {
 
     #[test]
     fn test_qr_svg_contains_dark_modules() {
-        let svg = generate_qr_svg("test-data");
+        let svg = generate_qr_svg("test-data").unwrap();
         // QR codes have dark modules rendered as black rects
         assert!(
             svg.contains(r#"fill="black""#),
@@ -898,6 +915,34 @@ mod tests {
         assert!(
             frames[0].svg.contains(r#"fill="black""#),
             "Frame SVG should contain dark modules from the encoded WBMP header"
+        );
+    }
+
+    #[test]
+    fn test_multipart_qr_empty_input_produces_single_frame() {
+        let frames = generate_multipart_qr(String::new()).unwrap();
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames[0].frame_number, 1);
+        assert_eq!(frames[0].total_frames, 1);
+    }
+
+    #[test]
+    fn test_multipart_qr_with_null_bytes_succeeds() {
+        let data = "before\0after".to_string();
+        let frames = generate_multipart_qr(data).unwrap();
+        assert!(!frames.is_empty());
+        assert!(
+            frames[0].svg.starts_with("<svg"),
+            "Frame should contain valid SVG"
+        );
+    }
+
+    #[test]
+    fn test_generate_qr_svg_with_empty_string_succeeds() {
+        let svg = generate_qr_svg("").unwrap();
+        assert!(
+            svg.starts_with("<svg"),
+            "Empty string should produce valid SVG"
         );
     }
 }
