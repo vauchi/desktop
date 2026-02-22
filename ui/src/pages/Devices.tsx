@@ -64,17 +64,51 @@ type DeviceLinkState =
   | { step: 'selectTransport' }
   | { step: 'selectRole'; transport: 'relay' | 'offline' }
   | { step: 'generatingQR'; transport: 'relay' | 'offline' }
-  | { step: 'waitingForRequest'; transport: 'relay' | 'offline'; qrData: string; qrSvg: string; fingerprint: string }
-  | { step: 'confirmingDevice'; transport: 'relay' | 'offline'; deviceName: string; confirmationCode: string; fingerprint: string }
+  | {
+      step: 'waitingForRequest';
+      transport: 'relay' | 'offline';
+      qrData: string;
+      qrSvg: string;
+      fingerprint: string;
+    }
+  | {
+      step: 'confirmingDevice';
+      transport: 'relay' | 'offline';
+      deviceName: string;
+      confirmationCode: string;
+      fingerprint: string;
+    }
   | { step: 'completing' }
   | { step: 'success'; deviceName: string }
   | { step: 'failed'; error: string }
-  | { step: 'offlineReceiveRequest'; transport: 'offline'; qrData: string; qrSvg: string; fingerprint: string }
+  | {
+      step: 'offlineReceiveRequest';
+      transport: 'offline';
+      qrData: string;
+      qrSvg: string;
+      fingerprint: string;
+    }
   | { step: 'offlineShowResponse'; transport: 'offline'; deviceName: string }
   | { step: 'joinPaste'; transport: 'relay' | 'offline' }
-  | { step: 'joinWaiting'; transport: 'relay' | 'offline'; confirmationCode: string; fingerprint: string }
-  | { step: 'joinOfflineShowRequest'; transport: 'offline'; requestData: string; confirmationCode: string; fingerprint: string }
-  | { step: 'joinOfflineWaitResponse'; transport: 'offline'; confirmationCode: string; fingerprint: string }
+  | {
+      step: 'joinWaiting';
+      transport: 'relay' | 'offline';
+      confirmationCode: string;
+      fingerprint: string;
+    }
+  | {
+      step: 'joinOfflineShowRequest';
+      transport: 'offline';
+      requestData: string;
+      confirmationCode: string;
+      fingerprint: string;
+    }
+  | {
+      step: 'joinOfflineWaitResponse';
+      transport: 'offline';
+      confirmationCode: string;
+      fingerprint: string;
+    }
   | { step: 'joinSuccess'; displayName: string };
 
 // --- Props ---
@@ -351,16 +385,11 @@ function Devices(props: DevicesProps) {
                   </button>
                   <button
                     class="transport-option"
-                    onClick={() =>
-                      setLinkState({ step: 'joinPaste', transport: state.transport })
-                    }
+                    onClick={() => setLinkState({ step: 'joinPaste', transport: state.transport })}
                   >
                     {t('devices.link.role_responder') || 'Join this device to another account'}
                   </button>
-                  <button
-                    class="small secondary"
-                    onClick={() => setLinkState({ step: 'idle' })}
-                  >
+                  <button class="small secondary" onClick={() => setLinkState({ step: 'idle' })}>
                     {t('action.cancel')}
                   </button>
                 </div>
@@ -378,15 +407,10 @@ function Devices(props: DevicesProps) {
           {/* Waiting for Request */}
           <Show when={linkState().step === 'waitingForRequest'}>
             {(() => {
-              const state = linkState() as Extract<
-                DeviceLinkState,
-                { step: 'waitingForRequest' }
-              >;
+              const state = linkState() as Extract<DeviceLinkState, { step: 'waitingForRequest' }>;
               return (
                 <div class="link-flow qr-display">
-                  <h3>
-                    {t('devices.link.scan_qr') || 'Scan this code on your new device'}
-                  </h3>
+                  <h3>{t('devices.link.scan_qr') || 'Scan this code on your new device'}</h3>
                   {/* eslint-disable-next-line solid/no-innerhtml -- SVG is backend-generated, trusted */}
                   <div class="qr-container" innerHTML={state.qrSvg} />
                   <div class="qr-actions">
@@ -443,9 +467,7 @@ function Devices(props: DevicesProps) {
               };
               return (
                 <div class="link-flow qr-display">
-                  <h3>
-                    {t('devices.link.scan_qr') || 'Scan this code on your new device'}
-                  </h3>
+                  <h3>{t('devices.link.scan_qr') || 'Scan this code on your new device'}</h3>
                   {/* eslint-disable-next-line solid/no-innerhtml -- SVG is backend-generated, trusted */}
                   <div class="qr-container" innerHTML={state.qrSvg} />
                   <div class="qr-actions">
@@ -500,8 +522,8 @@ function Devices(props: DevicesProps) {
                 <div class="link-flow multipart-qr">
                   <h3>Show this to the new device</h3>
                   <p>
-                    Device <strong>{state.deviceName}</strong> linked. Have the new device scan
-                    each frame below.
+                    Device <strong>{state.deviceName}</strong> linked. Have the new device scan each
+                    frame below.
                   </p>
                   <Show when={frames.length > 0}>
                     <p class="frame-indicator">
@@ -546,15 +568,10 @@ function Devices(props: DevicesProps) {
           {/* Confirming Device */}
           <Show when={linkState().step === 'confirmingDevice'}>
             {(() => {
-              const state = linkState() as Extract<
-                DeviceLinkState,
-                { step: 'confirmingDevice' }
-              >;
+              const state = linkState() as Extract<DeviceLinkState, { step: 'confirmingDevice' }>;
               return (
                 <div class="link-flow confirmation-card">
-                  <h3>
-                    {t('devices.link.confirm_title') || 'Confirm Device Link'}
-                  </h3>
+                  <h3>{t('devices.link.confirm_title') || 'Confirm Device Link'}</h3>
                   <p>
                     Device: <strong>{state.deviceName}</strong>
                   </p>
@@ -612,10 +629,7 @@ function Devices(props: DevicesProps) {
                   <p class="error" role="alert">
                     {state.error}
                   </p>
-                  <button
-                    class="secondary"
-                    onClick={() => setLinkState({ step: 'idle' })}
-                  >
+                  <button class="secondary" onClick={() => setLinkState({ step: 'idle' })}>
                     Try Again
                   </button>
                 </div>
@@ -638,8 +652,7 @@ function Devices(props: DevicesProps) {
                   />
                   <textarea
                     placeholder={
-                      t('devices.link.paste_data') ||
-                      'Paste link data from your other device...'
+                      t('devices.link.paste_data') || 'Paste link data from your other device...'
                     }
                     value={joinInputData()}
                     onInput={(e) => setJoinInputData(e.target.value)}
@@ -653,10 +666,7 @@ function Devices(props: DevicesProps) {
                     >
                       Join
                     </button>
-                    <button
-                      class="secondary"
-                      onClick={() => setLinkState({ step: 'idle' })}
-                    >
+                    <button class="secondary" onClick={() => setLinkState({ step: 'idle' })}>
                       {t('action.cancel')}
                     </button>
                   </div>
@@ -668,19 +678,12 @@ function Devices(props: DevicesProps) {
           {/* Join Waiting */}
           <Show when={linkState().step === 'joinWaiting'}>
             {(() => {
-              const state = linkState() as Extract<
-                DeviceLinkState,
-                { step: 'joinWaiting' }
-              >;
+              const state = linkState() as Extract<DeviceLinkState, { step: 'joinWaiting' }>;
               return (
                 <div class="link-flow join-waiting">
-                  <h3>
-                    {t('devices.link.waiting_approval') || 'Waiting for Approval'}
-                  </h3>
+                  <h3>{t('devices.link.waiting_approval') || 'Waiting for Approval'}</h3>
                   <div class="confirmation-code">{state.confirmationCode}</div>
-                  <p>
-                    Verify this code matches on your other device, then approve there.
-                  </p>
+                  <p>Verify this code matches on your other device, then approve there.</p>
                   <p class="fingerprint">Fingerprint: {state.fingerprint}</p>
                 </div>
               );
@@ -702,8 +705,7 @@ function Devices(props: DevicesProps) {
                     {state.confirmationCode}
                   </div>
                   <p>
-                    Verify this code matches on the other device after they process
-                    your request.
+                    Verify this code matches on the other device after they process your request.
                   </p>
                   <p class="fingerprint">Fingerprint: {state.fingerprint}</p>
                   <Show when={frames.length > 0}>
@@ -835,17 +837,11 @@ function Devices(props: DevicesProps) {
           {/* Join Success */}
           <Show when={linkState().step === 'joinSuccess'}>
             {(() => {
-              const state = linkState() as Extract<
-                DeviceLinkState,
-                { step: 'joinSuccess' }
-              >;
+              const state = linkState() as Extract<DeviceLinkState, { step: 'joinSuccess' }>;
               return (
                 <div class="link-flow">
                   <h3>{t('devices.link.join_success') || 'Successfully joined!'}</h3>
-                  <p>
-                    Connected to {state.displayName}'s account. Run sync to fetch
-                    contacts.
-                  </p>
+                  <p>Connected to {state.displayName}'s account. Run sync to fetch contacts.</p>
                   <button class="primary" onClick={() => setLinkState({ step: 'idle' })}>
                     Done
                   </button>
