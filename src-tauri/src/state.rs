@@ -66,6 +66,8 @@ pub struct AppState {
     pub pending_initiator: Option<DeviceLinkInitiatorRestored>,
     /// Pending device link request (between prepare and confirm).
     pub pending_link_request: Option<DeviceLinkRequest>,
+    /// Sender token for relay response routing (stored between listen and send_response).
+    pub pending_sender_token: Option<String>,
 }
 
 /// Loads or generates a per-installation random fallback key from `data_dir/.fallback-key`.
@@ -295,6 +297,7 @@ impl AppState {
             exchange_session: None,
             pending_initiator: None,
             pending_link_request: None,
+            pending_sender_token: None,
         })
     }
 

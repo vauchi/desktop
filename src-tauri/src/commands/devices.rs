@@ -660,6 +660,103 @@ pub fn revoke_device(device_id: String, state: State<'_, Mutex<AppState>>) -> Re
     Ok(true)
 }
 
+// ===========================================================================
+// Relay Transport Commands
+// ===========================================================================
+
+/// Listen for a device link request via relay (initiator/existing device).
+///
+/// Connects to the relay, sends a listening handshake, and waits for an
+/// incoming device link request from a new device. Stores the sender token
+/// in state for the subsequent `relay_send_response` call.
+///
+/// Returns the base64-encoded encrypted request payload.
+#[tauri::command]
+pub async fn relay_listen_for_request(state: State<'_, Mutex<AppState>>) -> Result<String, String> {
+    let (relay_url, identity_id) = {
+        let state = state.lock().unwrap();
+        let identity = state
+            .identity
+            .as_ref()
+            .ok_or_else(|| "No identity found".to_string())?;
+        let relay_url = state.relay_url().to_string();
+        let identity_id = hex::encode(identity.signing_public_key());
+        (relay_url, identity_id)
+    }; // Lock released before await
+
+    let (payload, sender_token) =
+        crate::relay::listen_for_request(&relay_url, &identity_id, 300).await?;
+
+    {
+        let mut state = state.lock().unwrap();
+        state.pending_sender_token = Some(sender_token);
+    }
+
+    Ok(BASE64.encode(&payload))
+}
+
+/// Send a device link response back via relay (initiator/existing device).
+///
+/// Takes a base64-encoded encrypted response payload, retrieves the pending
+/// sender token from state, and sends the response through the relay.
+#[tauri::command]
+pub async fn relay_send_response(
+    response_data: String,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<(), String> {
+    let (relay_url, sender_token) = {
+        let mut state = state.lock().unwrap();
+        let relay_url = state.relay_url().to_string();
+        let sender_token = state.pending_sender_token.take().ok_or_else(|| {
+            "No pending sender token. Call relay_listen_for_request first.".to_string()
+        })?;
+        (relay_url, sender_token)
+    }; // Lock released before await
+
+    let payload = BASE64
+        .decode(&response_data)
+        .map_err(|_| "Invalid response data (not valid base64)".to_string())?;
+
+    crate::relay::send_response(&relay_url, &sender_token, payload).await
+}
+
+/// Send a device link request and receive the response via relay (responder/new device).
+///
+/// Takes a base64-encoded encrypted request payload and the target identity ID,
+/// generates a sender token, sends the request through the relay, and waits for
+/// the response. Returns the base64-encoded encrypted response.
+#[tauri::command]
+pub async fn relay_join_via_relay(
+    request_data: String,
+    target_identity: String,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<String, String> {
+    let relay_url = {
+        let state = state.lock().unwrap();
+        state.relay_url().to_string()
+    }; // Lock released before await
+
+    let payload = BASE64
+        .decode(&request_data)
+        .map_err(|_| "Invalid request data (not valid base64)".to_string())?;
+
+    // Generate a unique sender token using random bytes
+    let sender_token = {
+        let token_key = vauchi_core::SymmetricKey::generate();
+        hex::encode(token_key.as_bytes())
+    };
+
+    let message = crate::relay::DeviceLinkRelayMessage {
+        target_identity,
+        sender_token,
+        payload,
+    };
+
+    let response = crate::relay::send_and_receive(&relay_url, &message, 300).await?;
+
+    Ok(BASE64.encode(&response))
+}
+
 // INLINE_TEST_REQUIRED: Tests exercise the private generate_qr_svg helper
 // which is not accessible from external test modules.
 #[cfg(test)]

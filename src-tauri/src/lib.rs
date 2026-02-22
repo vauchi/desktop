@@ -7,6 +7,7 @@
 //! Tauri-based desktop app for Vauchi.
 
 mod commands;
+mod relay;
 mod state;
 mod test_server;
 
@@ -138,6 +139,9 @@ pub fn run() {
             commands::devices::confirm_device_link_approved,
             commands::devices::deny_device_link,
             commands::devices::revoke_device,
+            commands::devices::relay_listen_for_request,
+            commands::devices::relay_send_response,
+            commands::devices::relay_join_via_relay,
             commands::recovery::get_recovery_settings,
             commands::recovery::create_recovery_claim,
             commands::recovery::create_recovery_voucher,
