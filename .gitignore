@@ -16,6 +16,9 @@ ui/dist/
 .DS_Store
 Thumbs.db
 
+# Worktrees
+.worktrees/
+
 # Build artifacts
 /build/
 *.app
