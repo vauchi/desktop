@@ -201,9 +201,9 @@ pub fn join_device(
         .map_err(|e| CommandError::Device(format!("Failed to create request: {:?}", e)))?;
 
     // Compute confirmation code and fingerprint while we still have the responder
-    let confirmation_code = responder
-        .compute_confirmation_code()
-        .map_err(|e| format!("Failed to compute confirmation code: {:?}", e))?;
+    let confirmation_code = responder.compute_confirmation_code().map_err(|e| {
+        CommandError::Device(format!("Failed to compute confirmation code: {:?}", e))
+    })?;
     let fingerprint = responder.identity_fingerprint();
 
     // Encode request for transmission
