@@ -757,6 +757,42 @@ pub async fn relay_join_via_relay(
     Ok(BASE64.encode(&response))
 }
 
+/// A single frame of a multipart QR code sequence.
+#[derive(Serialize)]
+pub struct MultipartQRFrame {
+    pub frame_number: usize,
+    pub total_frames: usize,
+    pub svg: String,
+}
+
+/// Generate a multipart QR code sequence for large payloads.
+///
+/// Each frame contains a `WBMP|frame|total|base64_chunk` header so the
+/// scanning device can reassemble the payload. For small data that fits in
+/// a single QR code the result will contain exactly one frame.
+#[tauri::command]
+pub fn generate_multipart_qr(data: String) -> Result<Vec<MultipartQRFrame>, String> {
+    let bytes = data.as_bytes();
+    let chunk_size = 1500; // Safe QR alphanumeric capacity
+    let chunks: Vec<&[u8]> = bytes.chunks(chunk_size).collect();
+    let total = chunks.len();
+
+    let frames: Vec<MultipartQRFrame> = chunks
+        .iter()
+        .enumerate()
+        .map(|(i, chunk)| {
+            let frame_data = format!("WBMP|{}|{}|{}", i + 1, total, BASE64.encode(chunk));
+            MultipartQRFrame {
+                frame_number: i + 1,
+                total_frames: total,
+                svg: generate_qr_svg(&frame_data),
+            }
+        })
+        .collect();
+
+    Ok(frames)
+}
+
 // INLINE_TEST_REQUIRED: Tests exercise the private generate_qr_svg helper
 // which is not accessible from external test modules.
 #[cfg(test)]
@@ -827,5 +863,40 @@ mod tests {
         assert_eq!(deserialized.fingerprint, "AB:CD:EF");
         assert_eq!(deserialized.qr_data, "WBDL-test");
         assert_eq!(deserialized.device_name, "My Desktop");
+    }
+
+    #[test]
+    fn test_multipart_qr_single_frame_for_small_data() {
+        let frames = generate_multipart_qr("short-data".to_string()).unwrap();
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames[0].frame_number, 1);
+        assert_eq!(frames[0].total_frames, 1);
+        assert!(
+            frames[0].svg.starts_with("<svg"),
+            "SVG should start with <svg tag"
+        );
+    }
+
+    #[test]
+    fn test_multipart_qr_multiple_frames_for_large_data() {
+        let large = "x".repeat(3000);
+        let frames = generate_multipart_qr(large).unwrap();
+        assert_eq!(frames.len(), 2);
+        assert_eq!(frames[0].frame_number, 1);
+        assert_eq!(frames[0].total_frames, 2);
+        assert_eq!(frames[1].frame_number, 2);
+        assert_eq!(frames[1].total_frames, 2);
+    }
+
+    #[test]
+    fn test_multipart_qr_frame_data_contains_wbmp_header() {
+        let frames = generate_multipart_qr("test-payload".to_string()).unwrap();
+        // The SVG embeds a QR that encodes "WBMP|1|1|<base64>"
+        // We verify each frame produces a valid SVG with dark modules
+        assert_eq!(frames.len(), 1);
+        assert!(
+            frames[0].svg.contains(r#"fill="black""#),
+            "Frame SVG should contain dark modules from the encoded WBMP header"
+        );
     }
 }

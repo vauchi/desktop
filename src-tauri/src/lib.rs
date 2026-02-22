@@ -139,6 +139,7 @@ pub fn run() {
             commands::devices::confirm_device_link_approved,
             commands::devices::deny_device_link,
             commands::devices::revoke_device,
+            commands::devices::generate_multipart_qr,
             commands::devices::relay_listen_for_request,
             commands::devices::relay_send_response,
             commands::devices::relay_join_via_relay,

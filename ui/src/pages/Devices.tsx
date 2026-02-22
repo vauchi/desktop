@@ -50,6 +50,12 @@ interface DeviceLinkResponseData {
   response_data: string;
 }
 
+interface MultipartQRFrame {
+  frame_number: number;
+  total_frames: number;
+  svg: string;
+}
+
 // --- State machine ---
 
 type DeviceLinkState =
@@ -62,8 +68,12 @@ type DeviceLinkState =
   | { step: 'completing' }
   | { step: 'success'; deviceName: string }
   | { step: 'failed'; error: string }
+  | { step: 'offlineReceiveRequest'; transport: 'offline'; qrData: string; qrSvg: string; fingerprint: string }
+  | { step: 'offlineShowResponse'; transport: 'offline'; deviceName: string }
   | { step: 'joinPaste'; transport: 'relay' | 'offline' }
   | { step: 'joinWaiting'; transport: 'relay' | 'offline'; confirmationCode: string; fingerprint: string }
+  | { step: 'joinOfflineShowRequest'; transport: 'offline'; requestData: string; confirmationCode: string; fingerprint: string }
+  | { step: 'joinOfflineWaitResponse'; transport: 'offline'; confirmationCode: string; fingerprint: string }
   | { step: 'joinSuccess'; displayName: string };
 
 // --- Props ---
@@ -92,6 +102,15 @@ function Devices(props: DevicesProps) {
   const [joinInputData, setJoinInputData] = createSignal('');
   const [deviceNameInput, setDeviceNameInput] = createSignal('');
 
+  // Input signal for offline initiator receiving a request manually
+  const [offlineRequestInput, setOfflineRequestInput] = createSignal('');
+  // Input signal for offline responder receiving a response manually
+  const [offlineResponseInput, setOfflineResponseInput] = createSignal('');
+
+  // Multipart QR state for offline flow
+  const [multipartFrames, setMultipartFrames] = createSignal<MultipartQRFrame[]>([]);
+  const [currentFrame, setCurrentFrame] = createSignal(1);
+
   // Revoke dialog state (kept separate)
   const [showRevokeConfirm, setShowRevokeConfirm] = createSignal<DeviceInfo | null>(null);
   const [isRevoking, setIsRevoking] = createSignal(false);
@@ -103,6 +122,17 @@ function Devices(props: DevicesProps) {
     setLinkState({ step: 'generatingQR', transport });
     try {
       const result = await invoke<DeviceLinkQRResult>('generate_device_link_qr');
+      if (transport === 'offline') {
+        setLinkState({
+          step: 'offlineReceiveRequest',
+          transport,
+          qrData: result.qr_data,
+          qrSvg: result.qr_svg,
+          fingerprint: result.fingerprint,
+        });
+        return;
+      }
+
       setLinkState({
         step: 'waitingForRequest',
         transport,
@@ -140,8 +170,16 @@ function Devices(props: DevicesProps) {
       const result = await invoke<DeviceLinkResponseData>('confirm_device_link_approved');
       if (transport === 'relay') {
         await invoke('relay_send_response', { responseData: result.response_data });
+        setLinkState({ step: 'success', deviceName });
+      } else {
+        // Offline: show response as multipart QR for the new device to scan
+        const frames = await invoke<MultipartQRFrame[]>('generate_multipart_qr', {
+          data: result.response_data,
+        });
+        setMultipartFrames(frames);
+        setCurrentFrame(1);
+        setLinkState({ step: 'offlineShowResponse', transport: 'offline', deviceName });
       }
-      setLinkState({ step: 'success', deviceName });
       refetch();
     } catch (e) {
       setLinkState({ step: 'failed', error: String(e) });
@@ -171,6 +209,24 @@ function Devices(props: DevicesProps) {
       }
 
       const confirmation = await invoke<JoinConfirmation>('get_join_confirmation_code');
+
+      if (transport === 'offline' && joinResult.request_data) {
+        // Show request as multipart QR for the existing device to scan/paste
+        const frames = await invoke<MultipartQRFrame[]>('generate_multipart_qr', {
+          data: joinResult.request_data,
+        });
+        setMultipartFrames(frames);
+        setCurrentFrame(1);
+        setLinkState({
+          step: 'joinOfflineShowRequest',
+          transport: 'offline',
+          requestData: joinResult.request_data,
+          confirmationCode: confirmation.confirmation_code,
+          fingerprint: confirmation.fingerprint,
+        });
+        return;
+      }
+
       setLinkState({
         step: 'joinWaiting',
         transport,
@@ -358,6 +414,134 @@ function Devices(props: DevicesProps) {
             })()}
           </Show>
 
+          {/* Offline: Receive Request */}
+          <Show when={linkState().step === 'offlineReceiveRequest'}>
+            {(() => {
+              const state = linkState() as Extract<
+                DeviceLinkState,
+                { step: 'offlineReceiveRequest' }
+              >;
+              const handleOfflineRequest = async () => {
+                const requestData = offlineRequestInput().trim();
+                if (!requestData) return;
+                try {
+                  const confirmation = await invoke<DeviceConfirmation>(
+                    'prepare_device_confirmation',
+                    { requestData }
+                  );
+                  setLinkState({
+                    step: 'confirmingDevice',
+                    transport: 'offline',
+                    deviceName: confirmation.device_name,
+                    confirmationCode: confirmation.confirmation_code,
+                    fingerprint: confirmation.fingerprint,
+                  });
+                } catch (e) {
+                  setLinkState({ step: 'failed', error: String(e) });
+                }
+              };
+              return (
+                <div class="link-flow qr-display">
+                  <h3>
+                    {t('devices.link.scan_qr') || 'Scan this code on your new device'}
+                  </h3>
+                  <div class="qr-container" innerHTML={state.qrSvg} />
+                  <div class="qr-actions">
+                    <button
+                      class="small"
+                      onClick={() => navigator.clipboard.writeText(state.qrData)}
+                    >
+                      {t('devices.link.copy_data') || 'Copy Link Data'}
+                    </button>
+                  </div>
+                  <p class="fingerprint">Fingerprint: {state.fingerprint}</p>
+                  <div class="offline-request-input">
+                    <h4>Paste the request from the new device:</h4>
+                    <textarea
+                      placeholder="Paste request data here..."
+                      value={offlineRequestInput()}
+                      onInput={(e) => setOfflineRequestInput(e.target.value)}
+                      rows={4}
+                    />
+                    <button
+                      class="primary"
+                      onClick={handleOfflineRequest}
+                      disabled={!offlineRequestInput().trim()}
+                    >
+                      Process Request
+                    </button>
+                  </div>
+                  <button
+                    class="secondary"
+                    onClick={() => {
+                      invoke('deny_device_link');
+                      setOfflineRequestInput('');
+                      setLinkState({ step: 'idle' });
+                    }}
+                  >
+                    {t('action.cancel')}
+                  </button>
+                </div>
+              );
+            })()}
+          </Show>
+
+          {/* Offline: Show Response as Multipart QR */}
+          <Show when={linkState().step === 'offlineShowResponse'}>
+            {(() => {
+              const state = linkState() as Extract<
+                DeviceLinkState,
+                { step: 'offlineShowResponse' }
+              >;
+              const frames = multipartFrames();
+              return (
+                <div class="link-flow multipart-qr">
+                  <h3>Show this to the new device</h3>
+                  <p>
+                    Device <strong>{state.deviceName}</strong> linked. Have the new device scan
+                    each frame below.
+                  </p>
+                  <Show when={frames.length > 0}>
+                    <p class="frame-indicator">
+                      Frame {currentFrame()} of {frames.length}
+                    </p>
+                    <div
+                      class="qr-container"
+                      innerHTML={frames[currentFrame() - 1]?.svg}
+                    />
+                    <Show when={frames.length > 1}>
+                      <div class="frame-nav" role="group" aria-label="Frame navigation">
+                        <button
+                          disabled={currentFrame() <= 1}
+                          onClick={() => setCurrentFrame((f) => f - 1)}
+                        >
+                          Previous
+                        </button>
+                        <button
+                          disabled={currentFrame() >= frames.length}
+                          onClick={() => setCurrentFrame((f) => f + 1)}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </Show>
+                  </Show>
+                  <button
+                    class="primary"
+                    onClick={() => {
+                      setMultipartFrames([]);
+                      setCurrentFrame(1);
+                      setOfflineRequestInput('');
+                      setLinkState({ step: 'idle' });
+                    }}
+                  >
+                    Done
+                  </button>
+                </div>
+              );
+            })()}
+          </Show>
+
           {/* Confirming Device */}
           <Show when={linkState().step === 'confirmingDevice'}>
             {(() => {
@@ -497,6 +681,152 @@ function Devices(props: DevicesProps) {
                     Verify this code matches on your other device, then approve there.
                   </p>
                   <p class="fingerprint">Fingerprint: {state.fingerprint}</p>
+                </div>
+              );
+            })()}
+          </Show>
+
+          {/* Join Offline: Show Request as Multipart QR */}
+          <Show when={linkState().step === 'joinOfflineShowRequest'}>
+            {(() => {
+              const state = linkState() as Extract<
+                DeviceLinkState,
+                { step: 'joinOfflineShowRequest' }
+              >;
+              const frames = multipartFrames();
+              return (
+                <div class="link-flow multipart-qr">
+                  <h3>Show this request to the existing device</h3>
+                  <div class="confirmation-code" aria-label="Confirmation code">
+                    {state.confirmationCode}
+                  </div>
+                  <p>
+                    Verify this code matches on the other device after they process
+                    your request.
+                  </p>
+                  <p class="fingerprint">Fingerprint: {state.fingerprint}</p>
+                  <Show when={frames.length > 0}>
+                    <p class="frame-indicator">
+                      Frame {currentFrame()} of {frames.length}
+                    </p>
+                    <div
+                      class="qr-container"
+                      innerHTML={frames[currentFrame() - 1]?.svg}
+                    />
+                    <Show when={frames.length > 1}>
+                      <div class="frame-nav" role="group" aria-label="Frame navigation">
+                        <button
+                          disabled={currentFrame() <= 1}
+                          onClick={() => setCurrentFrame((f) => f - 1)}
+                        >
+                          Previous
+                        </button>
+                        <button
+                          disabled={currentFrame() >= frames.length}
+                          onClick={() => setCurrentFrame((f) => f + 1)}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </Show>
+                    <div class="qr-actions">
+                      <button
+                        class="small"
+                        onClick={() => navigator.clipboard.writeText(state.requestData)}
+                      >
+                        Copy Request Data
+                      </button>
+                    </div>
+                  </Show>
+                  <button
+                    class="primary"
+                    onClick={() => {
+                      setMultipartFrames([]);
+                      setCurrentFrame(1);
+                      setLinkState({
+                        step: 'joinOfflineWaitResponse',
+                        transport: 'offline',
+                        confirmationCode: state.confirmationCode,
+                        fingerprint: state.fingerprint,
+                      });
+                    }}
+                  >
+                    I've shared the request
+                  </button>
+                  <button
+                    class="secondary"
+                    onClick={() => {
+                      setMultipartFrames([]);
+                      setCurrentFrame(1);
+                      setLinkState({ step: 'idle' });
+                    }}
+                  >
+                    {t('action.cancel')}
+                  </button>
+                </div>
+              );
+            })()}
+          </Show>
+
+          {/* Join Offline: Wait for Response */}
+          <Show when={linkState().step === 'joinOfflineWaitResponse'}>
+            {(() => {
+              const state = linkState() as Extract<
+                DeviceLinkState,
+                { step: 'joinOfflineWaitResponse' }
+              >;
+              const handleFinishOfflineJoin = async () => {
+                const responseData = offlineResponseInput().trim();
+                if (!responseData) return;
+                try {
+                  const finishResult = await invoke<JoinFinishResult>('finish_join_device', {
+                    responseData,
+                  });
+                  if (finishResult.success) {
+                    setOfflineResponseInput('');
+                    setLinkState({
+                      step: 'joinSuccess',
+                      displayName: finishResult.display_name || 'Unknown',
+                    });
+                    refetch();
+                  } else {
+                    setLinkState({ step: 'failed', error: finishResult.message });
+                  }
+                } catch (e) {
+                  setLinkState({ step: 'failed', error: String(e) });
+                }
+              };
+              return (
+                <div class="link-flow join-waiting">
+                  <h3>Paste the response from the existing device</h3>
+                  <div class="confirmation-code" aria-label="Confirmation code">
+                    {state.confirmationCode}
+                  </div>
+                  <p class="fingerprint">Fingerprint: {state.fingerprint}</p>
+                  <textarea
+                    placeholder="Paste response data from the other device..."
+                    value={offlineResponseInput()}
+                    onInput={(e) => setOfflineResponseInput(e.target.value)}
+                    rows={4}
+                  />
+                  <div class="dialog-actions">
+                    <button
+                      class="primary"
+                      onClick={handleFinishOfflineJoin}
+                      disabled={!offlineResponseInput().trim()}
+                    >
+                      Complete Join
+                    </button>
+                    <button
+                      class="secondary"
+                      onClick={() => {
+                        setOfflineResponseInput('');
+                        setLinkState({ step: 'idle' });
+                      }}
+                    >
+                      {t('action.cancel')}
+                    </button>
+                  </div>
                 </div>
               );
             })()}
