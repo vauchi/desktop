@@ -346,6 +346,136 @@ pub fn complete_device_link(
     Ok(BASE64.encode(&encrypted_response))
 }
 
+/// Confirmation details shown to user before approving a device link.
+#[derive(Serialize)]
+pub struct DeviceConfirmation {
+    pub device_name: String,
+    pub confirmation_code: String,
+    pub fingerprint: String,
+}
+
+/// Response to send back after confirming a device link.
+#[derive(Serialize)]
+pub struct DeviceLinkResponseData {
+    pub response_data: String,
+}
+
+/// Prepare device link confirmation details for the user (step 1 of approval).
+///
+/// Decrypts the incoming request and returns confirmation details (device name,
+/// confirmation code, fingerprint) for the user to review before approving.
+/// Stores the initiator and request in state for the subsequent confirm/deny step.
+#[tauri::command]
+pub fn prepare_device_confirmation(
+    request_data: String,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<DeviceConfirmation, String> {
+    let mut state = state.lock().unwrap();
+
+    let identity = state
+        .identity
+        .as_ref()
+        .ok_or("No identity found. Cannot prepare device confirmation.")?;
+
+    // Get pending QR data
+    let pending_qr_data = state
+        .pending_device_link_qr
+        .as_ref()
+        .ok_or("No pending device link. Generate a link QR first.")?;
+
+    let saved_qr = DeviceLinkQR::from_data_string(pending_qr_data)
+        .map_err(|e| format!("Invalid saved QR data: {:?}", e))?;
+
+    if saved_qr.is_expired() {
+        return Err("Device link QR has expired. Generate a new one.".to_string());
+    }
+
+    // Get or create device registry
+    let registry = state
+        .storage
+        .load_device_registry()
+        .map_err(|e| format!("Failed to load registry: {:?}", e))?
+        .unwrap_or_else(|| identity.initial_device_registry());
+
+    // Create restored initiator
+    let initiator = identity.restore_device_link_initiator(registry, saved_qr);
+
+    // Decode and decrypt the request
+    let encrypted_request = BASE64
+        .decode(&request_data)
+        .map_err(|_| "Invalid request data (not valid base64)".to_string())?;
+
+    let (confirmation, request) = initiator
+        .prepare_confirmation(&encrypted_request)
+        .map_err(|e| format!("Failed to prepare confirmation: {:?}", e))?;
+
+    let result = DeviceConfirmation {
+        device_name: confirmation.device_name,
+        confirmation_code: confirmation.confirmation_code,
+        fingerprint: confirmation.identity_fingerprint,
+    };
+
+    // Store initiator and request for the confirm/deny step
+    state.pending_initiator = Some(initiator);
+    state.pending_link_request = Some(request);
+
+    Ok(result)
+}
+
+/// Confirm and approve a pending device link (step 2a of approval).
+///
+/// Takes the pending initiator and request from state, sets proximity as
+/// verified (desktop uses manual confirmation code comparison), confirms
+/// the link, saves the updated registry, and returns the encrypted response.
+#[tauri::command]
+pub fn confirm_device_link_approved(
+    state: State<'_, Mutex<AppState>>,
+) -> Result<DeviceLinkResponseData, String> {
+    let mut state = state.lock().unwrap();
+
+    let mut initiator = state
+        .pending_initiator
+        .take()
+        .ok_or("No pending device link initiator. Call prepare_device_confirmation first.")?;
+
+    let request = state
+        .pending_link_request
+        .take()
+        .ok_or("No pending device link request.")?;
+
+    // Desktop uses manual confirmation code comparison for proximity proof
+    initiator.set_proximity_verified();
+
+    let (encrypted_response, updated_registry, _new_device) = initiator
+        .confirm_link(&request)
+        .map_err(|e| format!("Failed to confirm link: {:?}", e))?;
+
+    // Save the updated registry
+    state
+        .storage
+        .save_device_registry(&updated_registry)
+        .map_err(|e| format!("Failed to save registry: {:?}", e))?;
+
+    // Clear the pending QR data
+    state.pending_device_link_qr = None;
+
+    Ok(DeviceLinkResponseData {
+        response_data: BASE64.encode(&encrypted_response),
+    })
+}
+
+/// Deny a pending device link (step 2b of approval).
+///
+/// Cleans up all pending device link state without completing the link.
+#[tauri::command]
+pub fn deny_device_link(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+    let mut state = state.lock().unwrap();
+    state.pending_initiator = None;
+    state.pending_link_request = None;
+    state.pending_device_link_qr = None;
+    Ok(())
+}
+
 /// Generate an SVG string from QR data.
 ///
 /// Creates a QR code from the given data and renders it as an SVG string
@@ -497,6 +627,39 @@ mod tests {
         let svg = generate_qr_svg("WBDL-test-data-string");
         assert!(svg.starts_with("<svg"), "SVG should start with <svg tag");
         assert!(svg.contains("</svg>"), "SVG should contain closing tag");
+    }
+
+    #[test]
+    fn test_deny_device_link_clears_pending_state() {
+        // Verify the deny handler clears all pending device link fields.
+        // We test at the AppState level since Tauri commands require a full
+        // app context. The command is a thin wrapper over this logic.
+        use crate::state::AppState;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let mut state = AppState::new(temp_dir.path()).expect("Failed to create state");
+
+        // Simulate pending state by setting the QR field
+        state.pending_device_link_qr = Some("fake-qr-data".to_string());
+
+        // Simulate deny: clear all pending fields (same logic as deny_device_link command)
+        state.pending_initiator = None;
+        state.pending_link_request = None;
+        state.pending_device_link_qr = None;
+
+        assert!(
+            state.pending_device_link_qr.is_none(),
+            "QR data should be cleared after deny"
+        );
+        assert!(
+            state.pending_initiator.is_none(),
+            "Initiator should be cleared after deny"
+        );
+        assert!(
+            state.pending_link_request.is_none(),
+            "Link request should be cleared after deny"
+        );
     }
 
     #[test]

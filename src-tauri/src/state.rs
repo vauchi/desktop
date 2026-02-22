@@ -9,7 +9,9 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use vauchi_core::exchange::{ExchangeSession, ManualConfirmationVerifier};
+use vauchi_core::exchange::{
+    DeviceLinkInitiatorRestored, DeviceLinkRequest, ExchangeSession, ManualConfirmationVerifier,
+};
 use vauchi_core::{Identity, IdentityBackup, Storage, SymmetricKey};
 
 #[cfg(feature = "secure-storage")]
@@ -60,6 +62,10 @@ pub struct AppState {
     pub pending_device_link_qr: Option<String>,
     /// Active exchange session (if an exchange is in progress).
     pub exchange_session: Option<ExchangeSession<ManualConfirmationVerifier>>,
+    /// Active device link initiator (between prepare and confirm).
+    pub pending_initiator: Option<DeviceLinkInitiatorRestored>,
+    /// Pending device link request (between prepare and confirm).
+    pub pending_link_request: Option<DeviceLinkRequest>,
 }
 
 /// Loads or generates a per-installation random fallback key from `data_dir/.fallback-key`.
@@ -287,6 +293,8 @@ impl AppState {
             pending_device_join: None,
             pending_device_link_qr: None,
             exchange_session: None,
+            pending_initiator: None,
+            pending_link_request: None,
         })
     }
 
@@ -463,6 +471,8 @@ impl AppState {
 // Trace: features/identity_management.feature, contact_card_management.feature
 // ===========================================================================
 
+// INLINE_TEST_REQUIRED: Tests access private AppState fields (backup_data, display_name)
+// and private helper functions (load_or_generate_fallback_key) not accessible from external tests.
 #[cfg(test)]
 mod tests {
     use super::*;
