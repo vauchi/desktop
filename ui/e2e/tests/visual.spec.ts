@@ -51,16 +51,16 @@ async function navigateTo(page: Page, label: string): Promise<void> {
 /** Apply dark theme via CSS variables. */
 async function setDarkTheme(page: Page): Promise<void> {
   await page.evaluate(() => {
-    localStorage.setItem('selected-theme', 'dark-default');
+    localStorage.setItem('selected-theme', 'catppuccin-mocha');
     document.documentElement.setAttribute('data-theme', 'dark');
-    document.documentElement.style.setProperty('--bg-primary', '#1a1a2e');
-    document.documentElement.style.setProperty('--bg-secondary', '#16213e');
-    document.documentElement.style.setProperty('--bg-tertiary', '#0f3460');
-    document.documentElement.style.setProperty('--text-primary', '#e0e0e0');
-    document.documentElement.style.setProperty('--text-secondary', '#a0a0a0');
-    document.documentElement.style.setProperty('--accent', '#00d4aa');
-    document.documentElement.style.setProperty('--accent-dark', '#00a882');
-    document.documentElement.style.setProperty('--border', '#2a2a4a');
+    document.documentElement.style.setProperty('--bg-primary', '#1e1e2e');
+    document.documentElement.style.setProperty('--bg-secondary', '#181825');
+    document.documentElement.style.setProperty('--bg-tertiary', '#313244');
+    document.documentElement.style.setProperty('--text-primary', '#cdd6f4');
+    document.documentElement.style.setProperty('--text-secondary', '#a6adc8');
+    document.documentElement.style.setProperty('--accent', '#89b4fa');
+    document.documentElement.style.setProperty('--accent-dark', '#74c7ec');
+    document.documentElement.style.setProperty('--border', '#45475a');
   });
 }
 
