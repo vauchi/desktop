@@ -11,6 +11,7 @@ pub mod error;
 mod relay;
 mod state;
 mod test_server;
+mod tray;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -84,6 +85,12 @@ pub fn run() {
             }
 
             app.manage(Mutex::new(app_state));
+
+            // Set up system tray
+            if let Err(e) = tray::setup(app.handle()) {
+                eprintln!("Warning: Failed to set up system tray: {}", e);
+                // Non-fatal — app works without tray
+            }
 
             Ok(())
         })
@@ -217,6 +224,13 @@ pub fn run() {
             commands::tor::get_tor_config,
             commands::tor::save_tor_config,
         ])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // Hide to tray instead of quitting
+                let _ = window.hide();
+                api.prevent_close();
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

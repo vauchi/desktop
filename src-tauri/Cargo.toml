@@ -21,7 +21,7 @@ tauri-build = { version = "2", features = [] }
 vauchi-core = { git = "https://gitlab.com/vauchi/core.git", branch = "main", features = ["content-updates"] }
 
 # Tauri framework
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-shell = "2"
 tauri-plugin-opener = "2"
 
