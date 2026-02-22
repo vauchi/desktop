@@ -948,3 +948,72 @@ button.icon-btn {
   outline: var(--focus-ring-width) solid var(--focus-ring-color);
   outline-offset: var(--focus-ring-offset);
 }
+
+/* ============================================================
+   Device Linking Flow
+   ============================================================ */
+
+.link-flow {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.qr-container svg {
+  max-width: 280px;
+  margin: 1rem auto;
+  display: block;
+}
+
+.confirmation-code {
+  font-family: monospace;
+  font-size: 2rem;
+  letter-spacing: 0.15em;
+  text-align: center;
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.transport-option {
+  display: block;
+  width: 100%;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  cursor: pointer;
+}
+
+.transport-option:hover {
+  background: var(--bg-secondary);
+}
+
+.fingerprint {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 0.5rem;
+}
+
+.waiting-indicator {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.multipart-qr .frame-nav {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.join-paste input,
+.join-paste textarea {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
