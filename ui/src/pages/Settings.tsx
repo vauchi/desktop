@@ -78,7 +78,7 @@ interface ConsentRecordInfo {
 
 interface SettingsProps {
   onNavigate: (
-    page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery' | 'help'
+    page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery' | 'help' | 'support'
   ) => void;
 }
 
@@ -1944,6 +1944,13 @@ function Settings(props: SettingsProps) {
             aria-label="View privacy policy"
           >
             Privacy Policy
+          </button>
+          <button
+            class="secondary"
+            onClick={() => props.onNavigate('support')}
+            aria-label="Support Vauchi"
+          >
+            {t('support.title')}
           </button>
         </div>
       </section>

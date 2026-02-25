@@ -12,6 +12,7 @@ import Settings from './pages/Settings';
 import Devices from './pages/Devices';
 import Recovery from './pages/Recovery';
 import Help from './pages/Help';
+import SupportUs from './pages/SupportUs';
 import { initializeTheme } from './services/themeService';
 import { initializeLocale } from './services/i18nService';
 
@@ -23,7 +24,8 @@ type Page =
   | 'settings'
   | 'devices'
   | 'recovery'
-  | 'help';
+  | 'help'
+  | 'support';
 
 async function checkIdentity(): Promise<boolean> {
   return await invoke('has_identity');
@@ -76,6 +78,8 @@ function App() {
         return <Recovery onNavigate={setPage} />;
       case 'help':
         return <Help onNavigate={setPage} />;
+      case 'support':
+        return <SupportUs onNavigate={setPage} />;
       default:
         return <Home onNavigate={setPage} />;
     }

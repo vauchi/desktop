@@ -13,7 +13,7 @@ import { t, getSelectedLocale } from '../services/i18nService';
 
 interface HelpProps {
   onNavigate: (
-    page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery' | 'help'
+    page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery' | 'help' | 'support'
   ) => void;
 }
 
