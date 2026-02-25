@@ -55,9 +55,13 @@ variables:
 
 # Node.js jobs run on allyson (Linux shell runner).
 # nell (macOS) has persistent npm crashes ("Exit handler never called").
+# GIT_STRATEGY: clone avoids corruption from stale .git/ on shell runners —
+# node jobs don't use .self-hosted's git recovery, and npm deps are cached
+# separately so fresh clones cost only the git clone time (~2s shallow).
 .node-job:
   tags: [self-hosted, node, linux]
   variables:
+    GIT_STRATEGY: clone
     npm_config_cache: ${CI_PROJECT_DIR}/.npm
     PLAYWRIGHT_BROWSERS_PATH: ${CI_PROJECT_DIR}/.playwright
 
