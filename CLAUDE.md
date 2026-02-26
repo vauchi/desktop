@@ -18,8 +18,8 @@ Tauri desktop application with SolidJS frontend.
 ```bash
 cargo tauri dev                             # Development mode
 cargo tauri build                           # Production build
-cargo test -p vauchi-desktop                # Run Rust tests
-npm test                                    # Run frontend tests (in ui/)
+just test desktop                           # Run all tests (Rust + frontend)
+just check desktop                          # Format + lint + test
 ```
 
 ## Structure
