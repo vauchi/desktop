@@ -371,7 +371,8 @@ mod tests {
     fn test_implements_std_error_trait() {
         let err = CommandError::Storage("test".to_string());
         // This compiles only if CommandError implements std::error::Error
-        let _: &dyn std::error::Error = &err;
+        let trait_obj: &dyn std::error::Error = &err;
+        assert!(trait_obj.to_string().contains("Storage"));
     }
 
     // === Debug impl ===
