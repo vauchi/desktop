@@ -78,7 +78,15 @@ interface ConsentRecordInfo {
 
 interface SettingsProps {
   onNavigate: (
-    page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery' | 'help' | 'support'
+    page:
+      | 'home'
+      | 'contacts'
+      | 'exchange'
+      | 'settings'
+      | 'devices'
+      | 'recovery'
+      | 'help'
+      | 'support'
   ) => void;
 }
 
