@@ -199,10 +199,13 @@ function Devices(props: DevicesProps) {
     if (state.step !== 'confirmingDevice') return;
     const transport = state.transport;
     const deviceName = state.deviceName;
+    const code = state.confirmationCode;
 
     setLinkState({ step: 'completing' });
     try {
-      const result = await invoke<DeviceLinkResponseData>('confirm_device_link_approved');
+      const result = await invoke<DeviceLinkResponseData>('confirm_device_link_approved', {
+        confirmationCode: code,
+      });
       if (transport === 'relay') {
         await invoke('relay_send_response', { responseData: result.response_data });
         setLinkState({ step: 'success', deviceName });

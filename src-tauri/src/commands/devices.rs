@@ -13,7 +13,9 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use qrcode::QrCode;
 use serde::{Deserialize, Serialize};
 use tauri::State;
-use vauchi_core::exchange::{DeviceLinkQR, DeviceLinkResponder, DeviceLinkResponse};
+use vauchi_core::exchange::{
+    compute_confirmation_mac, DeviceLinkQR, DeviceLinkResponder, DeviceLinkResponse, ProximityProof,
+};
 use vauchi_core::Identity;
 
 use crate::error::CommandError;
@@ -346,6 +348,7 @@ pub fn finish_join_device(
 #[tauri::command]
 pub fn complete_device_link(
     request_data: String,
+    confirmation_code: String,
     state: State<'_, Mutex<AppState>>,
 ) -> Result<String, CommandError> {
     let state = state.lock().unwrap();
@@ -376,7 +379,7 @@ pub fn complete_device_link(
         .unwrap_or_else(|| identity.initial_device_registry());
 
     // Restore the initiator
-    let mut initiator = identity.restore_device_link_initiator(registry, saved_qr);
+    let initiator = identity.restore_device_link_initiator(registry, saved_qr);
 
     // Decode and process the request
     let encrypted_request = BASE64
@@ -388,11 +391,20 @@ pub fn complete_device_link(
         .prepare_confirmation(&encrypted_request)
         .map_err(|e| CommandError::Device(format!("Failed to prepare confirmation: {:?}", e)))?;
 
-    // Desktop uses QR scan for proximity proof
-    initiator.set_proximity_verified();
+    // Construct evidence-based proximity proof from the confirmation code
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| CommandError::Device(format!("Clock error: {e}")))?
+        .as_secs();
+
+    let mac = compute_confirmation_mac(initiator.qr().link_key(), &confirmation_code);
+    let proof = ProximityProof::ManualConfirmation {
+        confirmation_code_mac: mac,
+        confirmed_at: now,
+    };
 
     let (encrypted_response, updated_registry, _new_device) = initiator
-        .confirm_link(&request)
+        .confirm_link(&request, &proof)
         .map_err(|e| CommandError::Device(format!("Failed to confirm link: {:?}", e)))?;
 
     // Save the updated registry
@@ -483,16 +495,17 @@ pub fn prepare_device_confirmation(
 
 /// Confirm and approve a pending device link (step 2a of approval).
 ///
-/// Takes the pending initiator and request from state, sets proximity as
-/// verified (desktop uses manual confirmation code comparison), confirms
+/// Takes the pending initiator and request from state, constructs an
+/// evidence-based proximity proof from the confirmation code, confirms
 /// the link, saves the updated registry, and returns the encrypted response.
 #[tauri::command]
 pub fn confirm_device_link_approved(
+    confirmation_code: String,
     state: State<'_, Mutex<AppState>>,
 ) -> Result<DeviceLinkResponseData, String> {
     let mut state = state.lock().unwrap();
 
-    let mut initiator = state
+    let initiator = state
         .pending_initiator
         .take()
         .ok_or("No pending device link initiator. Call prepare_device_confirmation first.")?;
@@ -502,11 +515,20 @@ pub fn confirm_device_link_approved(
         .take()
         .ok_or("No pending device link request.")?;
 
-    // Desktop uses manual confirmation code comparison for proximity proof
-    initiator.set_proximity_verified();
+    // Construct evidence-based proximity proof from the confirmation code
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| format!("Clock error: {e}"))?
+        .as_secs();
+
+    let mac = compute_confirmation_mac(initiator.qr().link_key(), &confirmation_code);
+    let proof = ProximityProof::ManualConfirmation {
+        confirmation_code_mac: mac,
+        confirmed_at: now,
+    };
 
     let (encrypted_response, updated_registry, _new_device) = initiator
-        .confirm_link(&request)
+        .confirm_link(&request, &proof)
         .map_err(|e| format!("Failed to confirm link: {:?}", e))?;
 
     // Save the updated registry
