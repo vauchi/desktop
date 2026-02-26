@@ -36,3 +36,6 @@ ui/playwright-report/
 
 # Locale files loaded from sibling locales/ repo
 src-tauri/resources/locales/
+
+# CI local testing
+.gitlab-ci-local/
