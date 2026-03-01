@@ -186,6 +186,137 @@ fn contract_contact_accessors_compile() {
 }
 
 // ============================================================
+// Delivery contracts (SP-12b)
+// ============================================================
+
+#[test]
+fn contract_delivery_storage_count_by_status() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("test.db");
+    let key = SymmetricKey::generate();
+    let storage = Storage::open(db_path.to_str().unwrap(), key).unwrap();
+
+    use vauchi_core::storage::DeliveryStatus;
+    let count = storage
+        .count_deliveries_by_status(&DeliveryStatus::Queued)
+        .unwrap();
+    assert_eq!(count, 0, "Fresh storage should have zero queued deliveries");
+}
+
+#[test]
+fn contract_delivery_storage_get_all_records_empty() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("test.db");
+    let key = SymmetricKey::generate();
+    let storage = Storage::open(db_path.to_str().unwrap(), key).unwrap();
+
+    let records = storage.get_all_delivery_records().unwrap();
+    assert!(
+        records.is_empty(),
+        "Fresh storage should have no delivery records"
+    );
+}
+
+#[test]
+fn contract_delivery_storage_get_pending_empty() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("test.db");
+    let key = SymmetricKey::generate();
+    let storage = Storage::open(db_path.to_str().unwrap(), key).unwrap();
+
+    let pending = storage.get_pending_deliveries().unwrap();
+    assert!(
+        pending.is_empty(),
+        "Fresh storage should have no pending deliveries"
+    );
+}
+
+#[test]
+fn contract_delivery_service_cleanup_on_empty_storage() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("test.db");
+    let key = SymmetricKey::generate();
+    let storage = Storage::open(db_path.to_str().unwrap(), key).unwrap();
+
+    let service = vauchi_core::delivery::DeliveryService::new();
+    let result = service.run_cleanup(&storage).unwrap();
+    assert_eq!(result.expired, 0);
+    assert_eq!(result.cleaned_up, 0);
+}
+
+#[test]
+fn contract_delivery_retry_scheduler_tick_on_empty_storage() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("test.db");
+    let key = SymmetricKey::generate();
+    let storage = Storage::open(db_path.to_str().unwrap(), key).unwrap();
+
+    let scheduler = vauchi_core::delivery::RetryScheduler::new();
+    let result = scheduler.tick(&storage).unwrap();
+    assert_eq!(result.due, 0);
+    assert_eq!(result.rescheduled, 0);
+    assert_eq!(result.expired, 0);
+    assert!(result.ready_ids.is_empty());
+}
+
+#[test]
+fn contract_delivery_connectivity_diagnostics_run() {
+    let diagnostics = vauchi_core::delivery::ConnectivityDiagnostics::new();
+    let report = diagnostics.run().unwrap();
+    assert_eq!(report.offline_queue_depth, 0);
+    assert_eq!(report.pending_retries, 0);
+}
+
+#[test]
+fn contract_delivery_failure_to_user_message_known_reason() {
+    let msg = vauchi_core::delivery::failure_to_user_message("connection_timeout");
+    assert!(
+        msg.contains("relay server"),
+        "Known reason should produce specific message, got: {}",
+        msg
+    );
+}
+
+#[test]
+fn contract_delivery_failure_to_user_message_unknown_reason() {
+    let msg = vauchi_core::delivery::failure_to_user_message("something_random");
+    assert!(
+        !msg.is_empty(),
+        "Unknown reason should still produce a message"
+    );
+}
+
+#[test]
+fn contract_delivery_create_and_count_record() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("test.db");
+    let key = SymmetricKey::generate();
+    let storage = Storage::open(db_path.to_str().unwrap(), key).unwrap();
+
+    use vauchi_core::storage::{DeliveryRecord, DeliveryStatus};
+
+    let record = DeliveryRecord {
+        message_id: "msg-001".to_string(),
+        recipient_id: "alice".to_string(),
+        status: DeliveryStatus::Queued,
+        created_at: 1000,
+        updated_at: 1000,
+        expires_at: None,
+    };
+    storage.create_delivery_record(&record).unwrap();
+
+    let count = storage
+        .count_deliveries_by_status(&DeliveryStatus::Queued)
+        .unwrap();
+    assert_eq!(count, 1, "Should have exactly one queued delivery");
+
+    let all = storage.get_all_delivery_records().unwrap();
+    assert_eq!(all.len(), 1);
+    assert_eq!(all[0].message_id, "msg-001");
+    assert_eq!(all[0].recipient_id, "alice");
+}
+
+// ============================================================
 // Exchange session type contracts (compile-time)
 // ============================================================
 // NOTE: Desktop exchange code needs updating to match current core API.
