@@ -153,6 +153,18 @@ pub struct FingerprintInfo {
     pub formatted_our: String,
 }
 
+/// Format raw hex as groups of 4 uppercase chars for human-readable display.
+fn format_hex_fingerprint(raw_hex: &str) -> String {
+    raw_hex
+        .chars()
+        .collect::<Vec<_>>()
+        .chunks(4)
+        .map(|c| c.iter().collect::<String>())
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_uppercase()
+}
+
 /// Get fingerprint information for contact verification.
 #[tauri::command]
 pub fn get_contact_fingerprint(
@@ -171,30 +183,19 @@ pub fn get_contact_fingerprint(
         .load_contact(&id)?
         .ok_or_else(|| CommandError::Contact("Contact not found".to_string()))?;
 
-    // Get raw public key bytes
-    let their_pk_bytes = contact.public_key();
-    let their_fingerprint = hex::encode(their_pk_bytes);
+    // Use Contact::fingerprint() API for the contact's fingerprint
+    let formatted_their = contact.fingerprint();
+    let their_fingerprint = hex::encode(contact.public_key());
 
-    let our_public_key = identity.signing_keypair().public_key();
-    let our_pk_bytes = our_public_key.as_bytes();
-    let our_fingerprint = hex::encode(our_pk_bytes);
-
-    // Format fingerprints for human comparison (groups of 4 chars)
-    let format_fingerprint = |fp: &str| -> String {
-        fp.chars()
-            .collect::<Vec<_>>()
-            .chunks(4)
-            .map(|c| c.iter().collect::<String>())
-            .collect::<Vec<_>>()
-            .join(" ")
-            .to_uppercase()
-    };
+    // Format our own fingerprint the same way
+    let our_fingerprint = hex::encode(identity.signing_keypair().public_key().as_bytes());
+    let formatted_our = format_hex_fingerprint(&our_fingerprint);
 
     Ok(FingerprintInfo {
-        their_fingerprint: their_fingerprint.clone(),
-        our_fingerprint: our_fingerprint.clone(),
-        formatted_their: format_fingerprint(&their_fingerprint),
-        formatted_our: format_fingerprint(&our_fingerprint),
+        their_fingerprint,
+        our_fingerprint,
+        formatted_their,
+        formatted_our,
     })
 }
 
