@@ -1339,3 +1339,49 @@ button.icon-btn {
   border-radius: 6px;
   border-left: 3px solid var(--accent);
 }
+
+/* Social network picker (SP-20) */
+.network-search-container {
+  position: relative;
+}
+
+.network-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-secondary, #fff);
+  border: 1px solid var(--border, #ccc);
+  border-radius: 4px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
+}
+
+.network-dropdown li {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+
+.network-dropdown li:hover,
+.network-dropdown li:focus-visible {
+  background: var(--hover-bg, rgb(0 0 0 / 4%));
+}
+
+.network-dropdown-empty {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding: 0.75rem;
+  background: var(--bg-secondary, #fff);
+  border: 1px solid var(--border, #ccc);
+  border-radius: 4px;
+  color: var(--text-secondary, #888);
+  font-style: italic;
+  z-index: 100;
+}

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import { createResource, For, createSignal, Show } from 'solid-js';
+import { createResource, For, createSignal, createEffect, Show, onCleanup } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { t, tArgs } from '../services/i18nService';
 import { checkAhaMoment, type AhaMoment } from '../services/ahaService';
@@ -33,6 +33,12 @@ interface ContactFieldVisibility {
 interface VisibilityLevel {
   type: 'everyone' | 'nobody' | 'contacts';
   ids?: string[];
+}
+
+interface SocialNetwork {
+  id: string;
+  name: string;
+  url_template: string;
 }
 
 interface HomeProps {
@@ -497,6 +503,31 @@ function AddFieldDialog(props: AddFieldDialogProps) {
   const [label, setLabel] = createSignal('');
   const [value, setValue] = createSignal('');
   const [error, setError] = createSignal('');
+  const [socialNetworks, setSocialNetworks] = createSignal<SocialNetwork[]>([]);
+  const [networkSearch, setNetworkSearch] = createSignal('');
+  const [showNetworkDropdown, setShowNetworkDropdown] = createSignal(false);
+
+  createEffect(() => {
+    if (fieldType() === 'social' && socialNetworks().length === 0) {
+      invoke('get_social_networks')
+        .then((networks) => setSocialNetworks(networks as SocialNetwork[]))
+        .catch(() => {});
+    }
+  });
+
+  const filteredNetworks = () => {
+    const query = networkSearch().toLowerCase();
+    if (!query) return socialNetworks();
+    return socialNetworks().filter(
+      (n) => n.id.includes(query) || n.name.toLowerCase().includes(query)
+    );
+  };
+
+  const selectNetwork = (network: SocialNetwork) => {
+    setLabel(network.name);
+    setNetworkSearch(network.name);
+    setShowNetworkDropdown(false);
+  };
 
   const handleAdd = async () => {
     if (!label().trim() || !value().trim()) {
@@ -515,6 +546,11 @@ function AddFieldDialog(props: AddFieldDialogProps) {
       setError(String(e));
     }
   };
+
+  // Close dropdown on click outside
+  const handleDocClick = () => setShowNetworkDropdown(false);
+  document.addEventListener('click', handleDocClick);
+  onCleanup(() => document.removeEventListener('click', handleDocClick));
 
   return (
     <div
@@ -551,21 +587,77 @@ function AddFieldDialog(props: AddFieldDialogProps) {
             <option value="custom">Custom</option>
           </select>
 
-          <label for="add-field-label">{t('card.label')}</label>
-          <input
-            id="add-field-label"
-            type="text"
-            placeholder={t('card.enter_label')}
-            value={label()}
-            onInput={(e) => setLabel(e.target.value)}
-            aria-required="true"
-          />
+          <Show
+            when={fieldType() === 'social'}
+            fallback={
+              <>
+                <label for="add-field-label">{t('card.label')}</label>
+                <input
+                  id="add-field-label"
+                  type="text"
+                  placeholder={t('card.enter_label')}
+                  value={label()}
+                  onInput={(e) => setLabel(e.target.value)}
+                  aria-required="true"
+                />
+              </>
+            }
+          >
+            <label for="add-field-network">{t('social.add.network_label')}</label>
+            <div class="network-search-container" onClick={(e) => e.stopPropagation()}>
+              <input
+                id="add-field-network"
+                type="text"
+                placeholder={t('social.network_picker.search')}
+                value={networkSearch()}
+                onInput={(e) => {
+                  setNetworkSearch(e.target.value);
+                  setShowNetworkDropdown(true);
+                }}
+                onFocus={() => setShowNetworkDropdown(true)}
+                aria-label={t('social.network_picker.title')}
+                aria-expanded={showNetworkDropdown()}
+                aria-haspopup="listbox"
+                role="combobox"
+                autocomplete="off"
+              />
+              <Show when={showNetworkDropdown() && filteredNetworks().length > 0}>
+                <ul class="network-dropdown" role="listbox">
+                  <For each={filteredNetworks()}>
+                    {(network) => (
+                      <li
+                        role="option"
+                        tabIndex={0}
+                        onClick={() => selectNetwork(network)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') selectNetwork(network);
+                        }}
+                      >
+                        {network.name}
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </Show>
+              <Show
+                when={showNetworkDropdown() && filteredNetworks().length === 0 && networkSearch()}
+              >
+                <div class="network-dropdown-empty">{t('social.network_picker.empty')}</div>
+              </Show>
+            </div>
+          </Show>
 
-          <label for="add-field-value">{t('card.value')}</label>
+          <label for="add-field-value">
+            {fieldType() === 'social' ? t('social.add.username_placeholder') : t('card.value')}
+          </label>
           <input
             id="add-field-value"
             type="text"
-            placeholder={t('card.enter_value')}
+            placeholder={
+              fieldType() === 'social'
+                ? t('social.add.username_placeholder')
+                : t('card.enter_value')
+            }
             value={value()}
             onInput={(e) => setValue(e.target.value)}
             aria-required="true"
