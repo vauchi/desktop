@@ -28,6 +28,11 @@ interface OpenResult {
   error: string | null;
 }
 
+interface SecondaryAction {
+  action_type: string;
+  label: string;
+}
+
 interface ContactDetails {
   id: string;
   display_name: string;
@@ -98,6 +103,12 @@ function Contacts(props: ContactsProps) {
   const [searchQuery, setSearchQuery] = createSignal('');
 
   const [searchResults, setSearchResults] = createSignal<ContactInfo[] | null>(null);
+  const [contextMenu, setContextMenu] = createSignal<{
+    x: number;
+    y: number;
+    field: FieldInfo;
+    actions: SecondaryAction[];
+  } | null>(null);
 
   // Keyboard shortcut listener for toggling hidden contacts view
   onMount(() => {
@@ -106,9 +117,15 @@ function Contacts(props: ContactsProps) {
         e.preventDefault();
         setShowHiddenContacts((prev) => !prev);
       }
+      if (e.key === 'Escape') setContextMenu(null);
     };
+    const handleClickAway = () => setContextMenu(null);
     window.addEventListener('keydown', handleKeyDown);
-    onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
+    window.addEventListener('click', handleClickAway);
+    onCleanup(() => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('click', handleClickAway);
+    });
   });
 
   // Use backend search when query is present, otherwise show all contacts
@@ -281,6 +298,37 @@ function Contacts(props: ContactsProps) {
     } catch (e) {
       setError(String(e));
     }
+  };
+
+  const handleFieldContextMenu = async (e: MouseEvent, field: FieldInfo) => {
+    e.preventDefault();
+    try {
+      const actions = (await invoke('get_secondary_actions', {
+        fieldType: field.field_type,
+        label: field.label,
+        value: field.value,
+      })) as SecondaryAction[];
+      setContextMenu({ x: e.clientX, y: e.clientY, field, actions });
+    } catch {
+      // Fallback: just show copy option
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        field,
+        actions: [{ action_type: 'copy', label: 'Copy to Clipboard' }],
+      });
+    }
+  };
+
+  const handleActionClick = async (actionType: string, field: FieldInfo) => {
+    setContextMenu(null);
+    if (actionType === 'copy') {
+      await navigator.clipboard.writeText(field.value);
+      setError('Copied to clipboard.');
+      return;
+    }
+    // For all other actions, use the open_contact_field command
+    await handleFieldClick(field);
   };
 
   const handleFieldClick = async (field: FieldInfo) => {
@@ -531,11 +579,12 @@ function Contacts(props: ContactsProps) {
                       role="listitem"
                       tabIndex={0}
                       onClick={() => handleFieldClick(field)}
+                      onContextMenu={(e) => handleFieldContextMenu(e, field)}
                       onKeyDown={(e) =>
                         (e.key === 'Enter' || e.key === ' ') &&
                         (e.preventDefault(), handleFieldClick(field))
                       }
-                      aria-label={`${field.label}: ${field.value}. Press Enter to open.`}
+                      aria-label={`${field.label}: ${field.value}. Press Enter to open, right-click for more actions.`}
                     >
                       <span class="field-icon" aria-hidden="true">
                         {getFieldIcon(field.field_type)}
@@ -718,6 +767,34 @@ function Contacts(props: ContactsProps) {
               </div>
             </Show>
           </div>
+        </div>
+      </Show>
+
+      {/* Context Menu */}
+      <Show when={contextMenu()}>
+        <div
+          class="context-menu"
+          role="menu"
+          aria-label="Field actions"
+          style={{
+            position: 'fixed',
+            left: `${contextMenu()!.x}px`,
+            top: `${contextMenu()!.y}px`,
+            'z-index': '1000',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <For each={contextMenu()!.actions}>
+            {(action) => (
+              <button
+                class="context-menu-item"
+                role="menuitem"
+                onClick={() => handleActionClick(action.action_type, contextMenu()!.field)}
+              >
+                {action.label}
+              </button>
+            )}
+          </For>
         </div>
       </Show>
 

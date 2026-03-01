@@ -593,6 +593,36 @@ button.icon-btn {
   padding: 1rem;
 }
 
+/* Context menu for field actions */
+.context-menu {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+  min-width: 160px;
+  padding: 0.25rem 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.context-menu-item {
+  all: unset;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  transition: background var(--transition-duration);
+}
+
+.context-menu-item:hover {
+  background: var(--bg-secondary);
+}
+
+.context-menu-item:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: calc(-1 * var(--focus-ring-width));
+}
+
 /* ============================================
    ACCESSIBILITY STYLES
    ============================================ */

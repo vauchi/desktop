@@ -41,6 +41,58 @@ fn parse_field_type(field_type: &str) -> FieldType {
     }
 }
 
+/// A single secondary action available for a contact field.
+#[derive(Serialize)]
+pub struct SecondaryAction {
+    pub action_type: String,
+    pub label: String,
+}
+
+/// Convert a ContactAction to its type string.
+fn action_type_str(action: &ContactAction) -> &'static str {
+    match action {
+        ContactAction::Call(_) => "call",
+        ContactAction::SendSms(_) => "sms",
+        ContactAction::SendEmail(_) => "email",
+        ContactAction::OpenUrl(_) => "url",
+        ContactAction::OpenMap(_) => "map",
+        ContactAction::GetDirections(_) => "directions",
+        ContactAction::CopyToClipboard => "copy",
+    }
+}
+
+/// Convert a ContactAction to a human-readable label.
+fn action_label(action: &ContactAction) -> &'static str {
+    match action {
+        ContactAction::Call(_) => "Call",
+        ContactAction::SendSms(_) => "Send SMS",
+        ContactAction::SendEmail(_) => "Send Email",
+        ContactAction::OpenUrl(_) => "Open Link",
+        ContactAction::OpenMap(_) => "Open in Maps",
+        ContactAction::GetDirections(_) => "Get Directions",
+        ContactAction::CopyToClipboard => "Copy to Clipboard",
+    }
+}
+
+/// Get all available actions for a contact field.
+#[tauri::command]
+pub fn get_secondary_actions(
+    field_type: String,
+    label: String,
+    value: String,
+) -> Vec<SecondaryAction> {
+    let ft = parse_field_type(&field_type);
+    let field = ContactField::new(ft, &label, &value);
+    field
+        .to_secondary_actions()
+        .iter()
+        .map(|a| SecondaryAction {
+            action_type: action_type_str(a).to_string(),
+            label: action_label(a).to_string(),
+        })
+        .collect()
+}
+
 /// Get information about what action would be taken for a contact field.
 #[tauri::command]
 pub fn get_field_action(field_type: String, label: String, value: String) -> ActionInfo {
@@ -50,18 +102,8 @@ pub fn get_field_action(field_type: String, label: String, value: String) -> Act
     let action = field.to_action();
     let uri = field.to_uri();
 
-    let action_type = match &action {
-        ContactAction::Call(_) => "call",
-        ContactAction::SendSms(_) => "sms",
-        ContactAction::SendEmail(_) => "email",
-        ContactAction::OpenUrl(_) => "url",
-        ContactAction::OpenMap(_) => "map",
-        ContactAction::GetDirections(_) => "directions",
-        ContactAction::CopyToClipboard => "copy",
-    };
-
     ActionInfo {
-        action_type: action_type.to_string(),
+        action_type: action_type_str(&action).to_string(),
         uri: uri.clone(),
         can_open: uri.is_some(),
     }
@@ -83,16 +125,7 @@ pub async fn open_contact_field(
     // Get the action and URI using vauchi-core's secure URI builder
     let action = field.to_action();
     let uri = field.to_uri();
-
-    let action_type = match &action {
-        ContactAction::Call(_) => "call",
-        ContactAction::SendSms(_) => "sms",
-        ContactAction::SendEmail(_) => "email",
-        ContactAction::OpenUrl(_) => "url",
-        ContactAction::OpenMap(_) => "map",
-        ContactAction::GetDirections(_) => "directions",
-        ContactAction::CopyToClipboard => "copy",
-    };
+    let action_type = action_type_str(&action);
 
     // If no URI can be generated, return copy action
     let Some(uri_str) = uri else {
