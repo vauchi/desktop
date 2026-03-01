@@ -265,10 +265,7 @@ function Delivery(props: DeliveryProps) {
                   <Show when={record.status === 'failed' && record.reason}>
                     <div class="record-failure">
                       <span class="failure-reason">{record.reason}</span>
-                      <button
-                        class="small"
-                        onClick={() => translateFailure(record.reason!)}
-                      >
+                      <button class="small" onClick={() => translateFailure(record.reason!)}>
                         Explain
                       </button>
                     </div>
