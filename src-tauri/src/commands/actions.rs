@@ -93,6 +93,27 @@ pub fn get_secondary_actions(
         .collect()
 }
 
+/// Convert a `geo:` URI to a web maps URL for desktop platforms.
+///
+/// Desktop OSes typically have no handler for `geo:` URIs, so we convert
+/// `geo:0,0?q=address` to an OpenStreetMap search URL.
+fn geo_to_web_url(uri: &str) -> String {
+    if let Some(rest) = uri.strip_prefix("geo:") {
+        if let Some(query) = rest.split("q=").nth(1) {
+            return format!("https://www.openstreetmap.org/search?query={}", query);
+        }
+    }
+    uri.to_string()
+}
+
+/// Get the directions URL for an address field.
+#[tauri::command]
+pub fn get_directions_url(field_type: String, label: String, value: String) -> Option<String> {
+    let ft = parse_field_type(&field_type);
+    let field = ContactField::new(ft, &label, &value);
+    field.to_directions_uri()
+}
+
 /// Get information about what action would be taken for a contact field.
 #[tauri::command]
 pub fn get_field_action(field_type: String, label: String, value: String) -> ActionInfo {
@@ -138,6 +159,9 @@ pub async fn open_contact_field(
             ),
         });
     };
+
+    // Convert geo: URIs to web map URLs for desktop (geo: has no handler on most desktops)
+    let uri_str = geo_to_web_url(&uri_str);
 
     // Extra security check: validate the URI scheme
     if let Some(scheme) = uri_str.split(':').next() {

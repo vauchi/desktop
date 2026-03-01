@@ -327,7 +327,25 @@ function Contacts(props: ContactsProps) {
       setError('Copied to clipboard.');
       return;
     }
-    // For all other actions, use the open_contact_field command
+    if (actionType === 'directions') {
+      try {
+        const url = (await invoke('get_directions_url', {
+          fieldType: field.field_type,
+          label: field.label,
+          value: field.value,
+        })) as string | null;
+        if (url) {
+          await invoke('open_contact_field', {
+            fieldType: 'website',
+            label: 'Directions',
+            value: url,
+          });
+          return;
+        }
+      } catch {
+        // Fall through to default handler
+      }
+    }
     await handleFieldClick(field);
   };
 

@@ -160,6 +160,7 @@ pub fn run() {
             commands::actions::open_contact_field,
             commands::actions::get_field_action,
             commands::actions::get_secondary_actions,
+            commands::actions::get_directions_url,
             commands::sync::sync,
             commands::sync::get_sync_status,
             commands::sync::get_relay_url,
