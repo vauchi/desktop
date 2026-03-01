@@ -220,6 +220,12 @@ pub fn run() {
             commands::auth::get_duress_status,
             commands::auth::get_duress_settings,
             commands::auth::save_duress_settings,
+            // Delivery commands
+            commands::delivery::get_delivery_status,
+            commands::delivery::list_delivery_records,
+            commands::delivery::process_delivery_retries,
+            commands::delivery::run_delivery_cleanup,
+            commands::delivery::translate_delivery_failure,
             // Tor commands
             commands::tor::get_tor_config,
             commands::tor::save_tor_config,

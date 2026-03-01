@@ -36,6 +36,7 @@ fn parse_field_type(field_type: &str) -> FieldType {
         "website" => FieldType::Website,
         "address" => FieldType::Address,
         "social" => FieldType::Social,
+        "birthday" => FieldType::Birthday,
         _ => FieldType::Custom,
     }
 }
@@ -55,6 +56,7 @@ pub fn get_field_action(field_type: String, label: String, value: String) -> Act
         ContactAction::SendEmail(_) => "email",
         ContactAction::OpenUrl(_) => "url",
         ContactAction::OpenMap(_) => "map",
+        ContactAction::GetDirections(_) => "directions",
         ContactAction::CopyToClipboard => "copy",
     };
 
@@ -88,6 +90,7 @@ pub async fn open_contact_field(
         ContactAction::SendEmail(_) => "email",
         ContactAction::OpenUrl(_) => "url",
         ContactAction::OpenMap(_) => "map",
+        ContactAction::GetDirections(_) => "directions",
         ContactAction::CopyToClipboard => "copy",
     };
 

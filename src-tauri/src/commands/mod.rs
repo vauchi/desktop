@@ -13,6 +13,7 @@ pub mod backup;
 pub mod card;
 pub mod contacts;
 pub mod content;
+pub mod delivery;
 pub mod devices;
 pub mod emergency;
 pub mod exchange;
