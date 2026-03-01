@@ -1185,3 +1185,127 @@ button.icon-btn {
   font-size: 0.7rem;
   color: var(--error);
 }
+
+/* Delivery Page */
+.delivery-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.delivery-count-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bg-tertiary, var(--bg-primary));
+  border-radius: 6px;
+}
+
+.count-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.count-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.count-value.accent {
+  color: var(--accent);
+}
+
+.count-value.success {
+  color: var(--success);
+}
+
+.count-value.error {
+  color: var(--error);
+}
+
+.delivery-action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.delivery-filter-buttons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.delivery-records-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.delivery-record-item {
+  padding: 0.75rem;
+  background: var(--bg-tertiary, var(--bg-primary));
+  border-radius: 6px;
+}
+
+.record-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.record-status {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 3px;
+}
+
+.record-status.success {
+  color: var(--success);
+}
+
+.record-status.error {
+  color: var(--error);
+}
+
+.record-status.warning {
+  color: var(--warning);
+}
+
+.record-id {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.record-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.record-failure {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.failure-reason {
+  font-size: 0.8rem;
+  color: var(--error);
+}
+
+.translated-message {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-tertiary, var(--bg-primary));
+  border-radius: 6px;
+  border-left: 3px solid var(--accent);
+}

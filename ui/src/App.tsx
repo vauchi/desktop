@@ -13,6 +13,7 @@ import Devices from './pages/Devices';
 import Recovery from './pages/Recovery';
 import Help from './pages/Help';
 import SupportUs from './pages/SupportUs';
+import Delivery from './pages/Delivery';
 import { initializeTheme } from './services/themeService';
 import { initializeLocale } from './services/i18nService';
 
@@ -25,7 +26,8 @@ type Page =
   | 'devices'
   | 'recovery'
   | 'help'
-  | 'support';
+  | 'support'
+  | 'delivery';
 
 async function checkIdentity(): Promise<boolean> {
   return await invoke('has_identity');
@@ -80,6 +82,8 @@ function App() {
         return <Help onNavigate={setPage} />;
       case 'support':
         return <SupportUs onNavigate={setPage} />;
+      case 'delivery':
+        return <Delivery onNavigate={setPage} />;
       default:
         return <Home onNavigate={setPage} />;
     }

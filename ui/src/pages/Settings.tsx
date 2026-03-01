@@ -1384,6 +1384,13 @@ function Settings(props: SettingsProps) {
           >
             {t('recovery.title')}
           </button>
+          <button
+            class="secondary"
+            onClick={() => props.onNavigate('delivery')}
+            aria-label="View delivery status"
+          >
+            {t('delivery.title') || 'Delivery'}
+          </button>
         </div>
       </section>
 
