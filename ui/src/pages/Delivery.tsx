@@ -108,9 +108,7 @@ function Delivery(props: DeliveryProps) {
   const applyFilter = async (f: string | null) => {
     setFilter(f);
     try {
-      const filtered: DeliveryRecord[] = await invoke('list_delivery_records', { filter: f });
-      // We can't mutate the resource directly, but we can refetch
-      // For now we'll store filtered results separately
+      await invoke('list_delivery_records', { filter: f });
       refetchRecords();
     } catch (e) {
       setError(String(e));
