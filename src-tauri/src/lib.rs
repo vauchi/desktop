@@ -10,6 +10,7 @@ mod commands;
 pub mod error;
 mod relay;
 mod state;
+#[cfg(debug_assertions)]
 mod test_server;
 mod tray;
 
@@ -56,31 +57,36 @@ pub fn run() {
             // Initialize app state
             let app_state = AppState::new(&data_dir).expect("Failed to initialize app state");
 
-            // Start test HTTP server if VAUCHI_TEST_PORT is set
-            // The test server gets its own AppState instance pointing to the same data dir
-            if let Ok(port_str) = std::env::var("VAUCHI_TEST_PORT") {
-                if let Ok(port) = port_str.parse::<u16>() {
-                    let data_dir_clone = data_dir.clone();
-                    std::thread::spawn(move || {
-                        // Create a separate AppState for the test server
-                        // Both instances share the same SQLite database (with proper locking)
-                        match AppState::new(&data_dir_clone) {
-                            Ok(test_state) => {
-                                let test_state = Arc::new(Mutex::new(test_state));
-                                match test_server::start_test_server(test_state, port) {
-                                    Ok(actual_port) => {
-                                        println!("Test server started on port {}", actual_port);
-                                    }
-                                    Err(e) => {
-                                        eprintln!("Failed to start test server: {}", e);
+            // D-C2: Test HTTP server (debug builds only)
+            // Only enable in debug builds to prevent exposure in release binaries
+            #[cfg(debug_assertions)]
+            {
+                // Start test HTTP server if VAUCHI_TEST_PORT is set
+                // The test server gets its own AppState instance pointing to the same data dir
+                if let Ok(port_str) = std::env::var("VAUCHI_TEST_PORT") {
+                    if let Ok(port) = port_str.parse::<u16>() {
+                        let data_dir_clone = data_dir.clone();
+                        std::thread::spawn(move || {
+                            // Create a separate AppState for the test server
+                            // Both instances share the same SQLite database (with proper locking)
+                            match AppState::new(&data_dir_clone) {
+                                Ok(test_state) => {
+                                    let test_state = Arc::new(Mutex::new(test_state));
+                                    match test_server::start_test_server(test_state, port) {
+                                        Ok(actual_port) => {
+                                            println!("Test server started on port {}", actual_port);
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Failed to start test server: {}", e);
+                                        }
                                     }
                                 }
+                                Err(e) => {
+                                    eprintln!("Failed to create test state: {}", e);
+                                }
                             }
-                            Err(e) => {
-                                eprintln!("Failed to create test state: {}", e);
-                            }
-                        }
-                    });
+                        });
+                    }
                 }
             }
 
