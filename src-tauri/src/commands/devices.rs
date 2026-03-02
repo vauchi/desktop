@@ -805,6 +805,8 @@ pub struct MultipartQRFrame {
     pub frame_number: usize,
     pub total_frames: usize,
     pub svg: String,
+    /// Raw QR data for client-side Canvas rendering (D-C1: avoid innerHTML)
+    pub data: String,
 }
 
 /// Generate a multipart QR code sequence for large payloads.
@@ -824,6 +826,7 @@ pub fn generate_multipart_qr(data: String) -> Result<Vec<MultipartQRFrame>, Stri
             frame_number: 1,
             total_frames: 1,
             svg: generate_qr_svg(&frame_data)?,
+            data: frame_data,
         }]);
     }
 
@@ -837,6 +840,7 @@ pub fn generate_multipart_qr(data: String) -> Result<Vec<MultipartQRFrame>, Stri
             frame_number: i + 1,
             total_frames: total,
             svg: generate_qr_svg(&frame_data)?,
+            data: frame_data,
         });
     }
 
