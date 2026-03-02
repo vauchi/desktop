@@ -91,9 +91,9 @@ quality:zero-assertions:
   tags: [self-hosted, rust, linux]
   script:
     - |
-      SCRIPTS_DIR=$(mktemp -d)
-      git clone --depth=1 https://gitlab.com/vauchi/scripts.git "$SCRIPTS_DIR"
-      chmod +x "$SCRIPTS_DIR/scripts/check-zero-assertions.sh"
+      # Fetch single script via GitLab API (faster than git clone)
+      curl -fsSL "https://gitlab.com/vauchi/scripts/-/raw/main/scripts/check-zero-assertions.sh" -o /tmp/check-zero-assertions.sh
+      chmod +x /tmp/check-zero-assertions.sh
 
       DIRS=""
       for dir in src tests; do
@@ -104,7 +104,7 @@ quality:zero-assertions:
       done
 
       if [ -n "$DIRS" ]; then
-        "$SCRIPTS_DIR/scripts/check-zero-assertions.sh" $DIRS
+        /tmp/check-zero-assertions.sh $DIRS
       else
         echo "No test directories found — skipping"
       fi
@@ -113,15 +113,15 @@ quality:test-ratio:
   tags: [self-hosted, rust, linux]
   script:
     - |
-      SCRIPTS_DIR=$(mktemp -d)
-      git clone --depth=1 https://gitlab.com/vauchi/scripts.git "$SCRIPTS_DIR"
-      chmod +x "$SCRIPTS_DIR/scripts/test-code-ratio.sh"
+      # Fetch single script via GitLab API (faster than git clone)
+      curl -fsSL "https://gitlab.com/vauchi/scripts/-/raw/main/scripts/test-code-ratio.sh" -o /tmp/test-code-ratio.sh
+      chmod +x /tmp/test-code-ratio.sh
 
       for dir in . */; do
         dir="${dir%/}"
         if [ -d "$dir/src" ]; then
           echo ""
-          "$SCRIPTS_DIR/scripts/test-code-ratio.sh" "$dir"
+          /tmp/test-code-ratio.sh "$dir"
         fi
       done
 
@@ -261,8 +261,6 @@ test:rust:
     - job: build:frontend-dist
       artifacts: true
     - job: lint:rust-format
-      optional: true
-    - job: lint:rust-clippy
       optional: true
   before_script:
     - !reference [.self-hosted, before_script]
