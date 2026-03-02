@@ -46,10 +46,13 @@ function Setup(props: SetupProps) {
   };
 
   return (
-    <main class="page setup" role="main" aria-labelledby="setup-title">
+    <main class="page setup" aria-labelledby="setup-title">
       <div class="setup-container">
         <h1 id="setup-title">{t('welcome.title')}</h1>
-        <p id="setup-description">{t('app.tagline')}</p>
+        <p>{t('app.tagline')}</p>
+        <p id="setup-form-description" class="sr-only">
+          Enter your display name to create your identity card.
+        </p>
 
         <form
           class="form"
@@ -57,7 +60,7 @@ function Setup(props: SetupProps) {
             e.preventDefault();
             handleCreate();
           }}
-          aria-describedby="setup-description"
+          aria-describedby="setup-form-description"
         >
           <label for="name">{t('settings.display_name')}</label>
           <input

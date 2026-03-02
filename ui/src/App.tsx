@@ -89,7 +89,14 @@ function App() {
     }
   };
 
-  return <div class="app">{currentPage()}</div>;
+  return (
+    <div class="app">
+      <a href="#main-content" class="skip-link">
+        Skip to main content
+      </a>
+      <div id="main-content">{currentPage()}</div>
+    </div>
+  );
 }
 
 export default App;

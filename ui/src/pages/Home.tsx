@@ -231,10 +231,10 @@ function Home(props: HomeProps) {
           </button>
         </div>
 
-        <div class="fields-list" role="list" aria-label="Your contact card fields">
+        <ul class="fields-list" aria-label="Your contact card fields">
           <For each={card()?.fields}>
             {(field) => (
-              <div class="field-item" role="listitem" aria-label={`${field.label}: ${field.value}`}>
+              <li class="field-item" aria-label={`${field.label}: ${field.value}`}>
                 <span class="field-icon" aria-hidden="true">
                   {fieldIcon(field.field_type)}
                 </span>
@@ -272,16 +272,16 @@ function Home(props: HomeProps) {
                 >
                   ×
                 </button>
-              </div>
+              </li>
             )}
           </For>
 
           {card()?.fields.length === 0 && (
-            <p class="empty-state" role="status">
+            <li class="empty-state" role="status">
               {t('home.no_fields')}
-            </p>
+            </li>
           )}
-        </div>
+        </ul>
       </section>
 
       <Show when={ahaMoment()}>
@@ -379,10 +379,10 @@ function Home(props: HomeProps) {
                 </button>
               </div>
 
-              <div class="visibility-list" role="list" aria-label="Contact visibility settings">
+              <ul class="visibility-list" aria-label="Contact visibility settings">
                 <For each={fieldViewers()}>
                   {(viewer) => (
-                    <div class="visibility-item" role="listitem">
+                    <li class="visibility-item">
                       <div class="contact-avatar small" aria-hidden="true">
                         {viewer.display_name.charAt(0).toUpperCase()}
                       </div>
@@ -395,10 +395,10 @@ function Home(props: HomeProps) {
                       >
                         {viewer.can_see ? 'Visible' : 'Hidden'}
                       </button>
-                    </div>
+                    </li>
                   )}
                 </For>
-              </div>
+              </ul>
             </Show>
 
             <div class="dialog-actions">

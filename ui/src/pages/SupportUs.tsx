@@ -21,16 +21,18 @@ interface SupportUsProps {
 
 function SupportUs(props: SupportUsProps) {
   return (
-    <div class="page support-page">
+    <main class="page support-page" aria-labelledby="support-title">
       <header class="page-header">
-        <button
-          class="back-btn"
-          onClick={() => props.onNavigate('settings')}
-          aria-label="Back to settings"
-        >
-          &larr;
-        </button>
-        <h1>{t('support.title')}</h1>
+        <nav aria-label="Back navigation">
+          <button
+            class="back-btn"
+            onClick={() => props.onNavigate('settings')}
+            aria-label="Back to settings"
+          >
+            &larr;
+          </button>
+        </nav>
+        <h1 id="support-title">{t('support.title')}</h1>
       </header>
 
       <div class="support-content">
@@ -81,7 +83,7 @@ function SupportUs(props: SupportUsProps) {
           </table>
         </section>
       </div>
-    </div>
+    </main>
   );
 }
 

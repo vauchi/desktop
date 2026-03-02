@@ -429,12 +429,11 @@ function Contacts(props: ContactsProps) {
       </div>
 
       <Show when={filteredContacts().length > 0}>
-        <div class="contacts-list" role="list" aria-label="Contacts list">
+        <ul class="contacts-list" aria-label="Contacts list">
           <For each={filteredContacts()}>
             {(contact) => (
-              <div
+              <li
                 class="contact-item"
-                role="listitem"
                 tabIndex={0}
                 onClick={() => openContactDetail(contact.id)}
                 onKeyDown={(e) =>
@@ -453,10 +452,10 @@ function Contacts(props: ContactsProps) {
                     {contact.recovery_trusted && ' · Recovery Trusted'}
                   </span>
                 </div>
-              </div>
+              </li>
             )}
           </For>
-        </div>
+        </ul>
       </Show>
 
       {filteredContacts().length === 0 && searchQuery() && (
@@ -584,7 +583,7 @@ function Contacts(props: ContactsProps) {
                 </p>
               </Show>
 
-              <div class="contact-fields" role="list" aria-label={t('contacts.detail')}>
+              <ul class="contact-fields" aria-label={t('contacts.detail')}>
                 <Show when={selectedContact()?.fields.length === 0}>
                   <p class="empty-fields" role="status">
                     No contact information shared yet.
@@ -592,9 +591,8 @@ function Contacts(props: ContactsProps) {
                 </Show>
                 <For each={selectedContact()?.fields}>
                   {(field) => (
-                    <div
+                    <li
                       class="field-item clickable"
-                      role="listitem"
                       tabIndex={0}
                       onClick={() => handleFieldClick(field)}
                       onContextMenu={(e) => handleFieldContextMenu(e, field)}
@@ -619,10 +617,10 @@ function Contacts(props: ContactsProps) {
                       <span class="field-action" aria-hidden="true">
                         →
                       </span>
-                    </div>
+                    </li>
                   )}
                 </For>
-              </div>
+              </ul>
 
               <div class="contact-id">
                 <span class="label">Contact ID</span>
@@ -714,10 +712,10 @@ function Contacts(props: ContactsProps) {
                           You haven't added any fields to your card yet.
                         </p>
                       </Show>
-                      <div role="list" aria-labelledby="visibility-title">
+                      <ul aria-labelledby="visibility-title">
                         <For each={visibilityRules()}>
                           {(field) => (
-                            <div class="visibility-item" role="listitem">
+                            <li class="visibility-item">
                               <span class="field-label" id={`visibility-label-${field.field_id}`}>
                                 {field.field_label}
                               </span>
@@ -729,10 +727,10 @@ function Contacts(props: ContactsProps) {
                               >
                                 {field.can_see ? 'Visible' : 'Hidden'}
                               </button>
-                            </div>
+                            </li>
                           )}
                         </For>
-                      </div>
+                      </ul>
                       <button
                         class="secondary small"
                         onClick={() => setShowVisibility(false)}
