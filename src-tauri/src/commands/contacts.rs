@@ -32,7 +32,7 @@ pub struct ContactDetails {
     pub fields: Vec<super::card::FieldInfo>,
 }
 
-/// List all contacts.
+/// List all visible (non-hidden) contacts.
 #[tauri::command]
 pub fn list_contacts(state: State<'_, Mutex<AppState>>) -> Result<Vec<ContactInfo>, CommandError> {
     let state = state.lock().unwrap();
@@ -41,6 +41,7 @@ pub fn list_contacts(state: State<'_, Mutex<AppState>>) -> Result<Vec<ContactInf
 
     Ok(contacts
         .into_iter()
+        .filter(|c| !c.is_hidden())
         .map(|c| ContactInfo {
             id: c.id().to_string(),
             display_name: c.display_name().to_string(),
@@ -280,4 +281,66 @@ pub fn trusted_contact_count(state: State<'_, Mutex<AppState>>) -> Result<u32, C
     let count = contacts.iter().filter(|c| c.is_recovery_trusted()).count();
 
     Ok(count as u32)
+}
+
+/// Hide a contact so it doesn't appear in the default contact list.
+#[tauri::command]
+pub fn hide_contact(id: String, state: State<'_, Mutex<AppState>>) -> Result<bool, CommandError> {
+    let state = state.lock().unwrap();
+
+    let mut contact = state
+        .storage
+        .load_contact(&id)?
+        .ok_or_else(|| CommandError::Contact("Contact not found".to_string()))?;
+
+    contact.hide();
+
+    state
+        .storage
+        .save_contact(&contact)
+        .map_err(|e| CommandError::Contact(format!("Failed to save contact: {:?}", e)))?;
+
+    Ok(true)
+}
+
+/// Unhide a previously hidden contact.
+#[tauri::command]
+pub fn unhide_contact(id: String, state: State<'_, Mutex<AppState>>) -> Result<bool, CommandError> {
+    let state = state.lock().unwrap();
+
+    let mut contact = state
+        .storage
+        .load_contact(&id)?
+        .ok_or_else(|| CommandError::Contact("Contact not found".to_string()))?;
+
+    contact.unhide();
+
+    state
+        .storage
+        .save_contact(&contact)
+        .map_err(|e| CommandError::Contact(format!("Failed to save contact: {:?}", e)))?;
+
+    Ok(true)
+}
+
+/// List hidden contacts.
+#[tauri::command]
+pub fn list_hidden_contacts(
+    state: State<'_, Mutex<AppState>>,
+) -> Result<Vec<ContactInfo>, CommandError> {
+    let state = state.lock().unwrap();
+
+    let contacts = state.storage.list_contacts()?;
+    let hidden: Vec<ContactInfo> = contacts
+        .into_iter()
+        .filter(|c| c.is_hidden())
+        .map(|c| ContactInfo {
+            id: c.id().to_string(),
+            display_name: c.display_name().to_string(),
+            verified: c.is_fingerprint_verified(),
+            recovery_trusted: c.is_recovery_trusted(),
+        })
+        .collect();
+
+    Ok(hidden)
 }
