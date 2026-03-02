@@ -416,7 +416,9 @@ function Devices(props: DevicesProps) {
               return (
                 <div class="link-flow qr-display">
                   <h3>{t('devices.link.scan_qr') || 'Scan this code on your new device'}</h3>
-                  <div class="qr-container"><QRCanvas data={state.qrData} /></div>
+                  <div class="qr-container">
+                    <QRCanvas data={state.qrData} />
+                  </div>
                   <div class="qr-actions">
                     <button
                       class="small"
@@ -472,7 +474,9 @@ function Devices(props: DevicesProps) {
               return (
                 <div class="link-flow qr-display">
                   <h3>{t('devices.link.scan_qr') || 'Scan this code on your new device'}</h3>
-                  <div class="qr-container"><QRCanvas data={state.qrData} /></div>
+                  <div class="qr-container">
+                    <QRCanvas data={state.qrData} />
+                  </div>
                   <div class="qr-actions">
                     <button
                       class="small"
