@@ -2,12 +2,14 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import solidPlugin from 'vite-plugin-solid';
 
 export default defineConfig({
   plugins: [solidPlugin()],
   test: {
+    exclude: [...configDefaults.exclude, 'e2e/**'],
+    passWithNoTests: true,
     environment: 'jsdom',
     coverage: {
       provider: 'v8',
