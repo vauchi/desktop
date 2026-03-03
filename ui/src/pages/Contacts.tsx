@@ -102,6 +102,7 @@ function Contacts(props: ContactsProps) {
   const [isTogglingTrust, setIsTogglingTrust] = createSignal(false);
   const [error, setError] = createSignal('');
   const [statusMessage, setStatusMessage] = createSignal('');
+  const [openingFieldId, setOpeningFieldId] = createSignal<string | null>(null);
   const [searchQuery, setSearchQuery] = createSignal('');
 
   const [triggerElement, setTriggerElement] = createSignal<HTMLElement | null>(null);
@@ -361,6 +362,7 @@ function Contacts(props: ContactsProps) {
   };
 
   const handleFieldClick = async (field: FieldInfo) => {
+    setOpeningFieldId(field.id);
     try {
       const result = (await invoke('open_contact_field', {
         fieldType: field.field_type,
@@ -380,6 +382,7 @@ function Contacts(props: ContactsProps) {
       setStatusMessage(`Could not open. Copied to clipboard.`);
       setTimeout(() => setStatusMessage(''), 3000);
     }
+    setOpeningFieldId(null);
   };
 
   const handleListKeyDown = (e: KeyboardEvent) => {
@@ -655,9 +658,18 @@ function Contacts(props: ContactsProps) {
                         fieldId={field.id}
                         fieldValue={field.value}
                       />
-                      <span class="field-action" aria-hidden="true">
-                        →
-                      </span>
+                      <Show
+                        when={openingFieldId() === field.id}
+                        fallback={
+                          <span class="field-action" aria-hidden="true">
+                            →
+                          </span>
+                        }
+                      >
+                        <span class="field-loading" aria-label="Opening..." role="status">
+                          ⏳
+                        </span>
+                      </Show>
                     </li>
                   )}
                 </For>
