@@ -62,6 +62,22 @@ interface FingerprintInfo {
   formatted_our: string;
 }
 
+interface GroupInfo {
+  id: string;
+  name: string;
+  contact_count: number;
+  created_at: number;
+}
+
+interface LabelDetail {
+  id: string;
+  name: string;
+  contact_ids: string[];
+  visible_field_ids: string[];
+  created_at: number;
+  modified_at: number;
+}
+
 interface ContactsProps {
   onNavigate: (
     page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery'
@@ -88,11 +104,43 @@ async function unhideContact(id: string): Promise<void> {
   await invoke('unhide_contact', { id });
 }
 
+async function fetchGroups(): Promise<GroupInfo[]> {
+  return await invoke('list_labels');
+}
+
+async function createGroup(name: string): Promise<GroupInfo> {
+  return await invoke('create_label', { name });
+}
+
+async function deleteGroup(groupId: string): Promise<void> {
+  await invoke('delete_label', { label_id: groupId });
+}
+
+async function renameGroup(groupId: string, newName: string): Promise<void> {
+  await invoke('rename_label', { label_id: groupId, new_name: newName });
+}
+
+async function addContactToGroup(groupId: string, contactId: string): Promise<void> {
+  await invoke('add_contact_to_label', { label_id: groupId, contact_id: contactId });
+}
+
+async function removeContactFromGroup(groupId: string, contactId: string): Promise<void> {
+  await invoke('remove_contact_from_label', { label_id: groupId, contact_id: contactId });
+}
+
+async function getGroupsForContact(contactId: string): Promise<GroupInfo[]> {
+  return await invoke('get_labels_for_contact', { contact_id: contactId });
+}
+
 function Contacts(props: ContactsProps) {
   const [showHiddenContacts, setShowHiddenContacts] = createSignal(false);
+  const [activeTab, setActiveTab] = createSignal<'all' | 'groups'>('all');
   const [contacts, { refetch }] = createResource(fetchContacts);
   const [hiddenContacts, { refetch: refetchHidden }] = createResource(fetchHiddenContacts);
+  const [groups, { refetch: refetchGroups }] = createResource(fetchGroups);
   const [selectedContact, setSelectedContact] = createSignal<ContactDetails | null>(null);
+  const [selectedGroup, setSelectedGroup] = createSignal<GroupInfo | null>(null);
+  const [groupContacts, setGroupContacts] = createSignal<ContactInfo[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = createSignal(false);
   const [showVisibility, setShowVisibility] = createSignal(false);
   const [showVerification, setShowVerification] = createSignal(false);
@@ -104,6 +152,15 @@ function Contacts(props: ContactsProps) {
   const [statusMessage, setStatusMessage] = createSignal('');
   const [openingFieldId, setOpeningFieldId] = createSignal<string | null>(null);
   const [searchQuery, setSearchQuery] = createSignal('');
+  const [showCreateGroupModal, setShowCreateGroupModal] = createSignal(false);
+  const [newGroupName, setNewGroupName] = createSignal('');
+  const [isCreatingGroup, setIsCreatingGroup] = createSignal(false);
+  const [contactGroups, setContactGroups] = createSignal<GroupInfo[]>([]);
+  const [showRenameModal, setShowRenameModal] = createSignal(false);
+  const [renameGroupId, setRenameGroupId] = createSignal<string | null>(null);
+  const [renameGroupName, setRenameGroupName] = createSignal('');
+  const [showGroupDeleteConfirm, setShowGroupDeleteConfirm] = createSignal(false);
+  const [groupToDelete, setGroupToDelete] = createSignal<string | null>(null);
 
   const [triggerElement, setTriggerElement] = createSignal<HTMLElement | null>(null);
 
@@ -165,6 +222,7 @@ function Contacts(props: ContactsProps) {
     try {
       const details = (await invoke('get_contact', { id: contactId })) as ContactDetails;
       setSelectedContact(details);
+      await loadContactGroups(contactId);
       setError('');
     } catch (e) {
       setError(String(e));
@@ -311,6 +369,113 @@ function Contacts(props: ContactsProps) {
     }
   };
 
+  const handleCreateGroup = async () => {
+    if (!newGroupName().trim()) return;
+
+    setIsCreatingGroup(true);
+    try {
+      await createGroup(newGroupName());
+      setNewGroupName('');
+      setShowCreateGroupModal(false);
+      refetchGroups();
+      setStatusMessage('Group created successfully');
+      setTimeout(() => setStatusMessage(''), 3000);
+    } catch (e) {
+      setError(String(e));
+    }
+    setIsCreatingGroup(false);
+  };
+
+  const handleDeleteGroup = async () => {
+    const gid = groupToDelete();
+    if (!gid) return;
+
+    try {
+      await deleteGroup(gid);
+      setGroupToDelete(null);
+      setShowGroupDeleteConfirm(false);
+      refetchGroups();
+      setStatusMessage('Group deleted successfully');
+      setTimeout(() => setStatusMessage(''), 3000);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const handleRenameGroup = async () => {
+    const gid = renameGroupId();
+    if (!gid || !renameGroupName().trim()) return;
+
+    try {
+      await renameGroup(gid, renameGroupName());
+      setRenameGroupId(null);
+      setRenameGroupName('');
+      setShowRenameModal(false);
+      refetchGroups();
+      setStatusMessage('Group renamed successfully');
+      setTimeout(() => setStatusMessage(''), 3000);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const handleAddContactToGroup = async (groupId: string) => {
+    const contact = selectedContact();
+    if (!contact) return;
+
+    try {
+      await addContactToGroup(groupId, contact.id);
+      await loadContactGroups(contact.id);
+      refetchGroups();
+      setStatusMessage(`Added to group`);
+      setTimeout(() => setStatusMessage(''), 3000);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const handleRemoveContactFromGroup = async (groupId: string) => {
+    const contact = selectedContact();
+    if (!contact) return;
+
+    try {
+      await removeContactFromGroup(groupId, contact.id);
+      await loadContactGroups(contact.id);
+      refetchGroups();
+      setStatusMessage(`Removed from group`);
+      setTimeout(() => setStatusMessage(''), 3000);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const loadContactGroups = async (contactId: string) => {
+    try {
+      const grps = await getGroupsForContact(contactId);
+      setContactGroups(grps);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const openGroupDetail = async (group: GroupInfo) => {
+    setSelectedGroup(group);
+    // Load contacts in this group
+    try {
+      const label = (await invoke('get_label', { label_id: group.id })) as LabelDetail;
+      const allContacts = contacts() || [];
+      const filtered = allContacts.filter((c) => label.contact_ids.includes(c.id));
+      setGroupContacts(filtered);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const closeGroupDetail = () => {
+    setSelectedGroup(null);
+    setGroupContacts([]);
+  };
+
   const handleFieldContextMenu = async (e: MouseEvent, field: FieldInfo) => {
     e.preventDefault();
     try {
@@ -436,77 +601,338 @@ function Contacts(props: ContactsProps) {
         </Show>
       </header>
 
-      <div class="search-bar" role="search">
-        <input
-          type="text"
-          placeholder={t('contacts.search')}
-          value={searchQuery()}
-          onInput={(e) => handleSearchInput(e.target.value)}
-          aria-label="Search contacts by name"
-        />
-        <Show when={searchQuery()}>
-          <button
-            class="clear-search"
-            onClick={() => {
-              setSearchQuery('');
-              setSearchResults(null);
-            }}
-            aria-label="Clear search"
-          >
-            ×
-          </button>
-        </Show>
+      <div class="tabs-container" role="tablist" aria-label="Contacts view tabs">
+        <button
+          class={`tab-btn ${activeTab() === 'all' ? 'active' : ''}`}
+          onClick={() => setActiveTab('all')}
+          role="tab"
+          aria-selected={activeTab() === 'all'}
+          aria-label="All contacts tab"
+        >
+          All Contacts
+        </button>
+        <button
+          class={`tab-btn ${activeTab() === 'groups' ? 'active' : ''}`}
+          onClick={() => setActiveTab('groups')}
+          role="tab"
+          aria-selected={activeTab() === 'groups'}
+          aria-label="Groups tab"
+        >
+          Groups
+        </button>
       </div>
 
-      <Show when={filteredContacts().length > 0}>
-        <ul class="contacts-list" aria-label="Contacts list" onKeyDown={handleListKeyDown}>
-          <For each={filteredContacts()}>
-            {(contact) => (
-              <li
-                class="contact-item"
-                tabIndex={0}
-                onClick={() => openContactDetail(contact.id)}
-                onKeyDown={(e) =>
-                  (e.key === 'Enter' || e.key === ' ') &&
-                  (e.preventDefault(), openContactDetail(contact.id))
-                }
-                aria-label={`${contact.display_name}, ${contact.verified ? 'verified' : 'not verified'}. Press Enter to view details.`}
-              >
-                <div class="contact-avatar" aria-hidden="true">
-                  {contact.display_name.charAt(0).toUpperCase()}
-                </div>
-                <div class="contact-info">
-                  <span class="contact-name">{contact.display_name}</span>
-                  <span class="contact-status">
-                    {contact.verified ? t('contacts.verified') : t('contacts.not_verified')}
-                    {contact.recovery_trusted && ' · Recovery Trusted'}
-                  </span>
-                </div>
-              </li>
-            )}
-          </For>
-        </ul>
+      <Show when={activeTab() === 'all'}>
+        <div class="search-bar" role="search">
+          <input
+            type="text"
+            placeholder={t('contacts.search')}
+            value={searchQuery()}
+            onInput={(e) => handleSearchInput(e.target.value)}
+            aria-label="Search contacts by name"
+          />
+          <Show when={searchQuery()}>
+            <button
+              class="clear-search"
+              onClick={() => {
+                setSearchQuery('');
+                setSearchResults(null);
+              }}
+              aria-label="Clear search"
+            >
+              ×
+            </button>
+          </Show>
+        </div>
       </Show>
 
-      {filteredContacts().length === 0 && searchQuery() && (
-        <div class="empty-state" role="status" aria-live="polite">
-          <p>No contacts match "{searchQuery()}"</p>
-          <button class="secondary" onClick={() => setSearchQuery('')}>
-            Clear search
+      {/* Groups Tab */}
+      <Show when={activeTab() === 'groups'}>
+        <div class="groups-section" role="region" aria-label="Groups management">
+          <button
+            class="create-group-btn"
+            onClick={() => setShowCreateGroupModal(true)}
+            aria-label="Create new group"
+          >
+            + Create Group
           </button>
-        </div>
-      )}
 
-      {contacts()?.length === 0 && !searchQuery() && (
-        <div
-          class="empty-state"
-          role="status"
-          aria-label="No contacts yet. Exchange cards with someone to add contacts."
-        >
-          <p>{t('contacts.empty')}</p>
-          <button onClick={() => props.onNavigate('exchange')}>{t('exchange.title')}</button>
+          <Show when={groups()?.length === 0}>
+            <div class="empty-state" role="status" aria-label="No groups yet">
+              <p>No groups yet. Create one to organize your contacts.</p>
+            </div>
+          </Show>
+
+          <Show when={(groups() || []).length > 0}>
+            <ul class="groups-list" aria-label="Groups list">
+              <For each={groups()}>
+                {(group) => (
+                  <li
+                    class="group-item"
+                    tabIndex={0}
+                    onClick={() => openGroupDetail(group)}
+                    onKeyDown={(e) =>
+                      (e.key === 'Enter' || e.key === ' ') &&
+                      (e.preventDefault(), openGroupDetail(group))
+                    }
+                    aria-label={`${group.name}, ${group.contact_count} contacts. Press Enter to view.`}
+                  >
+                    <div class="group-info">
+                      <span class="group-name">{group.name}</span>
+                      <span class="group-count">{group.contact_count} contacts</span>
+                    </div>
+                    <div class="group-actions" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        class="icon-btn"
+                        onClick={() => {
+                          setRenameGroupId(group.id);
+                          setRenameGroupName(group.name);
+                          setShowRenameModal(true);
+                        }}
+                        aria-label="Rename group"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        class="icon-btn danger"
+                        onClick={() => {
+                          setGroupToDelete(group.id);
+                          setShowGroupDeleteConfirm(true);
+                        }}
+                        aria-label="Delete group"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </Show>
         </div>
-      )}
+
+        {/* Create Group Modal */}
+        <Show when={showCreateGroupModal()}>
+          <div
+            class="dialog-overlay"
+            onClick={() => setShowCreateGroupModal(false)}
+            role="presentation"
+          >
+            <div
+              class="dialog create-group-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="create-group-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="create-group-title">Create New Group</h3>
+              <input
+                type="text"
+                placeholder="Group name"
+                value={newGroupName()}
+                onInput={(e) => setNewGroupName(e.target.value)}
+                maxLength={50}
+                aria-label="Group name input"
+              />
+              <p class="char-count" role="status" aria-live="polite">
+                {newGroupName().length} / 50
+              </p>
+              <div class="dialog-actions">
+                <button
+                  class="primary"
+                  onClick={handleCreateGroup}
+                  disabled={!newGroupName().trim() || isCreatingGroup()}
+                  aria-busy={isCreatingGroup()}
+                  aria-label="Create group"
+                >
+                  {isCreatingGroup() ? 'Creating...' : 'Create'}
+                </button>
+                <button
+                  class="secondary"
+                  onClick={() => {
+                    setShowCreateGroupModal(false);
+                    setNewGroupName('');
+                  }}
+                  disabled={isCreatingGroup()}
+                  aria-label="Cancel"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </Show>
+
+        {/* Rename Group Modal */}
+        <Show when={showRenameModal()}>
+          <div class="dialog-overlay" onClick={() => setShowRenameModal(false)} role="presentation">
+            <div
+              class="dialog rename-group-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="rename-group-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="rename-group-title">Rename Group</h3>
+              <input
+                type="text"
+                placeholder="New group name"
+                value={renameGroupName()}
+                onInput={(e) => setRenameGroupName(e.target.value)}
+                maxLength={50}
+                aria-label="New group name input"
+              />
+              <p class="char-count" role="status" aria-live="polite">
+                {renameGroupName().length} / 50
+              </p>
+              <div class="dialog-actions">
+                <button
+                  class="primary"
+                  onClick={handleRenameGroup}
+                  disabled={!renameGroupName().trim()}
+                  aria-label="Confirm rename"
+                >
+                  Rename
+                </button>
+                <button
+                  class="secondary"
+                  onClick={() => setShowRenameModal(false)}
+                  aria-label="Cancel"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </Show>
+
+        {/* Delete Group Confirmation */}
+        <Show when={showGroupDeleteConfirm()}>
+          <div
+            class="dialog-overlay"
+            onClick={() => setShowGroupDeleteConfirm(false)}
+            role="presentation"
+          >
+            <div
+              class="dialog delete-confirm"
+              role="alertdialog"
+              aria-labelledby="delete-group-title"
+              aria-describedby="delete-group-description"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="delete-group-title">Delete Group?</h3>
+              <p id="delete-group-description">
+                Deleting this group will not remove the contacts, only the group.
+              </p>
+              <div class="dialog-actions">
+                <button class="danger" onClick={handleDeleteGroup} aria-label="Confirm delete">
+                  Delete
+                </button>
+                <button
+                  class="secondary"
+                  onClick={() => setShowGroupDeleteConfirm(false)}
+                  aria-label="Cancel delete"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </Show>
+
+        {/* Group Detail Modal */}
+        <Show when={selectedGroup()}>
+          <div class="dialog-overlay" onClick={closeGroupDetail} role="presentation">
+            <div
+              class="dialog group-detail"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="group-detail-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="group-detail-title">{selectedGroup()?.name}</h3>
+              <p class="group-contact-count">{groupContacts().length} contacts in this group</p>
+
+              <Show when={groupContacts().length === 0}>
+                <p class="empty-fields" role="status">
+                  No contacts in this group yet.
+                </p>
+              </Show>
+
+              <Show when={groupContacts().length > 0}>
+                <ul class="group-contacts-list" aria-label={`Contacts in ${selectedGroup()?.name}`}>
+                  <For each={groupContacts()}>
+                    {(contact) => (
+                      <li class="group-contact-item">
+                        <span>{contact.display_name}</span>
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </Show>
+
+              <div class="dialog-actions">
+                <button class="secondary" onClick={closeGroupDetail} aria-label="Close">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </Show>
+      </Show>
+
+      {/* All Contacts Tab */}
+      <Show when={activeTab() === 'all'}>
+        <Show when={filteredContacts().length > 0}>
+          <ul class="contacts-list" aria-label="Contacts list" onKeyDown={handleListKeyDown}>
+            <For each={filteredContacts()}>
+              {(contact) => (
+                <li
+                  class="contact-item"
+                  tabIndex={0}
+                  onClick={() => openContactDetail(contact.id)}
+                  onKeyDown={(e) =>
+                    (e.key === 'Enter' || e.key === ' ') &&
+                    (e.preventDefault(), openContactDetail(contact.id))
+                  }
+                  aria-label={`${contact.display_name}, ${contact.verified ? 'verified' : 'not verified'}. Press Enter to view details.`}
+                >
+                  <div class="contact-avatar" aria-hidden="true">
+                    {contact.display_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div class="contact-info">
+                    <span class="contact-name">{contact.display_name}</span>
+                    <span class="contact-status">
+                      {contact.verified ? t('contacts.verified') : t('contacts.not_verified')}
+                      {contact.recovery_trusted && ' · Recovery Trusted'}
+                    </span>
+                  </div>
+                </li>
+              )}
+            </For>
+          </ul>
+        </Show>
+
+        {filteredContacts().length === 0 && searchQuery() && (
+          <div class="empty-state" role="status" aria-live="polite">
+            <p>No contacts match "{searchQuery()}"</p>
+            <button class="secondary" onClick={() => setSearchQuery('')}>
+              Clear search
+            </button>
+          </div>
+        )}
+
+        {contacts()?.length === 0 && !searchQuery() && (
+          <div
+            class="empty-state"
+            role="status"
+            aria-label="No contacts yet. Exchange cards with someone to add contacts."
+          >
+            <p>{t('contacts.empty')}</p>
+            <button onClick={() => props.onNavigate('exchange')}>{t('exchange.title')}</button>
+          </div>
+        )}
+      </Show>
 
       {/* Contact Detail Dialog */}
       <Show when={selectedContact()}>
@@ -752,6 +1178,72 @@ function Contacts(props: ContactsProps) {
                   </div>
                 </div>
               </Show>
+
+              {/* Groups Section */}
+              <div class="groups-section" role="region" aria-label="Contact groups">
+                <h4>Groups</h4>
+                <div class="groups-assigned">
+                  <Show when={contactGroups().length === 0}>
+                    <p class="empty-fields" role="status">
+                      Not in any groups yet.
+                    </p>
+                  </Show>
+                  <Show when={contactGroups().length > 0}>
+                    <div class="group-tags">
+                      <For each={contactGroups()}>
+                        {(group) => (
+                          <div class="group-tag" aria-label={`In group: ${group.name}`}>
+                            <span>{group.name}</span>
+                            <button
+                              class="remove-btn"
+                              onClick={() => handleRemoveContactFromGroup(group.id)}
+                              aria-label={`Remove from ${group.name}`}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
+                </div>
+
+                <div class="add-to-group-section">
+                  <Show when={(groups() || []).length > 0}>
+                    <label for="add-group-select" class="label">
+                      Add to group:
+                    </label>
+                    <select
+                      id="add-group-select"
+                      onChange={(e) => {
+                        const groupId = e.target.value;
+                        if (groupId) {
+                          handleAddContactToGroup(groupId);
+                          e.target.value = '';
+                        }
+                      }}
+                      aria-label="Add contact to group"
+                    >
+                      <option value="">Select a group...</option>
+                      <For each={groups()}>
+                        {(group) => (
+                          <option
+                            value={group.id}
+                            disabled={contactGroups().some((g) => g.id === group.id)}
+                          >
+                            {group.name}
+                          </option>
+                        )}
+                      </For>
+                    </select>
+                  </Show>
+                  <Show when={(groups() || []).length === 0}>
+                    <p class="empty-fields" role="status">
+                      Create a group in the Groups tab to add contacts to it.
+                    </p>
+                  </Show>
+                </div>
+              </div>
 
               {/* Visibility Section */}
               <div class="visibility-section" role="region" aria-label={t('visibility.title')}>
