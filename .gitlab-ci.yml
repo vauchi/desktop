@@ -375,6 +375,61 @@ test:accessibility:
           - ".gitlab-ci.yml"
 
 # ============================================================
+# Coverage Stage (main branch only)
+# ============================================================
+
+coverage:rust:
+  extends: [.rust-runner, .desktop-cache, .timeout-long]
+  stage: test
+  needs:
+    - job: build:frontend-dist
+      artifacts: true
+  before_script:
+    - !reference [.self-hosted, before_script]
+    - !reference [.clone-locales, before_script]
+    - !reference [.clone-themes, before_script]
+  script:
+    - cd src-tauri && cargo llvm-cov nextest --all-targets --no-default-features --features custom-protocol --lcov --output-path lcov.info
+    - cargo llvm-cov report --cobertura --output-path cobertura.xml
+    - cargo llvm-cov report
+  coverage: '/Total:\s+(\d+(?:\.\d+)?%)/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: cobertura.xml
+    paths:
+      - lcov.info
+      - cobertura.xml
+    expire_in: 1 week
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "pipeline" || $CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "api"
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+coverage:frontend:
+  extends: [.node-job, .timeout-quick]
+  stage: test
+  needs:
+    - job: build:frontend-dist
+      artifacts: true
+  script:
+    - cd ui && npm ci --prefer-offline && npx vitest run --coverage --reporter=default --coverage.reporter=cobertura
+  coverage: '/lines:\s+(\d+(?:\.\d+)?%)/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: ui/coverage/cobertura-coverage.xml
+    paths:
+      - ui/coverage/
+    expire_in: 1 week
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "pipeline" || $CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "api"
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# ============================================================
 # Mutation Stage (PI-02)
 # ============================================================
 
