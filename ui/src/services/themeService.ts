@@ -24,6 +24,7 @@ export interface ThemeColors {
   border: string;
 }
 
+/** A complete UI theme definition including color palette, light/dark mode, and metadata. */
 export interface Theme {
   id: string;
   name: string;

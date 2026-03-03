@@ -18,6 +18,7 @@ export interface FaqItem {
   related: string[];
 }
 
+/** A grouping category for FAQ items (e.g. "Privacy", "Accounts"). */
 export interface HelpCategory {
   id: string;
   name: string;

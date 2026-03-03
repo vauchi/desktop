@@ -25,6 +25,7 @@ import {
   type ValidationStatus,
 } from '../services/validationService';
 
+/** Props for the ValidationBadge component identifying which contact field to display trust status for. */
 export interface ValidationBadgeProps {
   contactId: string;
   fieldId: string;
