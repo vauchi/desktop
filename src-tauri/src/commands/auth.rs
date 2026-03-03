@@ -8,7 +8,7 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use tauri::State;
-use vauchi_core::{AppPasswordConfig, AuthResult, DuressSettings};
+use vauchi_core::{AppPasswordConfig, AuthMode, AuthResult, DuressSettings};
 
 use crate::error::CommandError;
 use crate::state::AppState;
@@ -55,12 +55,15 @@ pub fn setup_app_password(
 }
 
 /// Verify a password/PIN and return the auth result.
+///
+/// Sets the auth mode on the app state so that subsequent API calls
+/// (e.g. `list_contacts`) return the correct data for the mode.
 #[tauri::command]
 pub fn authenticate(
     pin: String,
     state: State<'_, Mutex<AppState>>,
 ) -> Result<String, CommandError> {
-    let state = state.lock().unwrap();
+    let mut state = state.lock().unwrap();
 
     let config = state
         .storage
@@ -69,8 +72,14 @@ pub fn authenticate(
 
     match config {
         Some(config) => match config.verify(&pin) {
-            AuthResult::Normal => Ok("normal".to_string()),
-            AuthResult::Duress => Ok("duress".to_string()),
+            AuthResult::Normal => {
+                state.auth_mode = AuthMode::Normal;
+                Ok("normal".to_string())
+            }
+            AuthResult::Duress => {
+                state.auth_mode = AuthMode::Duress;
+                Ok("duress".to_string())
+            }
             AuthResult::Invalid => Ok("invalid".to_string()),
         },
         None => Err(CommandError::Auth("No app password configured".to_string())),

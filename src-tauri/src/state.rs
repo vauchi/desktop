@@ -12,7 +12,7 @@ use anyhow::{Context, Result};
 use vauchi_core::exchange::{
     DeviceLinkInitiatorRestored, DeviceLinkRequest, ExchangeSession, ManualConfirmationVerifier,
 };
-use vauchi_core::{Identity, IdentityBackup, Storage, SymmetricKey};
+use vauchi_core::{AuthMode, Identity, IdentityBackup, Storage, SymmetricKey};
 
 #[cfg(feature = "secure-storage")]
 use vauchi_core::storage::secure::PlatformKeyring;
@@ -67,6 +67,8 @@ pub struct AppState {
     pub pending_link_request: Option<DeviceLinkRequest>,
     /// Sender token for relay response routing (stored between listen and send_response).
     pub pending_sender_token: Option<String>,
+    /// Current authentication mode (Normal, Duress, or Unauthenticated).
+    pub auth_mode: AuthMode,
 }
 
 /// Loads or generates a per-installation random fallback key from `data_dir/.fallback-key`.
@@ -375,6 +377,7 @@ impl AppState {
             pending_initiator: None,
             pending_link_request: None,
             pending_sender_token: None,
+            auth_mode: AuthMode::Unauthenticated,
         })
     }
 

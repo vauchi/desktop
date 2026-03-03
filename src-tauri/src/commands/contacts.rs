@@ -8,7 +8,7 @@ use std::sync::Mutex;
 
 use serde::Serialize;
 use tauri::State;
-use vauchi_core::ContactField;
+use vauchi_core::{AuthMode, ContactField};
 
 use crate::error::CommandError;
 use crate::state::AppState;
@@ -33,9 +33,27 @@ pub struct ContactDetails {
 }
 
 /// List all visible (non-hidden) contacts.
+///
+/// In duress mode, returns decoy contacts instead of real ones.
 #[tauri::command]
 pub fn list_contacts(state: State<'_, Mutex<AppState>>) -> Result<Vec<ContactInfo>, CommandError> {
     let state = state.lock().unwrap();
+
+    if state.auth_mode == AuthMode::Duress {
+        let decoys = state
+            .storage
+            .load_decoy_contacts()
+            .map_err(|e| CommandError::Storage(e.to_string()))?;
+        return Ok(decoys
+            .into_iter()
+            .map(|(id, display_name, _card)| ContactInfo {
+                id,
+                display_name,
+                verified: false,
+                recovery_trusted: false,
+            })
+            .collect());
+    }
 
     let contacts = state.storage.list_contacts()?;
 
@@ -52,6 +70,8 @@ pub fn list_contacts(state: State<'_, Mutex<AppState>>) -> Result<Vec<ContactInf
 }
 
 /// List contacts with pagination.
+///
+/// In duress mode, paginates over decoy contacts.
 #[tauri::command]
 pub fn list_contacts_paginated(
     offset: u32,
@@ -59,6 +79,24 @@ pub fn list_contacts_paginated(
     state: State<'_, Mutex<AppState>>,
 ) -> Result<Vec<ContactInfo>, CommandError> {
     let state = state.lock().unwrap();
+
+    if state.auth_mode == AuthMode::Duress {
+        let decoys = state
+            .storage
+            .load_decoy_contacts()
+            .map_err(|e| CommandError::Storage(e.to_string()))?;
+        return Ok(decoys
+            .into_iter()
+            .skip(offset as usize)
+            .take(limit as usize)
+            .map(|(id, display_name, _card)| ContactInfo {
+                id,
+                display_name,
+                verified: false,
+                recovery_trusted: false,
+            })
+            .collect());
+    }
 
     let contacts = state
         .storage
@@ -76,12 +114,32 @@ pub fn list_contacts_paginated(
 }
 
 /// Search contacts using SQL-level search.
+///
+/// In duress mode, searches decoy contacts by display name.
 #[tauri::command]
 pub fn search_contacts(
     query: String,
     state: State<'_, Mutex<AppState>>,
 ) -> Result<Vec<ContactInfo>, CommandError> {
     let state = state.lock().unwrap();
+
+    if state.auth_mode == AuthMode::Duress {
+        let decoys = state
+            .storage
+            .load_decoy_contacts()
+            .map_err(|e| CommandError::Storage(e.to_string()))?;
+        let query_lower = query.to_lowercase();
+        return Ok(decoys
+            .into_iter()
+            .filter(|(_id, name, _card)| name.to_lowercase().contains(&query_lower))
+            .map(|(id, display_name, _card)| ContactInfo {
+                id,
+                display_name,
+                verified: false,
+                recovery_trusted: false,
+            })
+            .collect());
+    }
 
     let contacts = state.storage.search_contacts(&query)?;
 
@@ -97,12 +155,43 @@ pub fn search_contacts(
 }
 
 /// Get a specific contact.
+///
+/// In duress mode, looks up decoy contacts instead.
 #[tauri::command]
 pub fn get_contact(
     id: String,
     state: State<'_, Mutex<AppState>>,
 ) -> Result<ContactDetails, CommandError> {
     let state = state.lock().unwrap();
+
+    if state.auth_mode == AuthMode::Duress {
+        let decoys = state
+            .storage
+            .load_decoy_contacts()
+            .map_err(|e| CommandError::Storage(e.to_string()))?;
+        let decoy = decoys
+            .into_iter()
+            .find(|(did, _, _)| did == &id)
+            .ok_or_else(|| CommandError::Contact("Contact not found".to_string()))?;
+        let fields: Vec<super::card::FieldInfo> = decoy
+            .2
+            .fields()
+            .iter()
+            .map(|f: &ContactField| super::card::FieldInfo {
+                id: f.id().to_string(),
+                field_type: format!("{:?}", f.field_type()),
+                label: f.label().to_string(),
+                value: f.value().to_string(),
+            })
+            .collect();
+        return Ok(ContactDetails {
+            id: decoy.0,
+            display_name: decoy.1,
+            verified: false,
+            recovery_trusted: false,
+            fields,
+        });
+    }
 
     let contact = state
         .storage
