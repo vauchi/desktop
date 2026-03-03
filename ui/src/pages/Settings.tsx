@@ -80,67 +80,21 @@ function Settings(props: SettingsProps) {
   // Auth mode — "normal", "duress", or "unauthenticated"
   const [authMode, setAuthMode] = createSignal('unauthenticated');
 
-  // Security / duress state
+  // Security / duress status (for summary display)
   const [passwordEnabled, setPasswordEnabled] = createSignal(false);
   const [duressEnabled, setDuressEnabled] = createSignal(false);
-  const [showPasswordDialog, setShowPasswordDialog] = createSignal(false);
-  const [showDuressDialog, setShowDuressDialog] = createSignal(false);
-  const [appPassword, setAppPassword] = createSignal('');
-  const [appPasswordConfirm, setAppPasswordConfirm] = createSignal('');
-  const [duressPin, setDuressPin] = createSignal('');
-  const [dressPinConfirm, setDressPinConfirm] = createSignal('');
-  const [securityError, setSecurityError] = createSignal('');
-  const [securityMessage, setSecurityMessage] = createSignal('');
-  const [showDuressTest, setShowDuressTest] = createSignal(false);
-  const [duressTestInput, setDuressTestInput] = createSignal('');
-  const [duressTestResult, setDuressTestResult] = createSignal('');
 
-  // Duress alert settings state
-  const [duressAlertSettings, setDuressAlertSettings] = createSignal<{
-    alert_contact_ids: string[];
-    alert_message: string;
-    include_location: boolean;
-  } | null>(null);
-  const [showDuressAlertDialog, setShowDuressAlertDialog] = createSignal(false);
-  const [duressAlertContacts, setDuressAlertContacts] = createSignal<
-    { id: string; display_name: string }[]
-  >([]);
-  const [selectedDuressAlertIds, setSelectedDuressAlertIds] = createSignal<Set<string>>(new Set());
-  const [duressAlertMessage, setDuressAlertMessage] = createSignal('I may be under duress.');
-  const [duressAlertIncludeLocation, setDuressAlertIncludeLocation] = createSignal(false);
-
-  // Decoy contacts state
-  const [decoyContacts, setDecoyContacts] = createSignal<{ id: string; display_name: string }[]>(
-    []
-  );
-  const [showAddDecoyDialog, setShowAddDecoyDialog] = createSignal(false);
-  const [newDecoyName, setNewDecoyName] = createSignal('');
-  const [decoyMessage, setDecoyMessage] = createSignal('');
-
-  // GDPR state
-  const [deletionState, setDeletionState] = createSignal<DeletionInfo | null>(null);
-  const [consentRecords, setConsentRecords] = createSignal<ConsentRecordInfo[]>([]);
-  const [gdprMessage, setGdprMessage] = createSignal('');
-  const [showShredConfirm, setShowShredConfirm] = createSignal(false);
-  const [shredResult, setShredResult] = createSignal('');
-
-  // Emergency broadcast state
-  const [availableContacts, setAvailableContacts] = createSignal<
-    { id: string; display_name: string }[]
-  >([]);
-  const [selectedContactIds, setSelectedContactIds] = createSignal<Set<string>>(new Set());
+  // Emergency broadcast status (for summary display)
   const [emergencyConfig, setEmergencyConfig] = createSignal<{
     trusted_contact_ids: string[];
     message: string;
     include_location: boolean;
   } | null>(null);
-  const [showEmergencyDialog, setShowEmergencyDialog] = createSignal(false);
-  const [emergencyMessage, setEmergencyMessage] = createSignal('');
-  const [emergencyContactIds, setEmergencyContactIds] = createSignal('');
-  const [emergencyAlertMsg, setEmergencyAlertMsg] = createSignal(
-    'I may be in danger. Please check on me.'
-  );
-  const [emergencyIncludeLocation, setEmergencyIncludeLocation] = createSignal(false);
+
+  // GDPR state
+  const [deletionState, setDeletionState] = createSignal<DeletionInfo | null>(null);
+  const [consentRecords, setConsentRecords] = createSignal<ConsentRecordInfo[]>([]);
+  const [gdprMessage, setGdprMessage] = createSignal('');
 
   // Tor mode state
   const [torEnabled, setTorEnabled] = createSignal(false);
@@ -222,7 +176,7 @@ function Settings(props: SettingsProps) {
       console.error('Failed to get auth mode:', e);
     }
 
-    // Load security / duress status
+    // Load security / duress status (for summary display)
     try {
       const status = (await invoke('get_duress_status')) as {
         password_enabled: boolean;
@@ -234,34 +188,7 @@ function Settings(props: SettingsProps) {
       console.error('Failed to load duress status:', e);
     }
 
-    // Load duress alert settings
-    try {
-      const ds = (await invoke('get_duress_settings')) as {
-        alert_contact_ids: string[];
-        alert_message: string;
-        include_location: boolean;
-      } | null;
-      setDuressAlertSettings(ds);
-      if (ds) {
-        setDuressAlertMessage(ds.alert_message);
-        setDuressAlertIncludeLocation(ds.include_location);
-      }
-    } catch (e) {
-      console.error('Failed to load duress alert settings:', e);
-    }
-
-    // Load decoy contacts
-    try {
-      const decoys = (await invoke('list_decoy_contacts')) as {
-        id: string;
-        display_name: string;
-      }[];
-      setDecoyContacts(decoys);
-    } catch (e) {
-      console.error('Failed to load decoy contacts:', e);
-    }
-
-    // Load emergency broadcast config
+    // Load emergency broadcast config (for summary display)
     try {
       const ec = (await invoke('get_emergency_config')) as {
         trusted_contact_ids: string[];
@@ -269,11 +196,6 @@ function Settings(props: SettingsProps) {
         include_location: boolean;
       } | null;
       setEmergencyConfig(ec);
-      if (ec) {
-        setEmergencyContactIds(ec.trusted_contact_ids.join(', '));
-        setEmergencyAlertMsg(ec.message);
-        setEmergencyIncludeLocation(ec.include_location);
-      }
     } catch (e) {
       console.error('Failed to load emergency config:', e);
     }
@@ -365,131 +287,6 @@ function Settings(props: SettingsProps) {
     setSelectedLocaleCode(code);
     // Reload page to apply locale changes fully
     window.location.reload();
-  };
-
-  const handleSetupPassword = async () => {
-    setSecurityError('');
-    setSecurityMessage('');
-    if (appPassword().length < 4) {
-      setSecurityError('Password must be at least 4 characters');
-      return;
-    }
-    if (appPassword() !== appPasswordConfirm()) {
-      setSecurityError('Passwords do not match');
-      return;
-    }
-    try {
-      await invoke('setup_app_password', { password: appPassword() });
-      setPasswordEnabled(true);
-      setShowPasswordDialog(false);
-      setAppPassword('');
-      setAppPasswordConfirm('');
-      setSecurityMessage('App password set');
-    } catch (e) {
-      setSecurityError(String(e));
-    }
-  };
-
-  const handleSetupDuress = async () => {
-    setSecurityError('');
-    setSecurityMessage('');
-    if (duressPin().length < 4) {
-      setSecurityError('Duress PIN must be at least 4 characters');
-      return;
-    }
-    if (duressPin() !== dressPinConfirm()) {
-      setSecurityError('PINs do not match');
-      return;
-    }
-    try {
-      await invoke('setup_duress_pin', { duressPin: duressPin() });
-      setDuressEnabled(true);
-      setShowDuressDialog(false);
-      setDuressPin('');
-      setDressPinConfirm('');
-      setSecurityMessage('Duress PIN configured');
-    } catch (e) {
-      setSecurityError(String(e));
-    }
-  };
-
-  const handleDisableDuress = async () => {
-    setSecurityError('');
-    try {
-      await invoke('disable_duress');
-      setDuressEnabled(false);
-      setSecurityMessage('Duress PIN disabled');
-    } catch (e) {
-      setSecurityError(String(e));
-    }
-  };
-
-  const handleTestDuress = async () => {
-    const pin = duressTestInput().trim();
-    if (!pin) {
-      setDuressTestResult('Please enter a PIN to test');
-      return;
-    }
-    try {
-      const result = (await invoke('test_duress_auth', { password: pin })) as { mode: string };
-      if (result.mode === 'duress') {
-        setDuressTestResult('Duress mode detected — alerts would trigger in real scenario');
-      } else if (result.mode === 'normal') {
-        setDuressTestResult('Normal unlock — no alerts triggered');
-      } else {
-        setDuressTestResult('Invalid PIN — authentication failed');
-      }
-    } catch (e) {
-      setDuressTestResult(String(e));
-    }
-  };
-
-  const handleSaveEmergencyConfig = async () => {
-    setEmergencyMessage('');
-    const ids = emergencyContactIds()
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-    if (ids.length === 0) {
-      setEmergencyMessage('Please enter at least one trusted contact ID');
-      return;
-    }
-    if (ids.length > 10) {
-      setEmergencyMessage('Maximum 10 trusted contacts allowed');
-      return;
-    }
-    try {
-      await invoke('save_emergency_config', {
-        config: {
-          trusted_contact_ids: ids,
-          message: emergencyAlertMsg(),
-          include_location: emergencyIncludeLocation(),
-        },
-      });
-      setEmergencyConfig({
-        trusted_contact_ids: ids,
-        message: emergencyAlertMsg(),
-        include_location: emergencyIncludeLocation(),
-      });
-      setShowEmergencyDialog(false);
-      setEmergencyMessage('Emergency broadcast configured');
-    } catch (e) {
-      setEmergencyMessage(`Failed to save: ${e}`);
-    }
-  };
-
-  const handleDisableEmergencyConfig = async () => {
-    setEmergencyMessage('');
-    try {
-      await invoke('delete_emergency_config');
-      setEmergencyConfig(null);
-      setEmergencyContactIds('');
-      setEmergencyAlertMsg('I may be in danger. Please check on me.');
-      setEmergencyIncludeLocation(false);
-      setEmergencyMessage('Emergency broadcast disabled');
-    } catch (e) {
-      setEmergencyMessage(`Failed to disable: ${e}`);
-    }
   };
 
   const handleToggleTor = async () => {
@@ -794,27 +591,6 @@ function Settings(props: SettingsProps) {
     setIsCheckingContent(false);
   };
 
-  const handlePanicShred = async () => {
-    try {
-      const result = (await invoke('panic_shred')) as {
-        contacts_notified: number;
-        relay_purge_sent: boolean;
-        smk_destroyed: boolean;
-        sqlite_destroyed: boolean;
-        all_clear: boolean;
-      };
-      setShredResult(
-        result.all_clear
-          ? 'Emergency shred complete. All data destroyed.'
-          : 'Shred completed with warnings. Check logs.'
-      );
-      setShowShredConfirm(false);
-    } catch (e) {
-      setShredResult(`Shred failed: ${e}`);
-      setShowShredConfirm(false);
-    }
-  };
-
   const handleExportGdprData = async () => {
     try {
       const json = (await invoke('export_gdpr_data')) as string;
@@ -948,775 +724,46 @@ function Settings(props: SettingsProps) {
         </div>
       </section>
 
-      {/* Security / Duress PIN Section — hidden in duress mode */}
+      {/* Resistance Features Section — hidden in duress mode */}
       <Show when={authMode() !== 'duress'}>
-        <section class="settings-section" aria-labelledby="security-section-title">
-          <h2 id="security-section-title">Security</h2>
+        <section class="settings-section" aria-labelledby="resistance-section-title">
+          <h2 id="resistance-section-title">Security & Resistance</h2>
           <p class="setting-description">
-            Protect your data with an app password and optional duress PIN.
+            Protect your data with duress protection, emergency broadcasts, and data wipe.
           </p>
 
-          <Show when={securityMessage()}>
-            <p class="success-message" role="status">
-              {securityMessage()}
-            </p>
-          </Show>
-
-          {/* App Password */}
           <div class="setting-item">
-            <span class="setting-label">App Password</span>
-            <span class="setting-value">{passwordEnabled() ? 'Enabled' : 'Not set'}</span>
+            <span class="setting-label">Duress Protection</span>
+            <span class="setting-value">
+              {duressEnabled() ? 'Enabled' : passwordEnabled() ? 'PIN not set' : 'Not configured'}
+            </span>
           </div>
-          <Show when={!passwordEnabled()}>
-            <div class="setting-buttons">
-              <button
-                class="secondary"
-                onClick={() => {
-                  setSecurityError('');
-                  setShowPasswordDialog(true);
-                }}
-                aria-label="Set app password"
-              >
-                Set App Password
-              </button>
-            </div>
-          </Show>
-
-          {/* Duress PIN */}
-          <Show when={passwordEnabled()}>
-            <div class="setting-item">
-              <span class="setting-label">Duress PIN</span>
-              <span class="setting-value">{duressEnabled() ? 'Enabled' : 'Not set'}</span>
-            </div>
-            <div class="setting-buttons">
-              <Show when={!duressEnabled()}>
-                <button
-                  class="secondary"
-                  onClick={() => {
-                    setSecurityError('');
-                    setShowDuressDialog(true);
-                  }}
-                  aria-label="Set duress PIN"
-                >
-                  Set Duress PIN
-                </button>
-              </Show>
-              <Show when={duressEnabled()}>
-                <button
-                  class="danger"
-                  onClick={handleDisableDuress}
-                  aria-label="Disable duress PIN"
-                >
-                  Disable Duress PIN
-                </button>
-                <button
-                  class="secondary"
-                  onClick={() => {
-                    setDuressTestInput('');
-                    setDuressTestResult('');
-                    setShowDuressTest(true);
-                  }}
-                  aria-label="Test duress PIN without triggering alerts"
-                >
-                  Test Duress Mode
-                </button>
-              </Show>
-            </div>
-            <Show when={duressEnabled()}>
-              <p class="setting-description">
-                When entered, contacts will be replaced with decoy data.
-              </p>
-
-              {/* Duress Alert Recipients */}
-              <div class="setting-item">
-                <span class="setting-label">Alert Recipients</span>
-                <span class="setting-value">
-                  {duressAlertSettings()
-                    ? `${duressAlertSettings()!.alert_contact_ids.length} contact${duressAlertSettings()!.alert_contact_ids.length !== 1 ? 's' : ''}`
-                    : 'Not configured'}
-                </span>
-              </div>
-              <p class="setting-description">
-                These contacts are silently notified when the duress PIN is used.
-              </p>
-              <div class="setting-buttons">
-                <button
-                  class="secondary"
-                  onClick={async () => {
-                    try {
-                      const contacts = (await invoke('list_contacts')) as {
-                        id: string;
-                        display_name: string;
-                      }[];
-                      setDuressAlertContacts(contacts);
-                      const existing = duressAlertSettings()?.alert_contact_ids || [];
-                      setSelectedDuressAlertIds(new Set(existing));
-                    } catch {
-                      setDuressAlertContacts([]);
-                    }
-                    setShowDuressAlertDialog(true);
-                  }}
-                  aria-label="Configure duress alert recipients"
-                >
-                  {duressAlertSettings() ? 'Edit Alert Settings' : 'Configure Alerts'}
-                </button>
-              </div>
-
-              {/* Decoy Contacts */}
-              <div class="setting-item">
-                <span class="setting-label">Decoy Contacts</span>
-                <span class="setting-value">
-                  {decoyContacts().length} contact{decoyContacts().length !== 1 ? 's' : ''}
-                </span>
-              </div>
-              <p class="setting-description">
-                Fake contacts shown instead of real ones when duress mode is active.
-              </p>
-              <Show when={decoyContacts().length > 0}>
-                <ul class="decoy-contact-list" aria-label="Decoy contacts">
-                  <For each={decoyContacts()}>
-                    {(decoy) => (
-                      <li class="decoy-contact-item">
-                        <span>{decoy.display_name}</span>
-                        <button
-                          class="danger small"
-                          onClick={async () => {
-                            try {
-                              await invoke('remove_decoy_contact', { id: decoy.id });
-                              setDecoyContacts((prev) => prev.filter((c) => c.id !== decoy.id));
-                            } catch (e) {
-                              setDecoyMessage(`Failed to remove: ${e}`);
-                            }
-                          }}
-                          aria-label={`Remove decoy contact ${decoy.display_name}`}
-                        >
-                          Remove
-                        </button>
-                      </li>
-                    )}
-                  </For>
-                </ul>
-              </Show>
-              <Show when={decoyMessage()}>
-                <p class="sync-message" role="status" aria-live="polite">
-                  {decoyMessage()}
-                </p>
-              </Show>
-              <div class="setting-buttons">
-                <button
-                  class="secondary"
-                  onClick={() => {
-                    setNewDecoyName('');
-                    setShowAddDecoyDialog(true);
-                  }}
-                  aria-label="Add a decoy contact"
-                >
-                  Add Decoy Contact
-                </button>
-                <Show when={decoyContacts().length > 0}>
-                  <button
-                    class="danger"
-                    onClick={async () => {
-                      try {
-                        await invoke('clear_decoy_contacts');
-                        setDecoyContacts([]);
-                        setDecoyMessage('All decoy contacts removed.');
-                        setTimeout(() => setDecoyMessage(''), 3000);
-                      } catch (e) {
-                        setDecoyMessage(`Failed: ${e}`);
-                      }
-                    }}
-                    aria-label="Remove all decoy contacts"
-                  >
-                    Clear All
-                  </button>
-                </Show>
-              </div>
-            </Show>
-          </Show>
-
-          {/* Set App Password Dialog */}
-          <Show when={showPasswordDialog()}>
-            <div
-              class="dialog-overlay"
-              onClick={() => setShowPasswordDialog(false)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') setShowPasswordDialog(false);
-              }}
-              role="presentation"
-            >
-              <div
-                class="dialog"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="password-dialog-title"
-                tabIndex={-1}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h3 id="password-dialog-title">Set App Password</h3>
-                <Show when={securityError()}>
-                  <p class="error" role="alert">
-                    {securityError()}
-                  </p>
-                </Show>
-                <label>
-                  Password
-                  <input
-                    type="password"
-                    value={appPassword()}
-                    onInput={(e) => setAppPassword(e.currentTarget.value)}
-                    placeholder="Enter password"
-                    aria-label="App password"
-                  />
-                </label>
-                <label>
-                  Confirm Password
-                  <input
-                    type="password"
-                    value={appPasswordConfirm()}
-                    onInput={(e) => setAppPasswordConfirm(e.currentTarget.value)}
-                    placeholder="Confirm password"
-                    aria-label="Confirm app password"
-                  />
-                </label>
-                <div class="dialog-actions">
-                  <button
-                    class="secondary"
-                    onClick={() => setShowPasswordDialog(false)}
-                    aria-label="Cancel setting app password"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    class="primary"
-                    onClick={handleSetupPassword}
-                    aria-label="Set app password"
-                  >
-                    Set Password
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Show>
-
-          {/* Set Duress PIN Dialog */}
-          <Show when={showDuressDialog()}>
-            <div
-              class="dialog-overlay"
-              onClick={() => setShowDuressDialog(false)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') setShowDuressDialog(false);
-              }}
-              role="presentation"
-            >
-              <div
-                class="dialog"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="duress-dialog-title"
-                aria-describedby="duress-dialog-description"
-                tabIndex={-1}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h3 id="duress-dialog-title">Set Duress PIN</h3>
-                <p id="duress-dialog-description" class="setting-description">
-                  When this PIN is entered instead of the app password, contacts will be replaced
-                  with decoy data.
-                </p>
-                <Show when={securityError()}>
-                  <p class="error" role="alert">
-                    {securityError()}
-                  </p>
-                </Show>
-                <label>
-                  Duress PIN
-                  <input
-                    type="password"
-                    value={duressPin()}
-                    onInput={(e) => setDuressPin(e.currentTarget.value)}
-                    placeholder="Enter duress PIN"
-                    aria-label="Duress PIN"
-                  />
-                </label>
-                <label>
-                  Confirm Duress PIN
-                  <input
-                    type="password"
-                    value={dressPinConfirm()}
-                    onInput={(e) => setDressPinConfirm(e.currentTarget.value)}
-                    placeholder="Confirm duress PIN"
-                    aria-label="Confirm duress PIN"
-                  />
-                </label>
-                <div class="dialog-actions">
-                  <button
-                    class="secondary"
-                    onClick={() => setShowDuressDialog(false)}
-                    aria-label="Cancel setting duress PIN"
-                  >
-                    Cancel
-                  </button>
-                  <button class="primary" onClick={handleSetupDuress} aria-label="Set duress PIN">
-                    Set Duress PIN
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Show>
-
-          {/* Test Duress Mode Dialog */}
-          <Show when={showDuressTest()}>
-            <div
-              class="dialog-overlay"
-              onClick={() => setShowDuressTest(false)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') setShowDuressTest(false);
-              }}
-              role="presentation"
-            >
-              <div
-                class="dialog"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="duress-test-title"
-                aria-describedby="duress-test-description"
-                tabIndex={-1}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h3 id="duress-test-title">Test Duress Mode</h3>
-                <p id="duress-test-description" class="setting-description">
-                  Enter a PIN to test whether it triggers normal or duress mode. No alerts will be
-                  sent.
-                </p>
-                <Show when={duressTestResult()}>
-                  <p class="sync-message" role="status" aria-live="polite">
-                    {duressTestResult()}
-                  </p>
-                </Show>
-                <label>
-                  PIN
-                  <input
-                    type="password"
-                    value={duressTestInput()}
-                    onInput={(e) => setDuressTestInput(e.currentTarget.value)}
-                    placeholder="Enter PIN to test"
-                    aria-label="PIN to test"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleTestDuress();
-                    }}
-                  />
-                </label>
-                <div class="dialog-actions">
-                  <button
-                    class="secondary"
-                    onClick={() => setShowDuressTest(false)}
-                    aria-label="Close test dialog"
-                  >
-                    Close
-                  </button>
-                  <button class="primary" onClick={handleTestDuress} aria-label="Test this PIN">
-                    Test
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Show>
-
-          {/* Duress Alert Settings Dialog */}
-          <Show when={showDuressAlertDialog()}>
-            <div
-              class="dialog-overlay"
-              onClick={() => setShowDuressAlertDialog(false)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') setShowDuressAlertDialog(false);
-              }}
-              role="presentation"
-            >
-              <div
-                class="dialog"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="duress-alert-dialog-title"
-                tabIndex={-1}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h3 id="duress-alert-dialog-title">Duress Alert Settings</h3>
-                <p class="setting-description">
-                  Choose contacts to silently notify and customize the alert message sent when the
-                  duress PIN is used.
-                </p>
-
-                <fieldset class="contact-picker" aria-label="Select alert recipients">
-                  <legend>Alert Recipients (max 5)</legend>
-                  <Show
-                    when={duressAlertContacts().length > 0}
-                    fallback={
-                      <p class="empty-fields">No contacts available. Exchange cards first.</p>
-                    }
-                  >
-                    <ul class="contact-picker-list">
-                      <For each={duressAlertContacts()}>
-                        {(contact) => (
-                          <li class="contact-picker-item">
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={selectedDuressAlertIds().has(contact.id)}
-                                onChange={() => {
-                                  const ids = new Set(selectedDuressAlertIds());
-                                  if (ids.has(contact.id)) {
-                                    ids.delete(contact.id);
-                                  } else if (ids.size < 5) {
-                                    ids.add(contact.id);
-                                  }
-                                  setSelectedDuressAlertIds(ids);
-                                }}
-                                disabled={
-                                  !selectedDuressAlertIds().has(contact.id) &&
-                                  selectedDuressAlertIds().size >= 5
-                                }
-                              />
-                              <span>{contact.display_name}</span>
-                            </label>
-                          </li>
-                        )}
-                      </For>
-                    </ul>
-                    <p class="setting-description">{selectedDuressAlertIds().size} of 5 selected</p>
-                  </Show>
-                </fieldset>
-
-                <label>
-                  Alert Message
-                  <input
-                    type="text"
-                    value={duressAlertMessage()}
-                    onInput={(e) => setDuressAlertMessage(e.currentTarget.value)}
-                    placeholder="Message sent to alert recipients"
-                    aria-label="Duress alert message"
-                  />
-                </label>
-
-                <label class="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={duressAlertIncludeLocation()}
-                    onChange={() => setDuressAlertIncludeLocation(!duressAlertIncludeLocation())}
-                  />
-                  Include device location in alert
-                </label>
-
-                <div class="dialog-actions">
-                  <button
-                    class="secondary"
-                    onClick={() => setShowDuressAlertDialog(false)}
-                    aria-label="Cancel duress alert settings"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    class="primary"
-                    onClick={async () => {
-                      try {
-                        const settings = {
-                          alert_contact_ids: Array.from(selectedDuressAlertIds()),
-                          alert_message: duressAlertMessage(),
-                          include_location: duressAlertIncludeLocation(),
-                        };
-                        await invoke('save_duress_settings', { settings });
-                        setDuressAlertSettings(settings);
-                        setShowDuressAlertDialog(false);
-                        setSecurityMessage('Duress alert settings saved.');
-                        setTimeout(() => setSecurityMessage(''), 3000);
-                      } catch (e) {
-                        setSecurityError(`Failed to save: ${e}`);
-                      }
-                    }}
-                    aria-label="Save duress alert settings"
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Show>
-
-          {/* Add Decoy Contact Dialog */}
-          <Show when={showAddDecoyDialog()}>
-            <div
-              class="dialog-overlay"
-              onClick={() => setShowAddDecoyDialog(false)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') setShowAddDecoyDialog(false);
-              }}
-              role="presentation"
-            >
-              <div
-                class="dialog"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="add-decoy-dialog-title"
-                tabIndex={-1}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h3 id="add-decoy-dialog-title">Add Decoy Contact</h3>
-                <p class="setting-description">
-                  Create a fake contact name that will appear in duress mode.
-                </p>
-                <label>
-                  Display Name
-                  <input
-                    type="text"
-                    value={newDecoyName()}
-                    onInput={(e) => setNewDecoyName(e.currentTarget.value)}
-                    placeholder="e.g. John Smith"
-                    aria-label="Decoy contact name"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && newDecoyName().trim()) {
-                        (
-                          e.currentTarget
-                            .closest('.dialog')
-                            ?.querySelector('.primary') as HTMLButtonElement
-                        )?.click();
-                      }
-                    }}
-                  />
-                </label>
-                <div class="dialog-actions">
-                  <button
-                    class="secondary"
-                    onClick={() => setShowAddDecoyDialog(false)}
-                    aria-label="Cancel adding decoy contact"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    class="primary"
-                    disabled={!newDecoyName().trim()}
-                    onClick={async () => {
-                      try {
-                        const result = (await invoke('add_decoy_contact', {
-                          input: { display_name: newDecoyName().trim() },
-                        })) as { id: string; display_name: string };
-                        setDecoyContacts((prev) => [...prev, result]);
-                        setShowAddDecoyDialog(false);
-                        setDecoyMessage('Decoy contact added.');
-                        setTimeout(() => setDecoyMessage(''), 3000);
-                      } catch (e) {
-                        setDecoyMessage(`Failed: ${e}`);
-                      }
-                    }}
-                    aria-label="Add decoy contact"
-                  >
-                    Add
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Show>
-        </section>
-      </Show>
-
-      {/* Emergency Broadcast Section — hidden in duress mode */}
-      <Show when={authMode() !== 'duress'}>
-        <section class="settings-section" aria-labelledby="emergency-section-title">
-          <h2 id="emergency-section-title">Emergency Broadcast</h2>
-          <p class="setting-description">
-            Send one-tap encrypted alerts to trusted contacts when you feel unsafe.
-          </p>
 
           <div class="setting-item">
-            <span class="setting-label">Status</span>
+            <span class="setting-label">Emergency Broadcast</span>
             <span class="setting-value">
               {emergencyConfig()
-                ? `Configured (${emergencyConfig()!.trusted_contact_ids.length} contact${emergencyConfig()!.trusted_contact_ids.length !== 1 ? 's' : ''})`
+                ? `${emergencyConfig()!.trusted_contact_ids.length} contact${emergencyConfig()!.trusted_contact_ids.length !== 1 ? 's' : ''}`
                 : 'Not configured'}
             </span>
           </div>
 
-          <Show when={emergencyMessage()}>
-            <p class="sync-message" role="status" aria-live="polite">
-              {emergencyMessage()}
-            </p>
-          </Show>
-
-          <div class="setting-buttons">
+          <div class="setting-buttons" role="group" aria-label="Resistance feature options">
             <button
               class="secondary"
-              onClick={async () => {
-                setEmergencyMessage('');
-                try {
-                  const contacts = (await invoke('list_contacts')) as {
-                    id: string;
-                    display_name: string;
-                  }[];
-                  setAvailableContacts(contacts);
-                  const existing = emergencyConfig()?.trusted_contact_ids || [];
-                  setSelectedContactIds(new Set(existing));
-                } catch {
-                  setAvailableContacts([]);
-                }
-                setShowEmergencyDialog(true);
-              }}
-              aria-label="Configure emergency broadcast"
+              onClick={() => props.onNavigate('duress-settings')}
+              aria-label="Manage duress protection settings"
             >
-              {emergencyConfig() ? 'Edit Configuration' : 'Configure'}
+              Duress Settings
             </button>
-            <Show when={emergencyConfig()}>
-              <button
-                class="primary"
-                onClick={async () => {
-                  setEmergencyMessage('');
-                  const contactCount = emergencyConfig()?.trusted_contact_ids?.length ?? 0;
-                  if (!window.confirm(`Send alert to ${contactCount} contacts?`)) {
-                    return;
-                  }
-                  try {
-                    const result = (await invoke('send_emergency_broadcast')) as {
-                      sent: number;
-                      total: number;
-                    };
-                    setEmergencyMessage(
-                      `Alert queued for ${result.sent} of ${result.total} contacts.`
-                    );
-                    setTimeout(() => setEmergencyMessage(''), 5000);
-                  } catch (e) {
-                    setEmergencyMessage(`Failed to send: ${e}`);
-                  }
-                }}
-                aria-label="Send emergency broadcast now"
-              >
-                Send Alert Now
-              </button>
-              <button
-                class="danger"
-                onClick={handleDisableEmergencyConfig}
-                aria-label="Disable emergency broadcast"
-              >
-                Disable
-              </button>
-            </Show>
-          </div>
-
-          {/* Emergency Broadcast Configuration Dialog */}
-          <Show when={showEmergencyDialog()}>
-            <div
-              class="dialog-overlay"
-              onClick={() => setShowEmergencyDialog(false)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') setShowEmergencyDialog(false);
-              }}
-              role="presentation"
+            <button
+              class="secondary"
+              onClick={() => props.onNavigate('emergency-wipe')}
+              aria-label="Manage emergency broadcast and data wipe"
             >
-              <div
-                class="dialog"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="emergency-dialog-title"
-                aria-describedby="emergency-dialog-description"
-                tabIndex={-1}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h3 id="emergency-dialog-title">Emergency Broadcast Configuration</h3>
-                <p id="emergency-dialog-description" class="setting-description">
-                  Choose up to 10 trusted contacts to receive an encrypted alert. Alerts look like
-                  normal sync traffic on the wire.
-                </p>
-
-                <Show when={emergencyMessage()}>
-                  <p class="error" role="alert">
-                    {emergencyMessage()}
-                  </p>
-                </Show>
-
-                <fieldset class="contact-picker" aria-label="Select trusted contacts">
-                  <legend>Trusted Contacts (max 10)</legend>
-                  <Show
-                    when={availableContacts().length > 0}
-                    fallback={
-                      <p class="empty-fields">No contacts available. Exchange cards first.</p>
-                    }
-                  >
-                    <ul class="contact-picker-list">
-                      <For each={availableContacts()}>
-                        {(contact) => (
-                          <li class="contact-picker-item">
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={selectedContactIds().has(contact.id)}
-                                onChange={() => {
-                                  const ids = new Set(selectedContactIds());
-                                  if (ids.has(contact.id)) {
-                                    ids.delete(contact.id);
-                                  } else if (ids.size < 10) {
-                                    ids.add(contact.id);
-                                  }
-                                  setSelectedContactIds(ids);
-                                  setEmergencyContactIds(Array.from(ids).join(', '));
-                                }}
-                                disabled={
-                                  !selectedContactIds().has(contact.id) &&
-                                  selectedContactIds().size >= 10
-                                }
-                                aria-label={`Select ${contact.display_name} as trusted contact`}
-                              />
-                              <span>{contact.display_name}</span>
-                            </label>
-                          </li>
-                        )}
-                      </For>
-                    </ul>
-                    <p class="setting-description">{selectedContactIds().size} of 10 selected</p>
-                  </Show>
-                </fieldset>
-
-                <label>
-                  Alert Message
-                  <input
-                    type="text"
-                    value={emergencyAlertMsg()}
-                    onInput={(e) => setEmergencyAlertMsg(e.currentTarget.value)}
-                    placeholder="I may be in danger. Please check on me."
-                    aria-label="Emergency alert message"
-                  />
-                </label>
-
-                <div class="accessibility-toggle">
-                  <label for="emergency-location-toggle">
-                    Include Location
-                    <span class="toggle-description">Attach device location to the alert</span>
-                  </label>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="emergency-location-toggle"
-                      checked={emergencyIncludeLocation()}
-                      onChange={() => setEmergencyIncludeLocation(!emergencyIncludeLocation())}
-                    />
-                    <span class="toggle-slider" aria-hidden="true" />
-                  </div>
-                </div>
-
-                <div class="dialog-actions">
-                  <button
-                    class="secondary"
-                    onClick={() => setShowEmergencyDialog(false)}
-                    aria-label="Cancel emergency broadcast configuration"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    class="primary"
-                    onClick={handleSaveEmergencyConfig}
-                    aria-label="Save emergency broadcast configuration"
-                  >
-                    Save Configuration
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Show>
+              Emergency Features
+            </button>
+          </div>
         </section>
       </Show>
 
@@ -2336,70 +1383,19 @@ function Settings(props: SettingsProps) {
             </div>
           </div>
 
-          {/* Emergency Shred */}
+          {/* Emergency Wipe — link to dedicated page */}
           <div class="setting-item">
             <button
               class="danger"
-              onClick={() => setShowShredConfirm(true)}
-              aria-label="Emergency panic shred - destroy all data immediately"
+              onClick={() => props.onNavigate('emergency-wipe')}
+              aria-label="Open emergency data wipe page"
             >
-              Emergency Shred
+              Emergency Wipe
             </button>
             <span class="setting-description">
-              Immediately destroy all data. No grace period. Irreversible.
+              Immediately destroy all data. Includes countdown and confirmation.
             </span>
           </div>
-
-          <Show when={shredResult()}>
-            <div class="setting-message" aria-live="polite">
-              {shredResult()}
-            </div>
-          </Show>
-
-          {/* Emergency Shred Confirmation Dialog */}
-          <Show when={showShredConfirm()}>
-            <div
-              class="dialog-overlay"
-              onClick={() => setShowShredConfirm(false)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') setShowShredConfirm(false);
-              }}
-              role="presentation"
-            >
-              <div
-                class="dialog"
-                role="alertdialog"
-                aria-modal="true"
-                aria-labelledby="shred-dialog-title"
-                aria-describedby="shred-dialog-description"
-                tabIndex={-1}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h3 id="shred-dialog-title">Emergency Shred</h3>
-                <p id="shred-dialog-description">
-                  This will <strong>immediately and irreversibly</strong> destroy all your data,
-                  including contacts, identity, and encryption keys. This cannot be undone.
-                </p>
-                <p>Are you sure you want to proceed?</p>
-                <div class="dialog-actions">
-                  <button
-                    class="secondary"
-                    onClick={() => setShowShredConfirm(false)}
-                    aria-label="Cancel emergency shred"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    class="danger"
-                    onClick={handlePanicShred}
-                    aria-label="Destroy all data immediately"
-                  >
-                    Destroy All Data
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Show>
 
           <Show when={gdprMessage()}>
             <div class="setting-message" aria-live="polite">

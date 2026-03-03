@@ -67,5 +67,8 @@ export interface SettingsProps {
       | 'recovery'
       | 'help'
       | 'support'
+      | 'delivery'
+      | 'duress-settings'
+      | 'emergency-wipe'
   ) => void;
 }

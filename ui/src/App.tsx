@@ -15,6 +15,8 @@ import Recovery from './pages/Recovery';
 import Help from './pages/Help';
 import SupportUs from './pages/SupportUs';
 import Delivery from './pages/Delivery';
+import DuressSettings from './pages/DuressSettings';
+import EmergencyWipe from './pages/EmergencyWipe';
 import { initializeTheme } from './services/themeService';
 import { initializeLocale } from './services/i18nService';
 
@@ -29,7 +31,9 @@ type Page =
   | 'recovery'
   | 'help'
   | 'support'
-  | 'delivery';
+  | 'delivery'
+  | 'duress-settings'
+  | 'emergency-wipe';
 
 interface DuressStatus {
   password_enabled: boolean;
@@ -109,6 +113,10 @@ function App() {
         return <SupportUs onNavigate={setPage} />;
       case 'delivery':
         return <Delivery onNavigate={setPage} />;
+      case 'duress-settings':
+        return <DuressSettings onNavigate={setPage} />;
+      case 'emergency-wipe':
+        return <EmergencyWipe onNavigate={setPage} />;
       default:
         return <Home onNavigate={setPage} />;
     }
