@@ -101,6 +101,7 @@ function Contacts(props: ContactsProps) {
   const [isVerifying, setIsVerifying] = createSignal(false);
   const [isTogglingTrust, setIsTogglingTrust] = createSignal(false);
   const [error, setError] = createSignal('');
+  const [statusMessage, setStatusMessage] = createSignal('');
   const [searchQuery, setSearchQuery] = createSignal('');
 
   const [triggerElement, setTriggerElement] = createSignal<HTMLElement | null>(null);
@@ -333,7 +334,8 @@ function Contacts(props: ContactsProps) {
     setContextMenu(null);
     if (actionType === 'copy') {
       await navigator.clipboard.writeText(field.value);
-      setError('Copied to clipboard.');
+      setStatusMessage('Copied to clipboard');
+      setTimeout(() => setStatusMessage(''), 3000);
       return;
     }
     if (actionType === 'directions') {
@@ -369,12 +371,14 @@ function Contacts(props: ContactsProps) {
       if (!result.success && result.error) {
         // If opening failed, copy to clipboard as fallback
         await navigator.clipboard.writeText(field.value);
-        setError(`${result.error} Value copied to clipboard.`);
+        setStatusMessage(`${result.error} Value copied to clipboard.`);
+        setTimeout(() => setStatusMessage(''), 3000);
       }
     } catch {
       // Fallback: copy to clipboard
       await navigator.clipboard.writeText(field.value);
-      setError(`Could not open. Copied to clipboard.`);
+      setStatusMessage(`Could not open. Copied to clipboard.`);
+      setTimeout(() => setStatusMessage(''), 3000);
     }
   };
 
@@ -607,6 +611,12 @@ function Contacts(props: ContactsProps) {
               <Show when={error()}>
                 <p class="error" role="alert" aria-live="assertive">
                   {error()}
+                </p>
+              </Show>
+
+              <Show when={statusMessage()}>
+                <p class="success-message" role="status" aria-live="polite">
+                  {statusMessage()}
                 </p>
               </Show>
 

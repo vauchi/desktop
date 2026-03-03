@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import { createResource, For, createSignal, createEffect, Show, onCleanup } from 'solid-js';
+import { createResource, For, createSignal, createEffect, Show, onCleanup, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { t, tArgs } from '../services/i18nService';
 import { checkAhaMoment, type AhaMoment } from '../services/ahaService';
@@ -70,6 +70,18 @@ function Home(props: HomeProps) {
   const [isEditSaving, setIsEditSaving] = createSignal(false);
   const [ahaMoment, setAhaMoment] = createSignal<AhaMoment | null>(null);
   const [triggerElement, setTriggerElement] = createSignal<HTMLElement | null>(null);
+
+  // Keyboard shortcut: Ctrl+N / Cmd+N to open Add Field dialog
+  onMount(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+        e.preventDefault();
+        setShowAddField(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
+  });
 
   const handleListKeyDown = (e: KeyboardEvent) => {
     const list = e.currentTarget as HTMLElement;
