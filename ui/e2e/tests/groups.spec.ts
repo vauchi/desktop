@@ -4,7 +4,12 @@
 
 import { test, expect } from '@playwright/test';
 import { tauriMockScript } from '../fixtures/tauri-mock';
-import { setupTestUser, generateQRCode, completeExchange, navigateTo } from '../fixtures/test-helpers';
+import {
+  setupTestUser,
+  generateQRCode,
+  completeExchange,
+  navigateTo,
+} from '../fixtures/test-helpers';
 
 // CRIT-SP-12a: Contact group management
 
@@ -121,7 +126,9 @@ test.describe('Contact Groups Management', () => {
     await expect(page.locator('.groups-assigned')).toContainText('Work');
 
     // Remove from group
-    await page.click('.groups-assigned .group-tag:has-text("Work") button[aria-label="Remove from group"]');
+    await page.click(
+      '.groups-assigned .group-tag:has-text("Work") button[aria-label="Remove from group"]'
+    );
 
     // Verify removed
     await expect(page.locator('.groups-assigned')).not.toContainText('Work');
