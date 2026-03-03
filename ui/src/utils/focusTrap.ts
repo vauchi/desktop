@@ -14,9 +14,7 @@ export function createFocusTrap(container: HTMLElement): () => void {
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key !== 'Tab') return;
 
-    const focusable = Array.from(
-      container.querySelectorAll<HTMLElement>(focusableSelector)
-    );
+    const focusable = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector));
     if (focusable.length === 0) return;
 
     const first = focusable[0];
