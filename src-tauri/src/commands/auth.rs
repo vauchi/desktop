@@ -91,6 +91,11 @@ pub fn authenticate(
             }
             AuthResult::Duress => {
                 state.auth_mode = AuthMode::Duress;
+                // Queue encrypted duress alerts for trusted contacts (silent, best-effort).
+                // Failures are logged but do not block authentication.
+                if let Err(e) = state.queue_duress_alerts() {
+                    eprintln!("Warning: Failed to queue duress alerts: {}", e);
+                }
                 Ok("duress".to_string())
             }
             AuthResult::Invalid => Ok("invalid".to_string()),

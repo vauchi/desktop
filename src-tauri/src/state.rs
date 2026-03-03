@@ -547,6 +547,109 @@ impl AppState {
 
         Ok(())
     }
+
+    /// Queue encrypted duress alerts for all trusted contacts.
+    ///
+    /// Called when the user authenticates with the duress PIN.
+    /// For each trusted contact with an established ratchet session:
+    /// 1. Creates a `DuressAlert` payload
+    /// 2. Encrypts it with the contact's double-ratchet
+    /// 3. Queues it as a `PendingUpdate` (type `"card_delta"`)
+    ///
+    /// The queued messages are indistinguishable from normal sync traffic
+    /// (duress_pin.feature @alert: "Alert looks like normal sync traffic").
+    ///
+    /// Returns the number of alerts successfully queued.
+    pub fn queue_duress_alerts(&self) -> Result<usize> {
+        use vauchi_core::{DuressAlert, DuressAlertType, PendingUpdate, UpdateStatus};
+
+        // Load duress settings — no-op if not configured
+        let settings = match self.storage.load_duress_settings()? {
+            Some(s) => s,
+            None => return Ok(0),
+        };
+
+        let identity = self
+            .identity
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No identity found"))?;
+        let device_id = identity.public_id();
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        let mut queued = 0;
+
+        for contact_id in &settings.alert_contact_ids {
+            // Skip contacts that don't exist locally
+            let contact = match self.storage.load_contact(contact_id) {
+                Ok(Some(c)) => c,
+                _ => continue,
+            };
+
+            // Skip blocked contacts
+            if contact.is_blocked() {
+                continue;
+            }
+
+            // Skip contacts without ratchet (can't encrypt)
+            let (mut ratchet, is_initiator) = match self.storage.load_ratchet_state(contact_id) {
+                Ok(Some(r)) => r,
+                _ => continue,
+            };
+
+            // Create duress alert payload
+            let alert = DuressAlert {
+                timestamp: now,
+                device_id: device_id.clone(),
+                alert_type: DuressAlertType::Unlock,
+            };
+
+            // Serialize → encrypt → serialize encrypted message
+            let alert_bytes = match serde_json::to_vec(&alert) {
+                Ok(b) => b,
+                Err(_) => continue,
+            };
+            let ratchet_msg = match ratchet.encrypt(&alert_bytes) {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
+            let encrypted = match serde_json::to_vec(&ratchet_msg) {
+                Ok(b) => b,
+                Err(_) => continue,
+            };
+
+            // Save updated ratchet state
+            if self
+                .storage
+                .save_ratchet_state(contact_id, &ratchet, is_initiator)
+                .is_err()
+            {
+                continue;
+            }
+
+            // Generate random update ID (ring via SymmetricKey::generate)
+            let update_id = hex::encode(&SymmetricKey::generate().as_bytes()[..16]);
+
+            // Queue as card_delta — indistinguishable from normal sync
+            let update = PendingUpdate {
+                id: update_id,
+                contact_id: contact_id.to_string(),
+                update_type: "card_delta".to_string(),
+                payload: encrypted,
+                created_at: now,
+                retry_count: 0,
+                status: UpdateStatus::Pending,
+            };
+            if self.storage.queue_update(&update).is_ok() {
+                queued += 1;
+            }
+        }
+
+        Ok(queued)
+    }
 }
 
 // ===========================================================================
@@ -911,5 +1014,99 @@ mod tests {
 
         let result = state.update_display_name("New Name");
         assert!(result.is_err());
+    }
+
+    // === Duress Alert Queuing Tests ===
+    // Trace: duress_pin.feature @alert
+
+    /// Feature: duress_pin.feature @alert
+    /// When no duress settings are configured, queue_duress_alerts is a no-op.
+    #[test]
+    fn test_queue_duress_alerts_no_settings_returns_zero() {
+        let (mut state, _temp) = create_test_state();
+        state
+            .create_identity("Alice")
+            .expect("Failed to create identity");
+
+        let queued = state
+            .queue_duress_alerts()
+            .expect("queue_duress_alerts failed");
+        assert_eq!(queued, 0, "No duress settings → zero alerts queued");
+    }
+
+    /// Feature: duress_pin.feature @alert
+    /// When duress settings exist but trusted contact IDs point to
+    /// non-existent contacts, all are skipped and zero alerts are queued.
+    #[test]
+    fn test_queue_duress_alerts_nonexistent_contacts_skipped() {
+        let (mut state, _temp) = create_test_state();
+        state
+            .create_identity("Alice")
+            .expect("Failed to create identity");
+
+        // Save duress settings with a contact ID that doesn't exist
+        let settings = vauchi_core::DuressSettings {
+            alert_contact_ids: vec!["nonexistent-contact-id".to_string()],
+            alert_message: "I am in danger".to_string(),
+            include_location: false,
+        };
+        state
+            .storage
+            .save_duress_settings(&settings)
+            .expect("Failed to save duress settings");
+
+        let queued = state
+            .queue_duress_alerts()
+            .expect("queue_duress_alerts failed");
+        assert_eq!(
+            queued, 0,
+            "Non-existent contacts should be skipped, zero queued"
+        );
+    }
+
+    /// Feature: duress_pin.feature @alert
+    /// When duress settings have an empty contact list, zero alerts queued.
+    #[test]
+    fn test_queue_duress_alerts_empty_contact_list_returns_zero() {
+        let (mut state, _temp) = create_test_state();
+        state
+            .create_identity("Alice")
+            .expect("Failed to create identity");
+
+        let settings = vauchi_core::DuressSettings {
+            alert_contact_ids: vec![],
+            alert_message: "Help me".to_string(),
+            include_location: false,
+        };
+        state
+            .storage
+            .save_duress_settings(&settings)
+            .expect("Failed to save duress settings");
+
+        let queued = state
+            .queue_duress_alerts()
+            .expect("queue_duress_alerts failed");
+        assert_eq!(queued, 0, "Empty contact list → zero alerts queued");
+    }
+
+    /// Feature: duress_pin.feature @alert
+    /// queue_duress_alerts requires an identity to be present.
+    #[test]
+    fn test_queue_duress_alerts_no_identity_fails() {
+        let (state, _temp) = create_test_state();
+
+        // Save duress settings without creating an identity
+        let settings = vauchi_core::DuressSettings {
+            alert_contact_ids: vec!["some-contact".to_string()],
+            alert_message: "Help".to_string(),
+            include_location: false,
+        };
+        state
+            .storage
+            .save_duress_settings(&settings)
+            .expect("Failed to save duress settings");
+
+        let result = state.queue_duress_alerts();
+        assert!(result.is_err(), "Should fail when no identity is available");
     }
 }
