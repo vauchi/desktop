@@ -620,7 +620,11 @@ function Contacts(props: ContactsProps) {
                 </p>
               </Show>
 
-              <ul class="contact-fields" aria-label={t('contacts.detail')} onKeyDown={handleListKeyDown}>
+              <ul
+                class="contact-fields"
+                aria-label={t('contacts.detail')}
+                onKeyDown={handleListKeyDown}
+              >
                 <Show when={selectedContact()?.fields.length === 0}>
                   <p class="empty-fields" role="status">
                     No contact information shared yet.

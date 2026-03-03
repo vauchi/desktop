@@ -2,7 +2,15 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import { createResource, For, createSignal, createEffect, Show, onCleanup, onMount } from 'solid-js';
+import {
+  createResource,
+  For,
+  createSignal,
+  createEffect,
+  Show,
+  onCleanup,
+  onMount,
+} from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { t, tArgs } from '../services/i18nService';
 import { checkAhaMoment, type AhaMoment } from '../services/ahaService';
@@ -605,9 +613,7 @@ function AddFieldDialog(props: AddFieldDialogProps) {
     // Fall back to the display name if no network was selected from
     // the dropdown (e.g., user typed a custom network name).
     const fieldLabel =
-      fieldType() === 'social' && selectedNetworkId()
-        ? selectedNetworkId()
-        : label();
+      fieldType() === 'social' && selectedNetworkId() ? selectedNetworkId() : label();
 
     try {
       await invoke('add_field', {
