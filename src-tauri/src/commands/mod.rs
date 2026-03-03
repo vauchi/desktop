@@ -15,6 +15,7 @@ pub mod contacts;
 pub mod content;
 pub mod delivery;
 pub mod devices;
+pub mod duress;
 pub mod emergency;
 pub mod exchange;
 pub mod gdpr;

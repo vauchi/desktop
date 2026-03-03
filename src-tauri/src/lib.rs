@@ -231,6 +231,11 @@ pub fn run() {
             commands::auth::get_duress_status,
             commands::auth::get_duress_settings,
             commands::auth::save_duress_settings,
+            // Duress commands
+            commands::duress::enable_duress_password,
+            commands::duress::get_duress_config,
+            commands::duress::disable_duress_password,
+            commands::duress::test_duress_auth,
             // Delivery commands
             commands::delivery::get_delivery_status,
             commands::delivery::list_delivery_records,
