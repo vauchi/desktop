@@ -36,6 +36,19 @@ pub struct DuressSettingsInput {
     pub include_location: bool,
 }
 
+/// Get the current authentication mode.
+///
+/// Returns "normal", "duress", or "unauthenticated".
+#[tauri::command]
+pub fn get_auth_mode(state: State<'_, Mutex<AppState>>) -> String {
+    let state = state.lock().unwrap();
+    match state.auth_mode {
+        AuthMode::Normal => "normal".to_string(),
+        AuthMode::Duress => "duress".to_string(),
+        AuthMode::Unauthenticated => "unauthenticated".to_string(),
+    }
+}
+
 /// Set up app password.
 #[tauri::command]
 pub fn setup_app_password(

@@ -223,7 +223,9 @@ pub fn run() {
             commands::emergency::get_emergency_config,
             commands::emergency::save_emergency_config,
             commands::emergency::delete_emergency_config,
+            commands::emergency::send_emergency_broadcast,
             // Auth & duress commands
+            commands::auth::get_auth_mode,
             commands::auth::setup_app_password,
             commands::auth::authenticate,
             commands::auth::setup_duress_pin,

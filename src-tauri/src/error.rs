@@ -41,6 +41,8 @@ pub enum CommandError {
     Device(String),
     /// Authentication/duress PIN errors.
     Auth(String),
+    /// Emergency broadcast failures.
+    Emergency(String),
     /// GDPR/privacy operation failures.
     Privacy(String),
 }
@@ -59,6 +61,7 @@ impl fmt::Display for CommandError {
             CommandError::Validation(msg) => write!(f, "Validation error: {}", msg),
             CommandError::Device(msg) => write!(f, "Device error: {}", msg),
             CommandError::Auth(msg) => write!(f, "Auth error: {}", msg),
+            CommandError::Emergency(msg) => write!(f, "Emergency error: {}", msg),
             CommandError::Privacy(msg) => write!(f, "Privacy error: {}", msg),
         }
     }
@@ -194,6 +197,13 @@ mod tests {
     }
 
     #[test]
+    fn test_display_emergency_error_includes_kind_and_message() {
+        let err = CommandError::Emergency("not configured".to_string());
+        let display = format!("{}", err);
+        assert_eq!(display, "Emergency error: not configured");
+    }
+
+    #[test]
     fn test_display_privacy_error_includes_kind_and_message() {
         let err = CommandError::Privacy("export failed".to_string());
         let display = format!("{}", err);
@@ -216,6 +226,7 @@ mod tests {
             CommandError::Validation("x".into()),
             CommandError::Device("x".into()),
             CommandError::Auth("x".into()),
+            CommandError::Emergency("x".into()),
             CommandError::Privacy("x".into()),
         ];
 
@@ -254,6 +265,7 @@ mod tests {
             ("Validation", CommandError::Validation("a".into())),
             ("Device", CommandError::Device("a".into())),
             ("Auth", CommandError::Auth("a".into())),
+            ("Emergency", CommandError::Emergency("a".into())),
             ("Privacy", CommandError::Privacy("a".into())),
         ];
 
