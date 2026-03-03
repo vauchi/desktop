@@ -88,6 +88,9 @@ function Settings(props: SettingsProps) {
   const [dressPinConfirm, setDressPinConfirm] = createSignal('');
   const [securityError, setSecurityError] = createSignal('');
   const [securityMessage, setSecurityMessage] = createSignal('');
+  const [showDuressTest, setShowDuressTest] = createSignal(false);
+  const [duressTestInput, setDuressTestInput] = createSignal('');
+  const [duressTestResult, setDuressTestResult] = createSignal('');
 
   // GDPR state
   const [deletionState, setDeletionState] = createSignal<DeletionInfo | null>(null);
@@ -354,6 +357,26 @@ function Settings(props: SettingsProps) {
       setSecurityMessage('Duress PIN disabled');
     } catch (e) {
       setSecurityError(String(e));
+    }
+  };
+
+  const handleTestDuress = async () => {
+    const pin = duressTestInput().trim();
+    if (!pin) {
+      setDuressTestResult('Please enter a PIN to test');
+      return;
+    }
+    try {
+      const result = (await invoke('test_duress_auth', { password: pin })) as { mode: string };
+      if (result.mode === 'duress') {
+        setDuressTestResult('Duress mode detected — alerts would trigger in real scenario');
+      } else if (result.mode === 'normal') {
+        setDuressTestResult('Normal unlock — no alerts triggered');
+      } else {
+        setDuressTestResult('Invalid PIN — authentication failed');
+      }
+    } catch (e) {
+      setDuressTestResult(String(e));
     }
   };
 
@@ -917,6 +940,17 @@ function Settings(props: SettingsProps) {
               <button class="danger" onClick={handleDisableDuress} aria-label="Disable duress PIN">
                 Disable Duress PIN
               </button>
+              <button
+                class="secondary"
+                onClick={() => {
+                  setDuressTestInput('');
+                  setDuressTestResult('');
+                  setShowDuressTest(true);
+                }}
+                aria-label="Test duress PIN without triggering alerts"
+              >
+                Test Duress Mode
+              </button>
             </Show>
           </div>
           <Show when={duressEnabled()}>
@@ -1045,6 +1079,64 @@ function Settings(props: SettingsProps) {
                 </button>
                 <button class="primary" onClick={handleSetupDuress} aria-label="Set duress PIN">
                   Set Duress PIN
+                </button>
+              </div>
+            </div>
+          </div>
+        </Show>
+
+        {/* Test Duress Mode Dialog */}
+        <Show when={showDuressTest()}>
+          <div
+            class="dialog-overlay"
+            onClick={() => setShowDuressTest(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setShowDuressTest(false);
+            }}
+            role="presentation"
+          >
+            <div
+              class="dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="duress-test-title"
+              aria-describedby="duress-test-description"
+              tabIndex={-1}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="duress-test-title">Test Duress Mode</h3>
+              <p id="duress-test-description" class="setting-description">
+                Enter a PIN to test whether it triggers normal or duress mode. No alerts will be
+                sent.
+              </p>
+              <Show when={duressTestResult()}>
+                <p class="sync-message" role="status" aria-live="polite">
+                  {duressTestResult()}
+                </p>
+              </Show>
+              <label>
+                PIN
+                <input
+                  type="password"
+                  value={duressTestInput()}
+                  onInput={(e) => setDuressTestInput(e.currentTarget.value)}
+                  placeholder="Enter PIN to test"
+                  aria-label="PIN to test"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleTestDuress();
+                  }}
+                />
+              </label>
+              <div class="dialog-actions">
+                <button
+                  class="secondary"
+                  onClick={() => setShowDuressTest(false)}
+                  aria-label="Close test dialog"
+                >
+                  Close
+                </button>
+                <button class="primary" onClick={handleTestDuress} aria-label="Test this PIN">
+                  Test
                 </button>
               </div>
             </div>
