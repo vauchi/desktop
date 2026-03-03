@@ -6,6 +6,7 @@ import { createResource, createSignal, createMemo, For, Show, onMount, onCleanup
 import { invoke } from '@tauri-apps/api/core';
 import { t } from '../services/i18nService';
 import ValidationBadge from '../components/ValidationBadge';
+import { createFocusTrap } from '../utils/focusTrap';
 
 interface ContactInfo {
   id: string;
@@ -102,6 +103,8 @@ function Contacts(props: ContactsProps) {
   const [error, setError] = createSignal('');
   const [searchQuery, setSearchQuery] = createSignal('');
 
+  const [triggerElement, setTriggerElement] = createSignal<HTMLElement | null>(null);
+
   const [searchResults, setSearchResults] = createSignal<ContactInfo[] | null>(null);
   const [contextMenu, setContextMenu] = createSignal<{
     x: number;
@@ -156,6 +159,7 @@ function Contacts(props: ContactsProps) {
   };
 
   const openContactDetail = async (contactId: string) => {
+    setTriggerElement(document.activeElement as HTMLElement);
     try {
       const details = (await invoke('get_contact', { id: contactId })) as ContactDetails;
       setSelectedContact(details);
@@ -173,6 +177,11 @@ function Contacts(props: ContactsProps) {
     setVisibilityRules([]);
     setFingerprint(null);
     setError('');
+    const trigger = triggerElement();
+    if (trigger) {
+      requestAnimationFrame(() => trigger.focus());
+    }
+    setTriggerElement(null);
   };
 
   const loadFingerprint = async (contactId: string) => {
@@ -369,6 +378,20 @@ function Contacts(props: ContactsProps) {
     }
   };
 
+  const handleListKeyDown = (e: KeyboardEvent) => {
+    const list = e.currentTarget as HTMLElement;
+    const items = Array.from(list.querySelectorAll<HTMLElement>('[tabindex="0"]'));
+    const currentIndex = items.indexOf(document.activeElement as HTMLElement);
+
+    if (e.key === 'ArrowDown' && currentIndex < items.length - 1) {
+      e.preventDefault();
+      items[currentIndex + 1].focus();
+    } else if (e.key === 'ArrowUp' && currentIndex > 0) {
+      e.preventDefault();
+      items[currentIndex - 1].focus();
+    }
+  };
+
   const getFieldIcon = (fieldType: string): string => {
     switch (fieldType.toLowerCase()) {
       case 'phone':
@@ -429,7 +452,7 @@ function Contacts(props: ContactsProps) {
       </div>
 
       <Show when={filteredContacts().length > 0}>
-        <ul class="contacts-list" aria-label="Contacts list">
+        <ul class="contacts-list" aria-label="Contacts list" onKeyDown={handleListKeyDown}>
           <For each={filteredContacts()}>
             {(contact) => (
               <li
@@ -495,6 +518,10 @@ function Contacts(props: ContactsProps) {
             aria-labelledby="contact-detail-title"
             tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
+            ref={(el) => {
+              const cleanup = createFocusTrap(el);
+              onCleanup(cleanup);
+            }}
           >
             <Show
               when={!showDeleteConfirm()}
@@ -583,7 +610,7 @@ function Contacts(props: ContactsProps) {
                 </p>
               </Show>
 
-              <ul class="contact-fields" aria-label={t('contacts.detail')}>
+              <ul class="contact-fields" aria-label={t('contacts.detail')} onKeyDown={handleListKeyDown}>
                 <Show when={selectedContact()?.fields.length === 0}>
                   <p class="empty-fields" role="status">
                     No contact information shared yet.

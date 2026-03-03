@@ -6,6 +6,7 @@ import { createResource, For, createSignal, createEffect, Show, onCleanup } from
 import { invoke } from '@tauri-apps/api/core';
 import { t, tArgs } from '../services/i18nService';
 import { checkAhaMoment, type AhaMoment } from '../services/ahaService';
+import { createFocusTrap } from '../utils/focusTrap';
 
 interface FieldInfo {
   id: string;
@@ -68,6 +69,21 @@ function Home(props: HomeProps) {
   const [editError, setEditError] = createSignal('');
   const [isEditSaving, setIsEditSaving] = createSignal(false);
   const [ahaMoment, setAhaMoment] = createSignal<AhaMoment | null>(null);
+  const [triggerElement, setTriggerElement] = createSignal<HTMLElement | null>(null);
+
+  const handleListKeyDown = (e: KeyboardEvent) => {
+    const list = e.currentTarget as HTMLElement;
+    const items = Array.from(list.querySelectorAll<HTMLElement>('[tabindex="0"]'));
+    const currentIndex = items.indexOf(document.activeElement as HTMLElement);
+
+    if (e.key === 'ArrowDown' && currentIndex < items.length - 1) {
+      e.preventDefault();
+      items[currentIndex + 1].focus();
+    } else if (e.key === 'ArrowUp' && currentIndex > 0) {
+      e.preventDefault();
+      items[currentIndex - 1].focus();
+    }
+  };
 
   const triggerAhaMoment = async (momentType: string) => {
     const moment = await checkAhaMoment(momentType);
@@ -78,6 +94,7 @@ function Home(props: HomeProps) {
   };
 
   const openVisibilityDialog = async (field: FieldInfo) => {
+    setTriggerElement(document.activeElement as HTMLElement);
     setSelectedFieldId(field.id);
     setSelectedFieldLabel(field.label);
     setVisibilityError('');
@@ -95,6 +112,11 @@ function Home(props: HomeProps) {
     setSelectedFieldId(null);
     setFieldViewers([]);
     setVisibilityError('');
+    const trigger = triggerElement();
+    if (trigger) {
+      requestAnimationFrame(() => trigger.focus());
+    }
+    setTriggerElement(null);
   };
 
   const toggleContactVisibility = async (contactId: string, currentCanSee: boolean) => {
@@ -157,6 +179,7 @@ function Home(props: HomeProps) {
   };
 
   const openEditDialog = (field: FieldInfo) => {
+    setTriggerElement(document.activeElement as HTMLElement);
     setEditingField(field);
     setEditValue(field.value);
     setEditError('');
@@ -166,6 +189,11 @@ function Home(props: HomeProps) {
     setEditingField(null);
     setEditValue('');
     setEditError('');
+    const trigger = triggerElement();
+    if (trigger) {
+      requestAnimationFrame(() => trigger.focus());
+    }
+    setTriggerElement(null);
   };
 
   const handleSaveEdit = async () => {
@@ -224,17 +252,20 @@ function Home(props: HomeProps) {
           <h2 id="card-section-title">{t('card.title')}</h2>
           <button
             class="icon-btn"
-            onClick={() => setShowAddField(true)}
+            onClick={() => {
+              setTriggerElement(document.activeElement as HTMLElement);
+              setShowAddField(true);
+            }}
             aria-label="Add a new field to your card"
           >
             {t('card.add_field')}
           </button>
         </div>
 
-        <ul class="fields-list" aria-label="Your contact card fields">
+        <ul class="fields-list" aria-label="Your contact card fields" onKeyDown={handleListKeyDown}>
           <For each={card()?.fields}>
             {(field) => (
-              <li class="field-item" aria-label={`${field.label}: ${field.value}`}>
+              <li class="field-item" tabIndex={0} aria-label={`${field.label}: ${field.value}`}>
                 <span class="field-icon" aria-hidden="true">
                   {fieldIcon(field.field_type)}
                 </span>
@@ -320,10 +351,22 @@ function Home(props: HomeProps) {
 
       {showAddField() && (
         <AddFieldDialog
-          onClose={() => setShowAddField(false)}
+          onClose={() => {
+            setShowAddField(false);
+            const trigger = triggerElement();
+            if (trigger) {
+              requestAnimationFrame(() => trigger.focus());
+            }
+            setTriggerElement(null);
+          }}
           onAdd={() => {
             refetchCard();
             setShowAddField(false);
+            const trigger = triggerElement();
+            if (trigger) {
+              requestAnimationFrame(() => trigger.focus());
+            }
+            setTriggerElement(null);
             triggerAhaMoment('first_edit');
           }}
         />
@@ -346,6 +389,10 @@ function Home(props: HomeProps) {
             aria-labelledby="visibility-dialog-title"
             tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
+            ref={(el) => {
+              const cleanup = createFocusTrap(el);
+              onCleanup(cleanup);
+            }}
           >
             <h3 id="visibility-dialog-title">Who can see "{selectedFieldLabel()}"?</h3>
 
@@ -433,6 +480,10 @@ function Home(props: HomeProps) {
             aria-labelledby="edit-dialog-title"
             tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
+            ref={(el) => {
+              const cleanup = createFocusTrap(el);
+              onCleanup(cleanup);
+            }}
           >
             <h3 id="edit-dialog-title">
               {t('card.edit_field')} {editingField()?.label}
@@ -579,6 +630,10 @@ function AddFieldDialog(props: AddFieldDialogProps) {
         aria-labelledby="add-field-title"
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
+        ref={(el) => {
+          const cleanup = createFocusTrap(el);
+          onCleanup(cleanup);
+        }}
       >
         <h3 id="add-field-title">{t('card.add_field')}</h3>
 
