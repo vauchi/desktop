@@ -416,6 +416,57 @@ export function tauriMockScript(): string {
           return null;
         },
         panic_shred: () => ({ success: true, message: 'All data destroyed' }),
+
+        // Labels (Groups)
+        list_labels: () => state._labels || [],
+        create_label: (args) => {
+          if (!state._labels) state._labels = [];
+          const id = 'label-' + (state._labels.length + 1);
+          const label = { id, name: args.name || '', contact_count: 0, created_at: Date.now() };
+          state._labels.push(label);
+          persistState();
+          return label;
+        },
+        rename_label: (args) => {
+          if (!state._labels) return null;
+          const l = state._labels.find((l) => l.id === args.labelId);
+          if (l) l.name = args.newName || l.name;
+          persistState();
+          return null;
+        },
+        delete_label: (args) => {
+          if (!state._labels) return null;
+          state._labels = state._labels.filter((l) => l.id !== args.labelId);
+          if (!state._labelContacts) state._labelContacts = {};
+          delete state._labelContacts[args.labelId];
+          persistState();
+          return null;
+        },
+        add_contact_to_label: (args) => {
+          if (!state._labelContacts) state._labelContacts = {};
+          if (!state._labelContacts[args.labelId]) state._labelContacts[args.labelId] = [];
+          if (!state._labelContacts[args.labelId].includes(args.contactId)) {
+            state._labelContacts[args.labelId].push(args.contactId);
+            const l = (state._labels || []).find((l) => l.id === args.labelId);
+            if (l) l.contact_count++;
+          }
+          persistState();
+          return null;
+        },
+        remove_contact_from_label: (args) => {
+          if (!state._labelContacts) state._labelContacts = {};
+          if (state._labelContacts[args.labelId]) {
+            state._labelContacts[args.labelId] = state._labelContacts[args.labelId].filter((c) => c !== args.contactId);
+            const l = (state._labels || []).find((l) => l.id === args.labelId);
+            if (l) l.contact_count = Math.max(0, l.contact_count - 1);
+          }
+          persistState();
+          return null;
+        },
+        get_labels_for_contact: (args) => {
+          if (!state._labelContacts || !state._labels) return [];
+          return state._labels.filter((l) => (state._labelContacts[l.id] || []).includes(args.contactId));
+        },
       };
 
       window.__TAURI_INTERNALS__ = {

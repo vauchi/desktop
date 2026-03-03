@@ -4,7 +4,7 @@
 
 import { test, expect } from '@playwright/test';
 import { tauriMockScript } from '../fixtures/tauri-mock';
-import { setupTestUser, completeExchange, navigateTo } from '../fixtures/test-helpers';
+import { setupTestUser, generateQRCode, completeExchange, navigateTo } from '../fixtures/test-helpers';
 
 // CRIT-SP-12a: Contact group management
 
@@ -41,8 +41,9 @@ test.describe('Contact Groups Management', () => {
   });
 
   test('should add contact to group', async ({ page }) => {
-    // Setup: Create group and contact
-    await completeExchange(page, 'Bob');
+    // Setup: Create a contact via proper QR exchange
+    const qrData = await generateQRCode(page);
+    await completeExchange(page, qrData);
 
     await navigateTo(page, 'Contacts');
     await page.waitForSelector('.page.contacts', { timeout: 10000 });
@@ -65,8 +66,9 @@ test.describe('Contact Groups Management', () => {
   });
 
   test('should show contact in multiple groups', async ({ page }) => {
-    // Setup: Create contact and two groups
-    await completeExchange(page, 'Carol');
+    // Setup: Create a contact via proper QR exchange
+    const qrData = await generateQRCode(page);
+    await completeExchange(page, qrData);
 
     await navigateTo(page, 'Contacts');
     await page.waitForSelector('.page.contacts', { timeout: 10000 });
@@ -93,20 +95,21 @@ test.describe('Contact Groups Management', () => {
     // Verify contact appears in both groups
     await page.click('button[aria-label="Groups tab"]');
     await page.click('.group-item:has-text("Friends")');
-    await expect(page.locator('text=Carol')).toBeVisible();
+    await expect(page.locator('text=New Contact')).toBeVisible();
 
     await page.click('.group-item:has-text("Colleagues")');
-    await expect(page.locator('text=Carol')).toBeVisible();
+    await expect(page.locator('text=New Contact')).toBeVisible();
   });
 
   test('should remove contact from group', async ({ page }) => {
-    // Setup: Create group and add contact
-    await completeExchange(page, 'Bob');
+    // Setup: Create a contact via proper QR exchange
+    const qrData = await generateQRCode(page);
+    await completeExchange(page, qrData);
 
     await navigateTo(page, 'Contacts');
     await page.waitForSelector('.page.contacts', { timeout: 10000 });
 
-    // Create group and add Bob
+    // Create group and add contact
     await page.click('button[aria-label="Groups tab"]');
     await page.click('button[aria-label="Create new group"]');
     await page.fill('input[placeholder="Group name"]', 'Work');
@@ -123,9 +126,9 @@ test.describe('Contact Groups Management', () => {
     // Verify removed
     await expect(page.locator('.groups-assigned')).not.toContainText('Work');
 
-    // Bob should still be in contacts
+    // Contact should still be in contacts
     await page.click('button[aria-label="Close"]');
-    await expect(page.locator('text=Bob')).toBeVisible();
+    await expect(page.locator('text=New Contact')).toBeVisible();
   });
 
   test('should delete a group', async ({ page }) => {
