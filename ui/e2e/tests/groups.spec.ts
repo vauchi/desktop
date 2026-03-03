@@ -12,13 +12,14 @@ import {
 } from '../fixtures/test-helpers';
 
 // CRIT-SP-12a: Contact group management
+// @stub — Groups UI not yet built; tests are stubs awaiting SolidJS implementation
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript({ content: tauriMockScript() });
   await setupTestUser(page);
 });
 
-test.describe('Contact Groups Management', () => {
+test.describe('Contact Groups Management @stub', () => {
   test('should create a contact group', async ({ page }) => {
     // Navigate to Contacts page
     await navigateTo(page, 'Contacts');

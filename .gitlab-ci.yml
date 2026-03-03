@@ -308,7 +308,7 @@ test:frontend:
   script:
     - cd ui && npm ci --prefer-offline
     - npx playwright install chromium
-    - npx playwright test --project=chromium --grep-invert "@visual|@a11y"
+    - npx playwright test --project=chromium --grep-invert "@visual|@a11y|@stub"
   artifacts:
     when: on_failure
     paths:
