@@ -31,6 +31,9 @@ fn type_from_string(s: &str) -> Option<AhaMomentType> {
         "first_contact_added" => Some(AhaMomentType::FirstContactAdded),
         "first_update_received" => Some(AhaMomentType::FirstUpdateReceived),
         "first_outbound_delivered" => Some(AhaMomentType::FirstOutboundDelivered),
+        "first_field_edit" => Some(AhaMomentType::FirstFieldEdit),
+        "three_contacts_reached" => Some(AhaMomentType::ThreeContactsReached),
+        "device_linked" => Some(AhaMomentType::DeviceLinked),
         _ => None,
     }
 }
@@ -42,6 +45,9 @@ fn type_to_string(t: AhaMomentType) -> String {
         AhaMomentType::FirstContactAdded => "first_contact_added".to_string(),
         AhaMomentType::FirstUpdateReceived => "first_update_received".to_string(),
         AhaMomentType::FirstOutboundDelivered => "first_outbound_delivered".to_string(),
+        AhaMomentType::FirstFieldEdit => "first_field_edit".to_string(),
+        AhaMomentType::ThreeContactsReached => "three_contacts_reached".to_string(),
+        AhaMomentType::DeviceLinked => "device_linked".to_string(),
     }
 }
 
