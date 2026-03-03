@@ -46,12 +46,12 @@ variables:
 # Clone sibling locales repo (needed by vauchi-core build.rs)
 .clone-locales:
   before_script:
-    - if [ ! -d ../locales ]; then git clone --depth=1 https://gitlab.com/vauchi/locales.git ../locales; else git -C ../locales pull --ff-only 2>/dev/null || true; fi
+    - if [ ! -d ../locales ]; then git clone --depth=1 https://gitlab.com/vauchi/locales.git ../locales || (sleep 2 && git clone --depth=1 https://gitlab.com/vauchi/locales.git ../locales); else git -C ../locales pull --ff-only 2>/dev/null || true; fi
 
 # Clone sibling themes repo (needed by include_bytes! in theme commands)
 .clone-themes:
   before_script:
-    - if [ ! -d ../themes ]; then git clone --depth=1 https://gitlab.com/vauchi/themes.git ../themes; else git -C ../themes pull --ff-only 2>/dev/null || true; fi
+    - if [ ! -d ../themes ]; then git clone --depth=1 https://gitlab.com/vauchi/themes.git ../themes || (sleep 2 && git clone --depth=1 https://gitlab.com/vauchi/themes.git ../themes); else git -C ../themes pull --ff-only 2>/dev/null || true; fi
 
 # Node.js jobs run on allyson (Linux shell runner).
 # nell (macOS) has persistent npm crashes ("Exit handler never called").
@@ -154,7 +154,7 @@ build:frontend-dist:
   artifacts:
     paths:
       - ui/dist/
-    expire_in: 1 hour
+    expire_in: 1 day
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
@@ -297,9 +297,12 @@ test:rust:
 
 # Frontend functional tests — excludes @visual and @a11y (they have
 # dedicated jobs). Runs only chromium (other browsers not installed).
+# Each Playwright job uses a unique PLAYWRIGHT_PORT for parallel execution.
 test:frontend:
   extends: [.node-job, .timeout-quick]
   stage: test
+  variables:
+    PLAYWRIGHT_PORT: "1420"
   needs:
     - job: build:frontend-dist
       artifacts: true
@@ -327,15 +330,15 @@ test:frontend:
 # NOTE: Requires Tauri runtime (Rust + GTK + WebKit). Cannot run in a
 # plain Node.js container. Allowed to fail until full Tauri CI image is
 # available. Run locally with: cd ui && npm run test:visual
-# Chained after test:frontend to avoid port 1420 conflict on shell runners
+# Port-isolated via PLAYWRIGHT_PORT — runs in parallel with other Playwright jobs
 test:visual-regression:
   extends: [.node-job, .timeout-standard]
   stage: test
+  variables:
+    PLAYWRIGHT_PORT: "1421"
   needs:
     - job: build:frontend-dist
       artifacts: true
-    - job: test:frontend
-      artifacts: false
   allow_failure: true
   script:
     - cd ui && npm ci --prefer-offline
@@ -358,15 +361,15 @@ test:visual-regression:
 # Accessibility tests — axe-core critical violations fail the build (PI-12)
 # Runs the @a11y Playwright tests which use @axe-core/playwright to check
 # WCAG 2.0 AA compliance on all pages. Critical violations are blocking.
-# Chained after test:visual-regression to avoid port 1420 conflict on shell runners
+# Port-isolated via PLAYWRIGHT_PORT — runs in parallel with other Playwright jobs
 test:accessibility:
   extends: [.node-job, .timeout-standard]
   stage: test
+  variables:
+    PLAYWRIGHT_PORT: "1422"
   needs:
     - job: build:frontend-dist
       artifacts: true
-    - job: test:visual-regression
-      artifacts: false
   script:
     - cd ui && npm ci --prefer-offline
     - npx playwright install chromium
@@ -540,7 +543,8 @@ security:npm-audit:
     - job: lint:frontend
       optional: true
   script:
-    - cd ui && npm ci --prefer-offline && npm audit --audit-level=moderate || true
+    - cd ui && npm ci --prefer-offline && npm audit --audit-level=moderate
+  allow_failure: true
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
