@@ -720,6 +720,46 @@ button.icon-btn {
   flex: 1;
 }
 
+/* Contact picker for emergency broadcast */
+
+.contact-picker {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 0;
+}
+
+.contact-picker legend {
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0 0.25rem;
+}
+
+.contact-picker-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.contact-picker-item {
+  padding: 0.375rem 0;
+}
+
+.contact-picker-item label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.contact-picker-item input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
 .accessibility-toggle .toggle-description {
   font-size: 0.8rem;
   color: var(--text-secondary);

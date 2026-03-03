@@ -100,6 +100,10 @@ function Settings(props: SettingsProps) {
   const [shredResult, setShredResult] = createSignal('');
 
   // Emergency broadcast state
+  const [availableContacts, setAvailableContacts] = createSignal<
+    { id: string; display_name: string }[]
+  >([]);
+  const [selectedContactIds, setSelectedContactIds] = createSignal<Set<string>>(new Set());
   const [emergencyConfig, setEmergencyConfig] = createSignal<{
     trusted_contact_ids: string[];
     message: string;
@@ -1169,8 +1173,19 @@ function Settings(props: SettingsProps) {
         <div class="setting-buttons">
           <button
             class="secondary"
-            onClick={() => {
+            onClick={async () => {
               setEmergencyMessage('');
+              try {
+                const contacts = (await invoke('list_contacts')) as {
+                  id: string;
+                  display_name: string;
+                }[];
+                setAvailableContacts(contacts);
+                const existing = emergencyConfig()?.trusted_contact_ids || [];
+                setSelectedContactIds(new Set(existing));
+              } catch {
+                setAvailableContacts([]);
+              }
               setShowEmergencyDialog(true);
             }}
             aria-label="Configure emergency broadcast"
@@ -1219,17 +1234,47 @@ function Settings(props: SettingsProps) {
                 </p>
               </Show>
 
-              <label>
-                Trusted Contact IDs
-                <span class="toggle-description">Comma-separated contact IDs</span>
-                <textarea
-                  value={emergencyContactIds()}
-                  onInput={(e) => setEmergencyContactIds(e.currentTarget.value)}
-                  placeholder="contact-id-1, contact-id-2"
-                  rows={3}
-                  aria-label="Trusted contact IDs"
-                />
-              </label>
+              <fieldset class="contact-picker" aria-label="Select trusted contacts">
+                <legend>Trusted Contacts (max 10)</legend>
+                <Show
+                  when={availableContacts().length > 0}
+                  fallback={
+                    <p class="empty-fields">No contacts available. Exchange cards first.</p>
+                  }
+                >
+                  <ul class="contact-picker-list">
+                    <For each={availableContacts()}>
+                      {(contact) => (
+                        <li class="contact-picker-item">
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={selectedContactIds().has(contact.id)}
+                              onChange={() => {
+                                const ids = new Set(selectedContactIds());
+                                if (ids.has(contact.id)) {
+                                  ids.delete(contact.id);
+                                } else if (ids.size < 10) {
+                                  ids.add(contact.id);
+                                }
+                                setSelectedContactIds(ids);
+                                setEmergencyContactIds(Array.from(ids).join(', '));
+                              }}
+                              disabled={
+                                !selectedContactIds().has(contact.id) &&
+                                selectedContactIds().size >= 10
+                              }
+                              aria-label={`Select ${contact.display_name} as trusted contact`}
+                            />
+                            <span>{contact.display_name}</span>
+                          </label>
+                        </li>
+                      )}
+                    </For>
+                  </ul>
+                  <p class="setting-description">{selectedContactIds().size} of 10 selected</p>
+                </Show>
+              </fieldset>
 
               <label>
                 Alert Message
