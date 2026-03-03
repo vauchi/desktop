@@ -504,6 +504,7 @@ function AddFieldDialog(props: AddFieldDialogProps) {
   const [value, setValue] = createSignal('');
   const [error, setError] = createSignal('');
   const [socialNetworks, setSocialNetworks] = createSignal<SocialNetwork[]>([]);
+  const [selectedNetworkId, setSelectedNetworkId] = createSignal('');
   const [networkSearch, setNetworkSearch] = createSignal('');
   const [showNetworkDropdown, setShowNetworkDropdown] = createSignal(false);
 
@@ -524,6 +525,7 @@ function AddFieldDialog(props: AddFieldDialogProps) {
   };
 
   const selectNetwork = (network: SocialNetwork) => {
+    setSelectedNetworkId(network.id);
     setLabel(network.name);
     setNetworkSearch(network.name);
     setShowNetworkDropdown(false);
@@ -535,10 +537,19 @@ function AddFieldDialog(props: AddFieldDialogProps) {
       return;
     }
 
+    // For social fields, use the network ID as the label so the core
+    // can reliably look up the social network for URL generation.
+    // Fall back to the display name if no network was selected from
+    // the dropdown (e.g., user typed a custom network name).
+    const fieldLabel =
+      fieldType() === 'social' && selectedNetworkId()
+        ? selectedNetworkId()
+        : label();
+
     try {
       await invoke('add_field', {
         fieldType: fieldType(),
-        label: label(),
+        label: fieldLabel,
         value: value(),
       });
       props.onAdd();
@@ -576,7 +587,12 @@ function AddFieldDialog(props: AddFieldDialogProps) {
           <select
             id="add-field-type"
             value={fieldType()}
-            onChange={(e) => setFieldType(e.target.value)}
+            onChange={(e) => {
+              setFieldType(e.target.value);
+              if (e.target.value !== 'social') {
+                setSelectedNetworkId('');
+              }
+            }}
             aria-label="Field type"
           >
             <option value="email">Email</option>

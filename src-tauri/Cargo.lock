@@ -5306,7 +5306,8 @@ dependencies = [
 
 [[package]]
 name = "vauchi-core"
-version = "0.2.1"
+version = "0.2.2"
+source = "git+https://gitlab.com/vauchi/core.git?branch=main#eeda18596eb7961d553f3c8990e38c62ff5b365f"
 dependencies = [
  "argon2",
  "async-trait",
