@@ -5,6 +5,7 @@
 import { createSignal, createResource, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import Setup from './pages/Setup';
+import Lock from './pages/Lock';
 import Home from './pages/Home';
 import Contacts from './pages/Contacts';
 import Exchange from './pages/Exchange';
@@ -19,6 +20,7 @@ import { initializeLocale } from './services/i18nService';
 
 type Page =
   | 'setup'
+  | 'lock'
   | 'home'
   | 'contacts'
   | 'exchange'
@@ -29,13 +31,29 @@ type Page =
   | 'support'
   | 'delivery';
 
+interface DuressStatus {
+  password_enabled: boolean;
+  duress_enabled: boolean;
+}
+
 async function checkIdentity(): Promise<boolean> {
   return await invoke('has_identity');
+}
+
+async function checkPasswordEnabled(): Promise<boolean> {
+  try {
+    const status: DuressStatus = await invoke('get_duress_status');
+    return status.password_enabled;
+  } catch {
+    return false;
+  }
 }
 
 function App() {
   const [page, setPage] = createSignal<Page>('home');
   const [hasIdentity] = createResource(checkIdentity);
+  const [passwordEnabled] = createResource(checkPasswordEnabled);
+  const [authenticated, setAuthenticated] = createSignal(false);
 
   // Apply saved settings on app startup
   onMount(async () => {
@@ -62,8 +80,11 @@ function App() {
   });
 
   const currentPage = () => {
-    if (hasIdentity.loading) return <div class="loading">Loading...</div>;
+    if (hasIdentity.loading || passwordEnabled.loading)
+      return <div class="loading">Loading...</div>;
     if (!hasIdentity()) return <Setup onComplete={() => location.reload()} />;
+    if (passwordEnabled() && !authenticated())
+      return <Lock onUnlock={() => setAuthenticated(true)} />;
 
     switch (page()) {
       case 'home':
