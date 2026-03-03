@@ -81,7 +81,11 @@ function App() {
 
   const currentPage = () => {
     if (hasIdentity.loading || passwordEnabled.loading)
-      return <div class="loading">Loading...</div>;
+      return (
+        <div class="loading" role="status" aria-live="polite" aria-busy="true">
+          Loading...
+        </div>
+      );
     if (!hasIdentity()) return <Setup onComplete={() => location.reload()} />;
     if (passwordEnabled() && !authenticated())
       return <Lock onUnlock={() => setAuthenticated(true)} />;

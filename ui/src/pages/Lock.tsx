@@ -78,7 +78,7 @@ function Lock(props: LockProps) {
             </p>
           )}
 
-          <button type="submit" disabled={loading() || !pin()}>
+          <button type="submit" disabled={loading() || !pin()} aria-busy={loading()}>
             {loading() ? 'Unlocking...' : 'Unlock'}
           </button>
         </form>

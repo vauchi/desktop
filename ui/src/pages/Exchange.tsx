@@ -246,12 +246,12 @@ function Exchange(props: ExchangeProps) {
           value={scanData()}
           onInput={(e) => setScanData(e.target.value)}
           aria-label="Exchange data input"
-          aria-describedby="scan-description"
+          aria-describedby={error() ? 'scan-description scan-error' : 'scan-description'}
           aria-invalid={error() ? 'true' : undefined}
         />
 
         <Show when={error()}>
-          <p class="error" role="alert" aria-live="assertive">
+          <p id="scan-error" class="error" role="alert" aria-live="assertive">
             {error()}
           </p>
         </Show>
