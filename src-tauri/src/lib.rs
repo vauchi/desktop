@@ -236,6 +236,11 @@ pub fn run() {
             commands::duress::get_duress_config,
             commands::duress::disable_duress_password,
             commands::duress::test_duress_auth,
+            // Decoy contact commands
+            commands::decoy::list_decoy_contacts,
+            commands::decoy::add_decoy_contact,
+            commands::decoy::remove_decoy_contact,
+            commands::decoy::clear_decoy_contacts,
             // Delivery commands
             commands::delivery::get_delivery_status,
             commands::delivery::list_delivery_records,

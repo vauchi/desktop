@@ -760,6 +760,43 @@ button.icon-btn {
   accent-color: var(--accent);
 }
 
+.decoy-contact-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+}
+
+.decoy-contact-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.decoy-contact-item:last-child {
+  border-bottom: none;
+}
+
+.decoy-contact-item button.small {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  margin: 0.5rem 0;
+}
+
+.checkbox-label input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
 .accessibility-toggle .toggle-description {
   font-size: 0.8rem;
   color: var(--text-secondary);

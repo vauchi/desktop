@@ -92,6 +92,28 @@ function Settings(props: SettingsProps) {
   const [duressTestInput, setDuressTestInput] = createSignal('');
   const [duressTestResult, setDuressTestResult] = createSignal('');
 
+  // Duress alert settings state
+  const [duressAlertSettings, setDuressAlertSettings] = createSignal<{
+    alert_contact_ids: string[];
+    alert_message: string;
+    include_location: boolean;
+  } | null>(null);
+  const [showDuressAlertDialog, setShowDuressAlertDialog] = createSignal(false);
+  const [duressAlertContacts, setDuressAlertContacts] = createSignal<
+    { id: string; display_name: string }[]
+  >([]);
+  const [selectedDuressAlertIds, setSelectedDuressAlertIds] = createSignal<Set<string>>(new Set());
+  const [duressAlertMessage, setDuressAlertMessage] = createSignal('I may be under duress.');
+  const [duressAlertIncludeLocation, setDuressAlertIncludeLocation] = createSignal(false);
+
+  // Decoy contacts state
+  const [decoyContacts, setDecoyContacts] = createSignal<{ id: string; display_name: string }[]>(
+    []
+  );
+  const [showAddDecoyDialog, setShowAddDecoyDialog] = createSignal(false);
+  const [newDecoyName, setNewDecoyName] = createSignal('');
+  const [decoyMessage, setDecoyMessage] = createSignal('');
+
   // GDPR state
   const [deletionState, setDeletionState] = createSignal<DeletionInfo | null>(null);
   const [consentRecords, setConsentRecords] = createSignal<ConsentRecordInfo[]>([]);
@@ -199,6 +221,33 @@ function Settings(props: SettingsProps) {
       setDuressEnabled(status.duress_enabled);
     } catch (e) {
       console.error('Failed to load duress status:', e);
+    }
+
+    // Load duress alert settings
+    try {
+      const ds = (await invoke('get_duress_settings')) as {
+        alert_contact_ids: string[];
+        alert_message: string;
+        include_location: boolean;
+      } | null;
+      setDuressAlertSettings(ds);
+      if (ds) {
+        setDuressAlertMessage(ds.alert_message);
+        setDuressAlertIncludeLocation(ds.include_location);
+      }
+    } catch (e) {
+      console.error('Failed to load duress alert settings:', e);
+    }
+
+    // Load decoy contacts
+    try {
+      const decoys = (await invoke('list_decoy_contacts')) as {
+        id: string;
+        display_name: string;
+      }[];
+      setDecoyContacts(decoys);
+    } catch (e) {
+      console.error('Failed to load decoy contacts:', e);
     }
 
     // Load emergency broadcast config
@@ -961,6 +1010,112 @@ function Settings(props: SettingsProps) {
             <p class="setting-description">
               When entered, contacts will be replaced with decoy data.
             </p>
+
+            {/* Duress Alert Recipients */}
+            <div class="setting-item">
+              <span class="setting-label">Alert Recipients</span>
+              <span class="setting-value">
+                {duressAlertSettings()
+                  ? `${duressAlertSettings()!.alert_contact_ids.length} contact${duressAlertSettings()!.alert_contact_ids.length !== 1 ? 's' : ''}`
+                  : 'Not configured'}
+              </span>
+            </div>
+            <p class="setting-description">
+              These contacts are silently notified when the duress PIN is used.
+            </p>
+            <div class="setting-buttons">
+              <button
+                class="secondary"
+                onClick={async () => {
+                  try {
+                    const contacts = (await invoke('list_contacts')) as {
+                      id: string;
+                      display_name: string;
+                    }[];
+                    setDuressAlertContacts(contacts);
+                    const existing = duressAlertSettings()?.alert_contact_ids || [];
+                    setSelectedDuressAlertIds(new Set(existing));
+                  } catch {
+                    setDuressAlertContacts([]);
+                  }
+                  setShowDuressAlertDialog(true);
+                }}
+                aria-label="Configure duress alert recipients"
+              >
+                {duressAlertSettings() ? 'Edit Alert Settings' : 'Configure Alerts'}
+              </button>
+            </div>
+
+            {/* Decoy Contacts */}
+            <div class="setting-item">
+              <span class="setting-label">Decoy Contacts</span>
+              <span class="setting-value">
+                {decoyContacts().length} contact{decoyContacts().length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <p class="setting-description">
+              Fake contacts shown instead of real ones when duress mode is active.
+            </p>
+            <Show when={decoyContacts().length > 0}>
+              <ul class="decoy-contact-list" aria-label="Decoy contacts">
+                <For each={decoyContacts()}>
+                  {(decoy) => (
+                    <li class="decoy-contact-item">
+                      <span>{decoy.display_name}</span>
+                      <button
+                        class="danger small"
+                        onClick={async () => {
+                          try {
+                            await invoke('remove_decoy_contact', { id: decoy.id });
+                            setDecoyContacts((prev) => prev.filter((c) => c.id !== decoy.id));
+                          } catch (e) {
+                            setDecoyMessage(`Failed to remove: ${e}`);
+                          }
+                        }}
+                        aria-label={`Remove decoy contact ${decoy.display_name}`}
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </Show>
+            <Show when={decoyMessage()}>
+              <p class="sync-message" role="status" aria-live="polite">
+                {decoyMessage()}
+              </p>
+            </Show>
+            <div class="setting-buttons">
+              <button
+                class="secondary"
+                onClick={() => {
+                  setNewDecoyName('');
+                  setShowAddDecoyDialog(true);
+                }}
+                aria-label="Add a decoy contact"
+              >
+                Add Decoy Contact
+              </button>
+              <Show when={decoyContacts().length > 0}>
+                <button
+                  class="danger"
+                  onClick={async () => {
+                    try {
+                      await invoke('clear_decoy_contacts');
+                      setDecoyContacts([]);
+                      setDecoyMessage('All decoy contacts removed.');
+                      setTimeout(() => setDecoyMessage(''), 3000);
+                    } catch (e) {
+                      setDecoyMessage(`Failed: ${e}`);
+                    }
+                  }}
+                  aria-label="Remove all decoy contacts"
+                >
+                  Clear All
+                </button>
+              </Show>
+            </div>
           </Show>
         </Show>
 
@@ -1141,6 +1296,199 @@ function Settings(props: SettingsProps) {
                 </button>
                 <button class="primary" onClick={handleTestDuress} aria-label="Test this PIN">
                   Test
+                </button>
+              </div>
+            </div>
+          </div>
+        </Show>
+
+        {/* Duress Alert Settings Dialog */}
+        <Show when={showDuressAlertDialog()}>
+          <div
+            class="dialog-overlay"
+            onClick={() => setShowDuressAlertDialog(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setShowDuressAlertDialog(false);
+            }}
+            role="presentation"
+          >
+            <div
+              class="dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="duress-alert-dialog-title"
+              tabIndex={-1}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="duress-alert-dialog-title">Duress Alert Settings</h3>
+              <p class="setting-description">
+                Choose contacts to silently notify and customize the alert message sent when the
+                duress PIN is used.
+              </p>
+
+              <fieldset class="contact-picker" aria-label="Select alert recipients">
+                <legend>Alert Recipients (max 5)</legend>
+                <Show
+                  when={duressAlertContacts().length > 0}
+                  fallback={
+                    <p class="empty-fields">
+                      No contacts available. Exchange cards first.
+                    </p>
+                  }
+                >
+                  <ul class="contact-picker-list">
+                    <For each={duressAlertContacts()}>
+                      {(contact) => (
+                        <li class="contact-picker-item">
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={selectedDuressAlertIds().has(contact.id)}
+                              onChange={() => {
+                                const ids = new Set(selectedDuressAlertIds());
+                                if (ids.has(contact.id)) {
+                                  ids.delete(contact.id);
+                                } else if (ids.size < 5) {
+                                  ids.add(contact.id);
+                                }
+                                setSelectedDuressAlertIds(ids);
+                              }}
+                              disabled={
+                                !selectedDuressAlertIds().has(contact.id) &&
+                                selectedDuressAlertIds().size >= 5
+                              }
+                            />
+                            <span>{contact.display_name}</span>
+                          </label>
+                        </li>
+                      )}
+                    </For>
+                  </ul>
+                  <p class="setting-description">
+                    {selectedDuressAlertIds().size} of 5 selected
+                  </p>
+                </Show>
+              </fieldset>
+
+              <label>
+                Alert Message
+                <input
+                  type="text"
+                  value={duressAlertMessage()}
+                  onInput={(e) => setDuressAlertMessage(e.currentTarget.value)}
+                  placeholder="Message sent to alert recipients"
+                  aria-label="Duress alert message"
+                />
+              </label>
+
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={duressAlertIncludeLocation()}
+                  onChange={() => setDuressAlertIncludeLocation(!duressAlertIncludeLocation())}
+                />
+                Include device location in alert
+              </label>
+
+              <div class="dialog-actions">
+                <button
+                  class="secondary"
+                  onClick={() => setShowDuressAlertDialog(false)}
+                  aria-label="Cancel duress alert settings"
+                >
+                  Cancel
+                </button>
+                <button
+                  class="primary"
+                  onClick={async () => {
+                    try {
+                      const settings = {
+                        alert_contact_ids: Array.from(selectedDuressAlertIds()),
+                        alert_message: duressAlertMessage(),
+                        include_location: duressAlertIncludeLocation(),
+                      };
+                      await invoke('save_duress_settings', { settings });
+                      setDuressAlertSettings(settings);
+                      setShowDuressAlertDialog(false);
+                      setSecurityMessage('Duress alert settings saved.');
+                      setTimeout(() => setSecurityMessage(''), 3000);
+                    } catch (e) {
+                      setSecurityError(`Failed to save: ${e}`);
+                    }
+                  }}
+                  aria-label="Save duress alert settings"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </Show>
+
+        {/* Add Decoy Contact Dialog */}
+        <Show when={showAddDecoyDialog()}>
+          <div
+            class="dialog-overlay"
+            onClick={() => setShowAddDecoyDialog(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setShowAddDecoyDialog(false);
+            }}
+            role="presentation"
+          >
+            <div
+              class="dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="add-decoy-dialog-title"
+              tabIndex={-1}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="add-decoy-dialog-title">Add Decoy Contact</h3>
+              <p class="setting-description">
+                Create a fake contact name that will appear in duress mode.
+              </p>
+              <label>
+                Display Name
+                <input
+                  type="text"
+                  value={newDecoyName()}
+                  onInput={(e) => setNewDecoyName(e.currentTarget.value)}
+                  placeholder="e.g. John Smith"
+                  aria-label="Decoy contact name"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newDecoyName().trim()) {
+                      (e.currentTarget.closest('.dialog')?.querySelector('.primary') as HTMLButtonElement)?.click();
+                    }
+                  }}
+                />
+              </label>
+              <div class="dialog-actions">
+                <button
+                  class="secondary"
+                  onClick={() => setShowAddDecoyDialog(false)}
+                  aria-label="Cancel adding decoy contact"
+                >
+                  Cancel
+                </button>
+                <button
+                  class="primary"
+                  disabled={!newDecoyName().trim()}
+                  onClick={async () => {
+                    try {
+                      const result = (await invoke('add_decoy_contact', {
+                        input: { display_name: newDecoyName().trim() },
+                      })) as { id: string; display_name: string };
+                      setDecoyContacts((prev) => [...prev, result]);
+                      setShowAddDecoyDialog(false);
+                      setDecoyMessage('Decoy contact added.');
+                      setTimeout(() => setDecoyMessage(''), 3000);
+                    } catch (e) {
+                      setDecoyMessage(`Failed: ${e}`);
+                    }
+                  }}
+                  aria-label="Add decoy contact"
+                >
+                  Add
                 </button>
               </div>
             </div>
