@@ -1567,13 +1567,8 @@ function Settings(props: SettingsProps) {
                 class="primary"
                 onClick={async () => {
                   setEmergencyMessage('');
-                  const contactCount =
-                    emergencyConfig()?.trusted_contact_ids?.length ?? 0;
-                  if (
-                    !window.confirm(
-                      `Send alert to ${contactCount} contacts?`
-                    )
-                  ) {
+                  const contactCount = emergencyConfig()?.trusted_contact_ids?.length ?? 0;
+                  if (!window.confirm(`Send alert to ${contactCount} contacts?`)) {
                     return;
                   }
                   try {
