@@ -1331,9 +1331,7 @@ function Settings(props: SettingsProps) {
                 <Show
                   when={duressAlertContacts().length > 0}
                   fallback={
-                    <p class="empty-fields">
-                      No contacts available. Exchange cards first.
-                    </p>
+                    <p class="empty-fields">No contacts available. Exchange cards first.</p>
                   }
                 >
                   <ul class="contact-picker-list">
@@ -1364,9 +1362,7 @@ function Settings(props: SettingsProps) {
                       )}
                     </For>
                   </ul>
-                  <p class="setting-description">
-                    {selectedDuressAlertIds().size} of 5 selected
-                  </p>
+                  <p class="setting-description">{selectedDuressAlertIds().size} of 5 selected</p>
                 </Show>
               </fieldset>
 
@@ -1457,7 +1453,11 @@ function Settings(props: SettingsProps) {
                   aria-label="Decoy contact name"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && newDecoyName().trim()) {
-                      (e.currentTarget.closest('.dialog')?.querySelector('.primary') as HTMLButtonElement)?.click();
+                      (
+                        e.currentTarget
+                          .closest('.dialog')
+                          ?.querySelector('.primary') as HTMLButtonElement
+                      )?.click();
                     }
                   }}
                 />
