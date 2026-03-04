@@ -737,9 +737,7 @@ function Settings(props: SettingsProps) {
           <button
             class="secondary"
             onClick={() => props.onNavigate('contact-settings')}
-            aria-label={
-              t('contacts.settings.manage') || 'Manage contact settings'
-            }
+            aria-label={t('contacts.settings.manage') || 'Manage contact settings'}
           >
             {t('contacts.settings.manage') || 'Contact Settings'}
           </button>

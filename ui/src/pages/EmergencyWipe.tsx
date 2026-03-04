@@ -156,9 +156,7 @@ function EmergencyWipe(props: EmergencyWipePageProps) {
     const contactCount = emergencyConfig()?.trusted_contact_ids?.length ?? 0;
     if (
       !window.confirm(
-        `Send emergency alert to ${contactCount} trusted contact${
-          contactCount !== 1 ? 's' : ''
-        }? This cannot be undone.`
+        `Send emergency alert to ${contactCount} trusted contact${contactCount !== 1 ? 's' : ''}? This cannot be undone.`
       )
     ) {
       return;
@@ -263,9 +261,7 @@ function EmergencyWipe(props: EmergencyWipePageProps) {
             <span class="setting-label">Status</span>
             <span class="setting-value">
               {emergencyConfig()
-                ? `Configured (${emergencyConfig()!.trusted_contact_ids.length} contact${
-                    emergencyConfig()!.trusted_contact_ids.length !== 1 ? 's' : ''
-                  })`
+                ? `Configured (${emergencyConfig()!.trusted_contact_ids.length} contact${emergencyConfig()!.trusted_contact_ids.length !== 1 ? 's' : ''})`
                 : 'Not configured'}
             </span>
           </div>
