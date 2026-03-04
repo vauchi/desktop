@@ -50,7 +50,7 @@ function WelcomeStep(props: WelcomeStepProps) {
       <div class="step-actions">
         <button
           type="button"
-          onClick={props.onNext}
+          onClick={() => props.onNext()}
           autofocus
           aria-label={t('onboarding.welcome.get_started') || 'Get Started'}
         >

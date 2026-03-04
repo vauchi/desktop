@@ -219,7 +219,7 @@ function AddFieldsStep(props: AddFieldsStepProps) {
       </Show>
 
       <div class="step-actions step-actions-split">
-        <button type="button" class="secondary" onClick={props.onBack}>
+        <button type="button" class="secondary" onClick={() => props.onBack()}>
           {t('onboarding.back') || 'Back'}
         </button>
         <div class="step-actions-right">
@@ -227,12 +227,12 @@ function AddFieldsStep(props: AddFieldsStepProps) {
             <button
               type="button"
               class="text-btn"
-              onClick={props.onSkip}
+              onClick={() => props.onSkip()}
             >
               {t('onboarding.skip') || 'Skip for now'}
             </button>
           </Show>
-          <button type="button" onClick={props.onNext}>
+          <button type="button" onClick={() => props.onNext()}>
             {t('onboarding.next') || 'Next'}
           </button>
         </div>

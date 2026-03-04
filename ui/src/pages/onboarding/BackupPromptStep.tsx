@@ -98,7 +98,7 @@ function BackupPromptStep(props: BackupPromptStepProps) {
             <button type="button" onClick={() => setShowBackupForm(true)}>
               {t('onboarding.backup.create_now') || 'Create Backup Now'}
             </button>
-            <button type="button" class="text-btn" onClick={props.onSkip}>
+            <button type="button" class="text-btn" onClick={() => props.onSkip()}>
               {t('onboarding.backup.remind_later') || 'Remind me later'}
             </button>
           </div>
@@ -194,7 +194,7 @@ function BackupPromptStep(props: BackupPromptStepProps) {
           </div>
 
           <div class="step-actions">
-            <button type="button" onClick={props.onNext}>
+            <button type="button" onClick={() => props.onNext()}>
               {t('onboarding.next') || 'Next'}
             </button>
           </div>
@@ -203,7 +203,7 @@ function BackupPromptStep(props: BackupPromptStepProps) {
 
       <Show when={!showBackupForm() && !backupComplete()}>
         <div class="step-actions step-actions-split backup-nav">
-          <button type="button" class="secondary" onClick={props.onBack}>
+          <button type="button" class="secondary" onClick={() => props.onBack()}>
             {t('onboarding.back') || 'Back'}
           </button>
         </div>

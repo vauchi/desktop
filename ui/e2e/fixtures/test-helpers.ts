@@ -25,19 +25,40 @@ export const TEST_CONTACT = {
 export async function setupTestUser(page: Page): Promise<void> {
   await page.goto('/');
 
-  // Wait for either setup page or home page
-  const setupPage = page.locator('.page.setup');
+  // Wait for either onboarding page or home page
+  const onboardingPage = page.locator('.page.onboarding');
   const homePage = page.locator('.page.home');
 
   const first = await Promise.race([
-    setupPage.waitFor({ timeout: 10000 }).then(() => 'setup'),
+    onboardingPage.waitFor({ timeout: 10000 }).then(() => 'onboarding'),
     homePage.waitFor({ timeout: 10000 }).then(() => 'home'),
   ]);
 
-  if (first === 'setup') {
-    await page.fill('#name', TEST_USER.displayName);
-    await page.click('button[type="submit"]');
-    await page.waitForSelector('.page.home', { timeout: 10000 });
+  if (first === 'onboarding') {
+    // Step 1: Welcome — click "Get Started"
+    await page.click('.welcome-step button');
+    // Step 2: Create Identity — fill name and submit
+    await page.waitForSelector('.create-identity-step', { timeout: 5000 });
+    await page.fill('#display-name', TEST_USER.displayName);
+    await page.click('.create-identity-step button[type="submit"]');
+    // Wait for identity creation + auto-advance (500ms delay)
+    await page.waitForSelector('.add-fields-step', { timeout: 5000 });
+    // Step 3: Add Fields — skip
+    await page.click('.add-fields-step button:has-text("Skip")');
+    // Step 4: Preview Card — next
+    await page.waitForSelector('.preview-card-step', { timeout: 5000 });
+    await page.click('.preview-card-step button:has-text("Next")');
+    // Step 5: Security — next
+    await page.waitForSelector('.security-step', { timeout: 5000 });
+    await page.click('.security-step button:has-text("Next")');
+    // Step 6: Backup Prompt — skip (remind later)
+    await page.waitForSelector('.backup-prompt-step', { timeout: 5000 });
+    await page.click('.backup-prompt-step button:has-text("Remind me later")');
+    // Step 7: Ready — complete
+    await page.waitForSelector('.ready-step', { timeout: 5000 });
+    await page.click('.ready-step button:has-text("Start using Vauchi")');
+    // App reloads after onComplete — wait for home page
+    await page.waitForSelector('.page.home', { timeout: 15000 });
   }
 }
 

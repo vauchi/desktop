@@ -5,7 +5,7 @@
 import { createSignal } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { t } from '../../services/i18nService';
-import { checkAhaMoment, type AhaMoment } from '../../services/ahaService';
+import { checkAhaMoment } from '../../services/ahaService';
 
 interface CreateIdentityStepProps {
   onNext: () => void;
@@ -99,7 +99,7 @@ function CreateIdentityStep(props: CreateIdentityStepProps) {
           <button
             type="button"
             class="secondary"
-            onClick={props.onBack}
+            onClick={() => props.onBack()}
             disabled={loading()}
           >
             {t('onboarding.back') || 'Back'}

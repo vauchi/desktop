@@ -105,10 +105,10 @@ function PreviewCardStep(props: PreviewCardStepProps) {
       </Show>
 
       <div class="step-actions step-actions-split">
-        <button type="button" class="secondary" onClick={props.onBack}>
+        <button type="button" class="secondary" onClick={() => props.onBack()}>
           {t('onboarding.back') || 'Back'}
         </button>
-        <button type="button" onClick={props.onNext}>
+        <button type="button" onClick={() => props.onNext()}>
           {t('onboarding.next') || 'Next'}
         </button>
       </div>

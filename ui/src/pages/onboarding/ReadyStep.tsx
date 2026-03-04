@@ -52,7 +52,7 @@ function ReadyStep(props: ReadyStepProps) {
       <div class="step-actions">
         <button
           type="button"
-          onClick={props.onComplete}
+          onClick={() => props.onComplete()}
           autofocus
           aria-label={t('onboarding.ready.start') || 'Start using Vauchi'}
         >

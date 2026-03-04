@@ -628,6 +628,8 @@ function Contacts(props: ContactsProps) {
         >
           Groups
         </button>
+      </div>
+      <div class="contacts-actions">
         <button
           class="tab-btn"
           onClick={() => props.onNavigate('contact-duplicates')}

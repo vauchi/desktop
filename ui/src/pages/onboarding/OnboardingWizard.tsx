@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import { createSignal, onMount, onCleanup, Show } from 'solid-js';
+import { createSignal, onMount, onCleanup, Show, For } from 'solid-js';
 import { t } from '../../services/i18nService';
 import WelcomeStep from './WelcomeStep';
 import CreateIdentityStep from './CreateIdentityStep';
@@ -39,19 +39,11 @@ function OnboardingWizard(props: OnboardingWizardProps) {
   const [currentStep, setCurrentStep] = createSignal<OnboardingStep>('welcome');
   const [direction, setDirection] = createSignal<'forward' | 'backward'>('forward');
   const [displayName, setDisplayName] = createSignal('');
-  const [identityCreated, setIdentityCreated] = createSignal(false);
 
   const currentIndex = () => STEPS.indexOf(currentStep());
   const totalSteps = STEPS.length;
   const isFirstStep = () => currentIndex() === 0;
   const isLastStep = () => currentIndex() === totalSteps - 1;
-
-  const goToStep = (step: OnboardingStep) => {
-    const targetIndex = STEPS.indexOf(step);
-    const current = currentIndex();
-    setDirection(targetIndex > current ? 'forward' : 'backward');
-    setCurrentStep(step);
-  };
 
   const goNext = () => {
     const idx = currentIndex();
@@ -136,17 +128,19 @@ function OnboardingWizard(props: OnboardingWizardProps) {
           aria-label={t('onboarding.progress.label') || 'Onboarding progress'}
         >
           <ol class="progress-steps">
-            {STEPS.map((step, index) => (
-              <li
-                class={`progress-step ${index < currentIndex() ? 'completed' : ''} ${index === currentIndex() ? 'current' : ''}`}
-                aria-current={index === currentIndex() ? 'step' : undefined}
-              >
-                <span class="progress-dot" aria-hidden="true">
-                  {index < currentIndex() ? '\u2713' : index + 1}
-                </span>
-                <span class="progress-label">{stepLabel(step)}</span>
-              </li>
-            ))}
+            <For each={STEPS}>
+              {(step, index) => (
+                <li
+                  class={`progress-step ${index() < currentIndex() ? 'completed' : ''} ${index() === currentIndex() ? 'current' : ''}`}
+                  aria-current={index() === currentIndex() ? 'step' : undefined}
+                >
+                  <span class="progress-dot" aria-hidden="true">
+                    {index() < currentIndex() ? '\u2713' : index() + 1}
+                  </span>
+                  <span class="progress-label">{stepLabel(step)}</span>
+                </li>
+              )}
+            </For>
           </ol>
           <p class="sr-only" role="status" aria-live="polite">
             {t('onboarding.progress.step_of') ||
@@ -171,7 +165,6 @@ function OnboardingWizard(props: OnboardingWizardProps) {
               onBack={goBack}
               onIdentityCreated={(name: string) => {
                 setDisplayName(name);
-                setIdentityCreated(true);
               }}
             />
           </Show>
