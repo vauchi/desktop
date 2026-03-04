@@ -154,7 +154,13 @@ function EmergencyWipe(props: EmergencyWipePageProps) {
   const handleSendBroadcast = async () => {
     clearMessages();
     const contactCount = emergencyConfig()?.trusted_contact_ids?.length ?? 0;
-    if (!window.confirm(`Send emergency alert to ${contactCount} trusted contact${contactCount !== 1 ? 's' : ''}? This cannot be undone.`)) {
+    if (
+      !window.confirm(
+        `Send emergency alert to ${contactCount} trusted contact${
+          contactCount !== 1 ? 's' : ''
+        }? This cannot be undone.`
+      )
+    ) {
       return;
     }
     try {
@@ -209,7 +215,12 @@ function EmergencyWipe(props: EmergencyWipePageProps) {
   };
 
   return (
-    <div class="page settings" role="main" aria-labelledby="emergency-page-title" aria-busy={isLoading()}>
+    <div
+      class="page settings"
+      role="main"
+      aria-labelledby="emergency-page-title"
+      aria-busy={isLoading()}
+    >
       <header role="banner">
         <button
           class="back-btn"
@@ -252,7 +263,9 @@ function EmergencyWipe(props: EmergencyWipePageProps) {
             <span class="setting-label">Status</span>
             <span class="setting-value">
               {emergencyConfig()
-                ? `Configured (${emergencyConfig()!.trusted_contact_ids.length} contact${emergencyConfig()!.trusted_contact_ids.length !== 1 ? 's' : ''})`
+                ? `Configured (${emergencyConfig()!.trusted_contact_ids.length} contact${
+                    emergencyConfig()!.trusted_contact_ids.length !== 1 ? 's' : ''
+                  })`
                 : 'Not configured'}
             </span>
           </div>
@@ -395,11 +408,7 @@ function EmergencyWipe(props: EmergencyWipePageProps) {
 
       {/* Wipe In Progress */}
       <Show when={isWiping() && !wipeComplete()}>
-        <section
-          class="settings-section"
-          aria-labelledby="wipe-progress-title"
-          aria-busy="true"
-        >
+        <section class="settings-section" aria-labelledby="wipe-progress-title" aria-busy="true">
           <h2 id="wipe-progress-title">Destroying Data...</h2>
           <p class="setting-description" role="status" aria-live="polite">
             Emergency wipe in progress. Do not close the application.
@@ -414,10 +423,7 @@ function EmergencyWipe(props: EmergencyWipePageProps) {
 
       {/* Emergency Wipe Countdown Dialog */}
       <Show when={showWipeConfirm()}>
-        <div
-          class="dialog-overlay"
-          role="presentation"
-        >
+        <div class="dialog-overlay" role="presentation">
           <div
             class="dialog wipe-countdown-dialog"
             role="alertdialog"
@@ -431,20 +437,21 @@ function EmergencyWipe(props: EmergencyWipePageProps) {
             <p id="wipe-countdown-description">
               All data will be <strong>permanently destroyed</strong> in:
             </p>
-            <div class="wipe-countdown-display" role="timer" aria-live="assertive" aria-atomic="true">
+            <div
+              class="wipe-countdown-display"
+              role="timer"
+              aria-live="assertive"
+              aria-atomic="true"
+            >
               <span class="countdown-number">{wipeCountdown()}</span>
               <span class="countdown-label">seconds</span>
             </div>
             <p class="setting-description">
-              This includes your identity, contacts, encryption keys, and all local data.
-              This action is <strong>irreversible</strong>.
+              This includes your identity, contacts, encryption keys, and all local data. This
+              action is <strong>irreversible</strong>.
             </p>
             <div class="dialog-actions">
-              <button
-                class="primary"
-                onClick={cancelWipe}
-                aria-label="Cancel emergency wipe"
-              >
+              <button class="primary" onClick={cancelWipe} aria-label="Cancel emergency wipe">
                 Cancel Wipe
               </button>
               <button
@@ -497,9 +504,7 @@ function EmergencyWipe(props: EmergencyWipePageProps) {
               <legend>Trusted Contacts (max 10)</legend>
               <Show
                 when={availableContacts().length > 0}
-                fallback={
-                  <p class="empty-fields">No contacts available. Exchange cards first.</p>
-                }
+                fallback={<p class="empty-fields">No contacts available. Exchange cards first.</p>}
               >
                 <ul class="contact-picker-list">
                   <For each={availableContacts()}>

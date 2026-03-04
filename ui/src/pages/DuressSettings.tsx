@@ -236,7 +236,9 @@ function DuressSettings(props: DuressSettingsPageProps) {
     try {
       const result = (await invoke('test_duress_auth', { password: pin })) as { mode: string };
       if (result.mode === 'duress') {
-        setDuressTestResult('Duress mode detected. In a real scenario, alerts would be sent and decoy contacts shown.');
+        setDuressTestResult(
+          'Duress mode detected. In a real scenario, alerts would be sent and decoy contacts shown.'
+        );
       } else if (result.mode === 'normal') {
         setDuressTestResult('Normal unlock. No alerts would be triggered.');
       } else {
@@ -305,7 +307,12 @@ function DuressSettings(props: DuressSettingsPageProps) {
   };
 
   return (
-    <div class="page settings" role="main" aria-labelledby="duress-page-title" aria-busy={isLoading()}>
+    <div
+      class="page settings"
+      role="main"
+      aria-labelledby="duress-page-title"
+      aria-busy={isLoading()}
+    >
       <header role="banner">
         <button
           class="back-btn"
@@ -345,16 +352,12 @@ function DuressSettings(props: DuressSettingsPageProps) {
 
           <div class="setting-item">
             <span class="setting-label">App Password</span>
-            <span class="setting-value">
-              {passwordEnabled() ? 'Enabled' : 'Not set'}
-            </span>
+            <span class="setting-value">{passwordEnabled() ? 'Enabled' : 'Not set'}</span>
           </div>
 
           <div class="setting-item">
             <span class="setting-label">Duress PIN</span>
-            <span class="setting-value">
-              {duressEnabled() ? 'Enabled' : 'Not configured'}
-            </span>
+            <span class="setting-value">{duressEnabled() ? 'Enabled' : 'Not configured'}</span>
           </div>
         </section>
 
@@ -467,7 +470,9 @@ function DuressSettings(props: DuressSettingsPageProps) {
               <span class="setting-label">Alert Recipients</span>
               <span class="setting-value">
                 {duressAlertSettings()
-                  ? `${duressAlertSettings()!.alert_contact_ids.length} contact${duressAlertSettings()!.alert_contact_ids.length !== 1 ? 's' : ''}`
+                  ? `${duressAlertSettings()!.alert_contact_ids.length} contact${
+                      duressAlertSettings()!.alert_contact_ids.length !== 1 ? 's' : ''
+                    }`
                   : 'Not configured'}
               </span>
             </div>
@@ -632,11 +637,7 @@ function DuressSettings(props: DuressSettingsPageProps) {
                 >
                   {t('action.cancel')}
                 </button>
-                <button
-                  class="primary"
-                  onClick={handleSetupPassword}
-                  aria-label="Set app password"
-                >
+                <button class="primary" onClick={handleSetupPassword} aria-label="Set app password">
                   Set Password
                 </button>
               </div>
@@ -817,8 +818,8 @@ function DuressSettings(props: DuressSettingsPageProps) {
             >
               <h3 id="disable-duress-title">Disable Duress PIN</h3>
               <p id="disable-duress-description" class="setting-description">
-                This will remove your duress PIN, alert settings, and decoy contacts. Enter your
-                app password to confirm.
+                This will remove your duress PIN, alert settings, and decoy contacts. Enter your app
+                password to confirm.
               </p>
               <Show when={errorMessage()}>
                 <p class="error" role="alert">

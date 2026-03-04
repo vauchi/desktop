@@ -201,7 +201,9 @@ function Exchange(props: ExchangeProps) {
             </p>
 
             <div
-              class={`qr-timer ${timeRemaining() <= 30 ? 'warning' : ''} ${isExpired() ? 'expired' : ''}`}
+              class={`qr-timer ${timeRemaining() <= 30 ? 'warning' : ''} ${
+                isExpired() ? 'expired' : ''
+              }`}
               role="timer"
               aria-live="polite"
               aria-atomic="true"

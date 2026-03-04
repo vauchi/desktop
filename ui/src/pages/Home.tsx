@@ -458,7 +458,9 @@ function Home(props: HomeProps) {
                         class={viewer.can_see ? 'visible' : 'hidden'}
                         onClick={() => toggleContactVisibility(viewer.contact_id, viewer.can_see)}
                         aria-pressed={viewer.can_see}
-                        aria-label={`${viewer.display_name}: ${viewer.can_see ? 'can see this field' : 'cannot see this field'}. Click to toggle.`}
+                        aria-label={`${viewer.display_name}: ${
+                          viewer.can_see ? 'can see this field' : 'cannot see this field'
+                        }. Click to toggle.`}
                       >
                         {viewer.can_see ? 'Visible' : 'Hidden'}
                       </button>

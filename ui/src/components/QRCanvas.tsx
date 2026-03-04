@@ -48,5 +48,12 @@ export default function QRCanvas(props: QRCanvasProps) {
     }
   });
 
-  return <canvas ref={canvasRef} class="qr-canvas" role="img" aria-label={props.description ?? "QR code"} />;
+  return (
+    <canvas
+      ref={canvasRef}
+      class="qr-canvas"
+      role="img"
+      aria-label={props.description ?? 'QR code'}
+    />
+  );
 }

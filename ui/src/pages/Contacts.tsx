@@ -895,7 +895,9 @@ function Contacts(props: ContactsProps) {
                     (e.key === 'Enter' || e.key === ' ') &&
                     (e.preventDefault(), openContactDetail(contact.id))
                   }
-                  aria-label={`${contact.display_name}, ${contact.verified ? 'verified' : 'not verified'}. Press Enter to view details.`}
+                  aria-label={`${contact.display_name}, ${
+                    contact.verified ? 'verified' : 'not verified'
+                  }. Press Enter to view details.`}
                 >
                   <div class="contact-avatar" aria-hidden="true">
                     {contact.display_name.charAt(0).toUpperCase()}
@@ -995,7 +997,9 @@ function Contacts(props: ContactsProps) {
                 <span
                   class={selectedContact()?.verified ? 'verified' : 'not-verified'}
                   role="status"
-                  aria-label={`Verification status: ${selectedContact()?.verified ? 'verified' : 'not verified'}`}
+                  aria-label={`Verification status: ${
+                    selectedContact()?.verified ? 'verified' : 'not verified'
+                  }`}
                 >
                   {selectedContact()?.verified
                     ? t('contacts.verified')
@@ -1268,7 +1272,9 @@ function Contacts(props: ContactsProps) {
                                 class={field.can_see ? 'visible' : 'hidden'}
                                 onClick={() => toggleFieldVisibility(field.field_id, field.can_see)}
                                 aria-pressed={field.can_see}
-                                aria-label={`${field.field_label}: ${field.can_see ? 'visible to contact' : 'hidden from contact'}. Click to toggle.`}
+                                aria-label={`${field.field_label}: ${
+                                  field.can_see ? 'visible to contact' : 'hidden from contact'
+                                }. Click to toggle.`}
                               >
                                 {field.can_see ? 'Visible' : 'Hidden'}
                               </button>
@@ -1289,7 +1295,9 @@ function Contacts(props: ContactsProps) {
                   <button
                     class="secondary"
                     onClick={() => loadVisibilityRules(selectedContact()!.id)}
-                    aria-label={`Manage what ${selectedContact()?.display_name} can see from your card`}
+                    aria-label={`Manage what ${
+                      selectedContact()?.display_name
+                    } can see from your card`}
                   >
                     Manage what they see
                   </button>

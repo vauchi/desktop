@@ -743,7 +743,9 @@ function Settings(props: SettingsProps) {
             <span class="setting-label">Emergency Broadcast</span>
             <span class="setting-value">
               {emergencyConfig()
-                ? `${emergencyConfig()!.trusted_contact_ids.length} contact${emergencyConfig()!.trusted_contact_ids.length !== 1 ? 's' : ''}`
+                ? `${emergencyConfig()!.trusted_contact_ids.length} contact${
+                    emergencyConfig()!.trusted_contact_ids.length !== 1 ? 's' : ''
+                  }`
                 : 'Not configured'}
             </span>
           </div>
@@ -1361,7 +1363,9 @@ function Settings(props: SettingsProps) {
                     consentRecords().find(
                       (r) =>
                         r.consent_type ===
-                        `${type.charAt(0).toUpperCase()}${type.slice(1).replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())}`
+                        `${type.charAt(0).toUpperCase()}${type
+                          .slice(1)
+                          .replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())}`
                     );
                   const isGranted = () => record()?.granted ?? false;
                   const label = () => t(`privacy.consent_${type}`);
@@ -1532,8 +1536,9 @@ function Settings(props: SettingsProps) {
                   }}
                   placeholder="Enter password"
                   aria-describedby={
-                    `${passwordStrength() ? 'password-strength' : ''} ${backupError() ? 'backup-error' : ''}`.trim() ||
-                    undefined
+                    `${passwordStrength() ? 'password-strength' : ''} ${
+                      backupError() ? 'backup-error' : ''
+                    }`.trim() || undefined
                   }
                   aria-invalid={backupError() ? 'true' : undefined}
                 />

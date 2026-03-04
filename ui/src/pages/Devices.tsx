@@ -868,7 +868,9 @@ function Devices(props: DevicesProps) {
               <div
                 class={`device-item ${device.is_current ? 'current' : ''}`}
                 role="listitem"
-                aria-label={`${device.device_name}, ${device.is_active ? 'active' : 'revoked'}${device.is_current ? ', this device' : ''}`}
+                aria-label={`${device.device_name}, ${device.is_active ? 'active' : 'revoked'}${
+                  device.is_current ? ', this device' : ''
+                }`}
               >
                 <div class="device-icon" aria-hidden="true">
                   {device.is_current ? '📱' : '💻'}
