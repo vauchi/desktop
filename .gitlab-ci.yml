@@ -89,7 +89,7 @@ quality:zero-assertions:
   script:
     - |
       # Fetch single script via GitLab API (faster than git clone)
-      curl -fsSL "https://gitlab.com/vauchi/scripts/-/raw/main/scripts/check-zero-assertions.sh" -o /tmp/check-zero-assertions.sh
+      curl -fsSL "https://gitlab.com/vauchi/scripts/-/raw/${CI_DEFAULT_BRANCH}/scripts/check-zero-assertions.sh" -o /tmp/check-zero-assertions.sh
       chmod +x /tmp/check-zero-assertions.sh
 
       DIRS=""
@@ -111,7 +111,7 @@ quality:test-ratio:
   script:
     - |
       # Fetch single script via GitLab API (faster than git clone)
-      curl -fsSL "https://gitlab.com/vauchi/scripts/-/raw/main/scripts/test-code-ratio.sh" -o /tmp/test-code-ratio.sh
+      curl -fsSL "https://gitlab.com/vauchi/scripts/-/raw/${CI_DEFAULT_BRANCH}/scripts/test-code-ratio.sh" -o /tmp/test-code-ratio.sh
       chmod +x /tmp/test-code-ratio.sh
 
       for dir in . */; do
@@ -144,7 +144,7 @@ build:frontend-dist:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        compare_to: refs/heads/main
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
         paths:
           - "ui/**/*"
           - "src-tauri/**/*"
@@ -171,7 +171,7 @@ lint:html:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        compare_to: refs/heads/main
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
         paths:
           - "ui/index.html"
           - ".gitlab-ci.yml"
@@ -191,7 +191,7 @@ security:no-devtools:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        compare_to: refs/heads/main
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
         paths:
           - "src-tauri/Cargo.toml"
           - ".gitlab-ci.yml"
@@ -205,7 +205,7 @@ lint:rust-format:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        compare_to: refs/heads/main
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
         paths:
           - "src-tauri/**/*.rs"
           - "src-tauri/Cargo.toml"
@@ -225,7 +225,7 @@ lint:rust-clippy:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        compare_to: refs/heads/main
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
         paths:
           - "src-tauri/**/*.rs"
           - "src-tauri/Cargo.toml"
@@ -244,7 +244,7 @@ lint:frontend:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        compare_to: refs/heads/main
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
         paths:
           - "ui/**/*"
           - ".gitlab-ci.yml"
@@ -276,7 +276,7 @@ test:rust:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        compare_to: refs/heads/main
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
         paths:
           - "src-tauri/**/*"
           - "ui/**/*"
@@ -308,7 +308,7 @@ test:frontend:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        compare_to: refs/heads/main
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
         paths:
           - "ui/**/*"
           - ".gitlab-ci.yml"
@@ -340,7 +340,7 @@ test:visual-regression:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        compare_to: refs/heads/main
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
         paths:
           - "ui/**/*"
           - ".gitlab-ci.yml"
@@ -370,7 +370,7 @@ test:accessibility:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        compare_to: refs/heads/main
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
         paths:
           - "ui/**/*"
           - ".gitlab-ci.yml"
@@ -478,7 +478,7 @@ security:audit:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        compare_to: refs/heads/main
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
         paths:
           - "src-tauri/Cargo.toml"
           - "src-tauri/Cargo.lock"
@@ -526,7 +526,7 @@ security:npm-audit:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        compare_to: refs/heads/main
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
         paths:
           - "ui/package.json"
           - "ui/package-lock.json"
