@@ -79,5 +79,8 @@ export interface SettingsProps {
       | 'delivery'
       | 'duress-settings'
       | 'emergency-wipe'
+      | 'contact-duplicates'
+      | 'contact-merge'
+      | 'contact-settings'
   ) => void;
 }

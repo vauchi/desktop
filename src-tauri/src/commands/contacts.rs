@@ -433,3 +433,182 @@ pub fn list_hidden_contacts(
 
     Ok(hidden)
 }
+
+/// A detected duplicate contact pair with similarity score.
+#[derive(Serialize)]
+pub struct DuplicatePairInfo {
+    /// ID of the first contact.
+    pub id1: String,
+    /// Display name of the first contact.
+    pub name1: String,
+    /// ID of the second contact.
+    pub id2: String,
+    /// Display name of the second contact.
+    pub name2: String,
+    /// Similarity score (0.0 to 1.0).
+    pub similarity: f64,
+}
+
+/// Find potential duplicate contacts.
+///
+/// Returns duplicate pairs ordered by similarity (highest first),
+/// excluding pairs the user has previously dismissed.
+#[tauri::command]
+pub fn find_duplicates(
+    state: State<'_, Mutex<AppState>>,
+) -> Result<Vec<DuplicatePairInfo>, CommandError> {
+    let state = state.lock().unwrap();
+
+    let contacts = state.storage.list_contacts()?;
+    let all_duplicates = vauchi_core::contact::merge::find_duplicates(&contacts);
+
+    // Load dismissed pairs and filter them out
+    let dismissed = state
+        .storage
+        .load_dismissed_duplicates()
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
+    let filtered = vauchi_core::contact::merge::filter_dismissed(all_duplicates, &dismissed);
+
+    // Build contact name lookup
+    let name_map: std::collections::HashMap<String, String> = contacts
+        .iter()
+        .map(|c| (c.id().to_string(), c.display_name().to_string()))
+        .collect();
+
+    Ok(filtered
+        .into_iter()
+        .map(|pair| DuplicatePairInfo {
+            name1: name_map.get(&pair.id1).cloned().unwrap_or_default(),
+            name2: name_map.get(&pair.id2).cloned().unwrap_or_default(),
+            id1: pair.id1,
+            id2: pair.id2,
+            similarity: pair.similarity,
+        })
+        .collect())
+}
+
+/// Dismiss a duplicate suggestion so it no longer appears.
+///
+/// The pair key is normalized (id1 < id2) so dismissing (A, B) is the
+/// same as dismissing (B, A).
+#[tauri::command]
+pub fn dismiss_duplicate(
+    contact_id_a: String,
+    contact_id_b: String,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<bool, CommandError> {
+    let state = state.lock().unwrap();
+
+    let (norm1, norm2) =
+        vauchi_core::contact::merge::normalize_pair_key(&contact_id_a, &contact_id_b);
+    state
+        .storage
+        .dismiss_duplicate(&norm1, &norm2)
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
+
+    Ok(true)
+}
+
+/// Undo a previously dismissed duplicate suggestion.
+#[tauri::command]
+pub fn undismiss_duplicate(
+    contact_id_a: String,
+    contact_id_b: String,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<bool, CommandError> {
+    let state = state.lock().unwrap();
+
+    let (norm1, norm2) =
+        vauchi_core::contact::merge::normalize_pair_key(&contact_id_a, &contact_id_b);
+    state
+        .storage
+        .undismiss_duplicate(&norm1, &norm2)
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
+
+    Ok(true)
+}
+
+/// Merge two contacts, keeping the primary and incorporating fields
+/// from the secondary.
+///
+/// After merge:
+/// - The primary contact has all unique fields from both contacts
+/// - The secondary contact is deleted from storage
+/// - Returns the merged contact details
+#[tauri::command]
+pub fn merge_contacts(
+    primary_id: String,
+    secondary_id: String,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<ContactDetails, CommandError> {
+    let state = state.lock().unwrap();
+
+    let primary = state
+        .storage
+        .load_contact(&primary_id)?
+        .ok_or_else(|| CommandError::Contact("Primary contact not found".to_string()))?;
+    let secondary = state
+        .storage
+        .load_contact(&secondary_id)?
+        .ok_or_else(|| CommandError::Contact("Secondary contact not found".to_string()))?;
+
+    let merged = vauchi_core::contact::merge::merge_contacts(&primary, &secondary);
+
+    // Save merged contact
+    state
+        .storage
+        .save_contact(&merged)
+        .map_err(|e| CommandError::Contact(format!("Failed to save merged contact: {:?}", e)))?;
+
+    // Delete secondary
+    state.storage.delete_contact(&secondary_id).map_err(|e| {
+        CommandError::Contact(format!("Failed to delete secondary contact: {:?}", e))
+    })?;
+
+    let fields: Vec<super::card::FieldInfo> = merged
+        .card()
+        .fields()
+        .iter()
+        .map(|f: &ContactField| super::card::FieldInfo {
+            id: f.id().to_string(),
+            field_type: format!("{:?}", f.field_type()),
+            label: f.label().to_string(),
+            value: f.value().to_string(),
+        })
+        .collect();
+
+    Ok(ContactDetails {
+        id: merged.id().to_string(),
+        display_name: merged.display_name().to_string(),
+        verified: merged.is_fingerprint_verified(),
+        recovery_trusted: merged.is_recovery_trusted(),
+        fields,
+    })
+}
+
+/// Get the current contact limit.
+#[tauri::command]
+pub fn get_contact_limit(state: State<'_, Mutex<AppState>>) -> Result<usize, CommandError> {
+    let state = state.lock().unwrap();
+
+    state
+        .storage
+        .get_contact_limit()
+        .map_err(|e| CommandError::Storage(e.to_string()))
+}
+
+/// Set the contact limit.
+#[tauri::command]
+pub fn set_contact_limit(
+    limit: usize,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<bool, CommandError> {
+    let state = state.lock().unwrap();
+
+    state
+        .storage
+        .set_contact_limit(limit)
+        .map_err(|e| CommandError::Storage(e.to_string()))?;
+
+    Ok(true)
+}
