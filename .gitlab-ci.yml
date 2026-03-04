@@ -25,6 +25,7 @@ include:
     file:
       - '/ci-templates/rust-base.yml'
       - '/ci-templates/security.yml'
+      - '/ci-templates/coverage.yml'
       - '/ci-templates/mr-rules.yml'
       - '/ci-templates/downstream.yml'
       - '/ci-templates/reuse.yml'
@@ -37,22 +38,6 @@ stages:
   - security
   - mutation
   - verify
-
-variables:
-  # Additional paths to exclude for desktop app
-  SAST_EXCLUDED_PATHS: "target/, node_modules/, dist/"
-  DS_EXCLUDED_PATHS: "target/, node_modules/"
-  SECRET_DETECTION_EXCLUDED_PATHS: "target/, node_modules/"
-
-# Clone sibling locales repo (needed by vauchi-core build.rs)
-.clone-locales:
-  before_script:
-    - if [ ! -d ../locales ]; then git clone --depth=1 https://gitlab.com/vauchi/locales.git ../locales || (sleep 2 && git clone --depth=1 https://gitlab.com/vauchi/locales.git ../locales); else git -C ../locales pull --ff-only 2>/dev/null || true; fi
-
-# Clone sibling themes repo (needed by include_bytes! in theme commands)
-.clone-themes:
-  before_script:
-    - if [ ! -d ../themes ]; then git clone --depth=1 https://gitlab.com/vauchi/themes.git ../themes || (sleep 2 && git clone --depth=1 https://gitlab.com/vauchi/themes.git ../themes); else git -C ../themes pull --ff-only 2>/dev/null || true; fi
 
 # Node.js jobs run on allyson (Linux shell runner).
 # nell (macOS) has persistent npm crashes ("Exit handler never called").
@@ -213,11 +198,8 @@ security:no-devtools:
 
 # Rust linting (runs on Rust code changes)
 lint:rust-format:
-  extends: [.rust-runner-nocache, .timeout-quick]
-  stage: lint
+  extends: [.rust-runner-nocache, .lint-format, .timeout-quick]
   needs: []
-  script:
-    - cd src-tauri && cargo fmt --all -- --check
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
@@ -228,8 +210,7 @@ lint:rust-format:
           - ".gitlab-ci.yml"
 
 lint:rust-clippy:
-  extends: [.rust-runner, .desktop-cache, .timeout-standard]
-  stage: lint
+  extends: [.rust-runner, .lint-clippy, .desktop-cache, .timeout-standard]
   needs: [build:frontend-dist]
   cache:
     policy: pull  # Read-only cache for lint
@@ -397,8 +378,7 @@ test:accessibility:
 # ============================================================
 
 coverage:rust:
-  extends: [.rust-runner, .desktop-cache, .timeout-long]
-  stage: test
+  extends: [.coverage-job, .rust-runner, .desktop-cache, .timeout-long]
   needs:
     - job: build:frontend-dist
       artifacts: true
@@ -406,23 +386,11 @@ coverage:rust:
     - !reference [.self-hosted, before_script]
     - !reference [.clone-locales, before_script]
     - !reference [.clone-themes, before_script]
-  script:
-    - cd src-tauri && cargo llvm-cov nextest --all-targets --no-default-features --features custom-protocol --lcov --output-path lcov.info
-    - cargo llvm-cov report --cobertura --output-path cobertura.xml
-    - cargo llvm-cov report
-    - mkdir -p /tmp/ci-${CI_PIPELINE_ID} && curl -sL -H "JOB-TOKEN:$CI_JOB_TOKEN" "$CI_API_V4_URL/projects/vauchi%2Fscripts/repository/files/scripts%2Fci%2Fpush-coverage.sh/raw?ref=main" -o /tmp/ci-${CI_PIPELINE_ID}/push-coverage.sh
-    - "bash /tmp/ci-${CI_PIPELINE_ID}/push-coverage.sh cobertura.xml desktop-rust || echo WARNING: coverage push failed"
-    - rm -rf /tmp/ci-${CI_PIPELINE_ID}
-  coverage: '/TOTAL\s+\d+\s+\d+\s+\d+\.\d+%\s+\d+\s+\d+\s+\d+\.\d+%\s+\d+\s+\d+\s+(\d+\.\d+%)/'
-  artifacts:
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: cobertura.xml
-    paths:
-      - lcov.info
-      - cobertura.xml
-    expire_in: 1 week
+    - rustup component add llvm-tools-preview 2>/dev/null || true
+  variables:
+    COVERAGE_WORKDIR: "src-tauri"
+    COVERAGE_EXTRA_FLAGS: "--no-default-features --features custom-protocol"
+    COVERAGE_REPO_LABEL: "desktop-rust"
   rules:
     - if: $CI_PIPELINE_SOURCE == "pipeline" || $CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "api"
       when: never
@@ -438,9 +406,12 @@ coverage:frontend:
   script:
     - cd ui && npm ci --prefer-offline && npx vitest run --coverage --reporter=default --coverage.reporter=cobertura
     - cd "$CI_PROJECT_DIR"
-    - mkdir -p /tmp/ci-${CI_PIPELINE_ID} && curl -sL -H "JOB-TOKEN:$CI_JOB_TOKEN" "$CI_API_V4_URL/projects/vauchi%2Fscripts/repository/files/scripts%2Fci%2Fpush-coverage.sh/raw?ref=main" -o /tmp/ci-${CI_PIPELINE_ID}/push-coverage.sh
-    - "bash /tmp/ci-${CI_PIPELINE_ID}/push-coverage.sh ui/coverage/cobertura-coverage.xml desktop-ui || echo WARNING: coverage push failed"
-    - rm -rf /tmp/ci-${CI_PIPELINE_ID}
+    - |
+      curl --silent --fail \
+        "${CI_API_V4_URL}/projects/vauchi%2Fscripts/repository/files/scripts%2Fci%2Fpush-coverage.sh/raw?ref=main" \
+        -o push-coverage.sh
+      chmod +x push-coverage.sh
+    - ./push-coverage.sh ui/coverage/cobertura-coverage.xml desktop-ui || true
   coverage: '/lines:\s+(\d+(?:\.\d+)?%)/'
   artifacts:
     reports:
@@ -479,8 +450,7 @@ mutation:nightly:
 
 # Rust security audit (runs on dependency changes)
 security:audit:
-  extends: [.rust-runner-readonly, .timeout-quick]
-  stage: security
+  extends: [.rust-runner-readonly, .security-audit, .timeout-quick]
   needs:
     - job: lint:rust-format
       optional: true
@@ -498,6 +468,9 @@ security:audit:
       - .cargo/registry/cache/
       - src-tauri/target/
     policy: pull
+  before_script:
+    - !reference [.self-hosted, before_script]
+    - command -v cargo-audit >/dev/null 2>&1 || cargo binstall cargo-audit --no-confirm 2>/dev/null || cargo install cargo-audit
   script:
     - cd src-tauri && cargo audit
   rules:
@@ -511,8 +484,7 @@ security:audit:
 
 # Full cargo-deny check: advisories, licenses, bans, sources
 security:deny:
-  extends: [.rust-runner-readonly, .timeout-quick]
-  stage: security
+  extends: [.rust-runner-readonly, .security-deny, .timeout-quick]
   needs:
     - job: lint:rust-format
       optional: true
@@ -533,6 +505,9 @@ security:deny:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "schedule"
+  before_script:
+    - !reference [.self-hosted, before_script]
+    - command -v cargo-deny >/dev/null 2>&1 || cargo binstall cargo-deny --no-confirm 2>/dev/null || cargo install cargo-deny
   script:
     - cd src-tauri && cargo deny check
 
