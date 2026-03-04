@@ -724,6 +724,28 @@ function Settings(props: SettingsProps) {
         </div>
       </section>
 
+      {/* Contact Settings Section */}
+      <section class="settings-section" aria-labelledby="contact-settings-section-title">
+        <h2 id="contact-settings-section-title">
+          {t('contacts.settings.title') || 'Contact Settings'}
+        </h2>
+        <p class="setting-description">
+          {t('contacts.settings.section_description') ||
+            'Manage contact limits and find duplicate contacts.'}
+        </p>
+        <div class="setting-buttons" role="group" aria-label="Contact settings options">
+          <button
+            class="secondary"
+            onClick={() => props.onNavigate('contact-settings')}
+            aria-label={
+              t('contacts.settings.manage') || 'Manage contact settings'
+            }
+          >
+            {t('contacts.settings.manage') || 'Contact Settings'}
+          </button>
+        </div>
+      </section>
+
       {/* Resistance Features Section — hidden in duress mode */}
       <Show when={authMode() !== 'duress'}>
         <section class="settings-section" aria-labelledby="resistance-section-title">

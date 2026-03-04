@@ -80,7 +80,15 @@ interface LabelDetail {
 
 interface ContactsProps {
   onNavigate: (
-    page: 'home' | 'contacts' | 'exchange' | 'settings' | 'devices' | 'recovery'
+    page:
+      | 'home'
+      | 'contacts'
+      | 'exchange'
+      | 'settings'
+      | 'devices'
+      | 'recovery'
+      | 'contact-duplicates'
+      | 'contact-settings'
   ) => void;
 }
 
@@ -619,6 +627,13 @@ function Contacts(props: ContactsProps) {
           aria-label="Groups tab"
         >
           Groups
+        </button>
+        <button
+          class="tab-btn"
+          onClick={() => props.onNavigate('contact-duplicates')}
+          aria-label={t('contacts.duplicates.tab') || 'Find duplicate contacts'}
+        >
+          {t('contacts.duplicates.tab') || 'Duplicates'}
         </button>
       </div>
 

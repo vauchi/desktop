@@ -17,6 +17,9 @@ import SupportUs from './pages/SupportUs';
 import Delivery from './pages/Delivery';
 import DuressSettings from './pages/DuressSettings';
 import EmergencyWipe from './pages/EmergencyWipe';
+import ContactDuplicates from './pages/ContactDuplicates';
+import ContactMerge from './pages/ContactMerge';
+import ContactSettings from './pages/ContactSettings';
 import { initializeTheme } from './services/themeService';
 import { initializeLocale } from './services/i18nService';
 
@@ -33,7 +36,10 @@ type Page =
   | 'support'
   | 'delivery'
   | 'duress-settings'
-  | 'emergency-wipe';
+  | 'emergency-wipe'
+  | 'contact-duplicates'
+  | 'contact-merge'
+  | 'contact-settings';
 
 interface DuressStatus {
   password_enabled: boolean;
@@ -58,6 +64,8 @@ function App() {
   const [hasIdentity] = createResource(checkIdentity);
   const [passwordEnabled] = createResource(checkPasswordEnabled);
   const [authenticated, setAuthenticated] = createSignal(false);
+  const [mergePrimaryId, setMergePrimaryId] = createSignal('');
+  const [mergeSecondaryId, setMergeSecondaryId] = createSignal('');
 
   // Apply saved settings on app startup
   onMount(async () => {
@@ -117,6 +125,27 @@ function App() {
         return <DuressSettings onNavigate={setPage} />;
       case 'emergency-wipe':
         return <EmergencyWipe onNavigate={setPage} />;
+      case 'contact-duplicates':
+        return (
+          <ContactDuplicates
+            onNavigate={setPage}
+            onMerge={(primaryId, secondaryId) => {
+              setMergePrimaryId(primaryId);
+              setMergeSecondaryId(secondaryId);
+              setPage('contact-merge');
+            }}
+          />
+        );
+      case 'contact-merge':
+        return (
+          <ContactMerge
+            primaryId={mergePrimaryId()}
+            secondaryId={mergeSecondaryId()}
+            onNavigate={setPage}
+          />
+        );
+      case 'contact-settings':
+        return <ContactSettings onNavigate={setPage} />;
       default:
         return <Home onNavigate={setPage} />;
     }
