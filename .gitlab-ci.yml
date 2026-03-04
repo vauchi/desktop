@@ -84,43 +84,13 @@ stages:
 reuse-lint:
   tags: [self-hosted, reuse, linux]
 
+# Override shared quality jobs to run on self-hosted shell runner.
+# Script inherited from test-quality.yml template; image: ignored on shell executor.
 quality:zero-assertions:
   tags: [self-hosted, rust, linux]
-  script:
-    - |
-      # Fetch single script via GitLab API (faster than git clone)
-      curl -fsSL "https://gitlab.com/vauchi/scripts/-/raw/${CI_DEFAULT_BRANCH}/scripts/check-zero-assertions.sh" -o /tmp/check-zero-assertions.sh
-      chmod +x /tmp/check-zero-assertions.sh
-
-      DIRS=""
-      for dir in src tests; do
-        if [ -d "$dir" ]; then DIRS="$DIRS $dir"; fi
-      done
-      for dir in */src */tests; do
-        if [ -d "$dir" ]; then DIRS="$DIRS $dir"; fi
-      done
-
-      if [ -n "$DIRS" ]; then
-        /tmp/check-zero-assertions.sh $DIRS
-      else
-        echo "No test directories found — skipping"
-      fi
 
 quality:test-ratio:
   tags: [self-hosted, rust, linux]
-  script:
-    - |
-      # Fetch single script via GitLab API (faster than git clone)
-      curl -fsSL "https://gitlab.com/vauchi/scripts/-/raw/${CI_DEFAULT_BRANCH}/scripts/test-code-ratio.sh" -o /tmp/test-code-ratio.sh
-      chmod +x /tmp/test-code-ratio.sh
-
-      for dir in . */; do
-        dir="${dir%/}"
-        if [ -d "$dir/src" ]; then
-          echo ""
-          /tmp/test-code-ratio.sh "$dir"
-        fi
-      done
 
 # ============================================================
 # Lint Stage — Preflight Gate (change-based)
