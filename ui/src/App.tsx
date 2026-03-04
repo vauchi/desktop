@@ -4,7 +4,7 @@
 
 import { createSignal, createResource, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import Setup from './pages/Setup';
+import { OnboardingWizard } from './pages/onboarding';
 import Lock from './pages/Lock';
 import Home from './pages/Home';
 import Contacts from './pages/Contacts';
@@ -90,7 +90,7 @@ function App() {
           Loading...
         </div>
       );
-    if (!hasIdentity()) return <Setup onComplete={() => location.reload()} />;
+    if (!hasIdentity()) return <OnboardingWizard onComplete={() => location.reload()} />;
     if (passwordEnabled() && !authenticated())
       return <Lock onUnlock={() => setAuthenticated(true)} />;
 
