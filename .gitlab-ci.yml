@@ -200,6 +200,8 @@ security:no-devtools:
 lint:rust-format:
   extends: [.rust-runner-nocache, .lint-format, .timeout-quick]
   needs: []
+  script:
+    - cd src-tauri && cargo fmt --all -- --check
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
