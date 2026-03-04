@@ -50,7 +50,8 @@ async function addFields(page: Page): Promise<void> {
   await page.fill('#add-field-value', 'test@example.com');
   // Click the "Add" button in dialog (last button in dialog-actions)
   await page.click('[role="dialog"] .dialog-actions button:last-child');
-  await page.waitForTimeout(500);
+  // Wait for dialog to close after adding the field
+  await page.waitForSelector('[role="dialog"]', { state: 'hidden', timeout: 5000 });
 
   // Add phone field
   await page.click('.icon-btn');
@@ -59,7 +60,8 @@ async function addFields(page: Page): Promise<void> {
   await page.fill('#add-field-label', 'Phone');
   await page.fill('#add-field-value', '+1234567890');
   await page.click('[role="dialog"] .dialog-actions button:last-child');
-  await page.waitForTimeout(500);
+  // Wait for dialog to close after adding the field
+  await page.waitForSelector('[role="dialog"]', { state: 'hidden', timeout: 5000 });
 }
 
 /** Navigate using the bottom nav. */
@@ -148,7 +150,8 @@ test.describe('Visual Regression @visual', () => {
     await page.click('button[aria-label="Export a backup of your identity"]');
     await page.waitForSelector('[role="dialog"]');
     await page.fill('#backup-password', '12345678');
-    await page.waitForTimeout(300);
+    // Wait for password strength indicator to render
+    await page.waitForSelector('#password-strength', { state: 'visible', timeout: 5000 });
     await expect(page).toHaveScreenshot('password-strength-weak.png');
   });
 
@@ -159,7 +162,8 @@ test.describe('Visual Regression @visual', () => {
     await page.click('button[aria-label="Export a backup of your identity"]');
     await page.waitForSelector('[role="dialog"]');
     await page.fill('#backup-password', 'Str0ng-P@ssw0rd!');
-    await page.waitForTimeout(300);
+    // Wait for password strength indicator to render
+    await page.waitForSelector('#password-strength', { state: 'visible', timeout: 5000 });
     await expect(page).toHaveScreenshot('password-strength-strong.png');
   });
 });
