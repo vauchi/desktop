@@ -52,7 +52,8 @@ function PreviewCardStep(props: PreviewCardStepProps) {
     <div class="onboarding-step preview-card-step">
       <h2>{t('onboarding.preview.title') || 'Your Card Preview'}</h2>
       <p class="step-description">
-        {t('onboarding.preview.description') || 'This is how your card will look to others when you exchange contacts.'}
+        {t('onboarding.preview.description') ||
+          'This is how your card will look to others when you exchange contacts.'}
       </p>
 
       <Show
@@ -72,9 +73,7 @@ function PreviewCardStep(props: PreviewCardStepProps) {
             <div class="card-avatar" aria-hidden="true">
               {(card()?.display_name || props.displayName || '?')[0].toUpperCase()}
             </div>
-            <h3 class="card-name">
-              {card()?.display_name || props.displayName}
-            </h3>
+            <h3 class="card-name">{card()?.display_name || props.displayName}</h3>
           </div>
 
           <Show
@@ -85,7 +84,10 @@ function PreviewCardStep(props: PreviewCardStepProps) {
               </p>
             }
           >
-            <ul class="card-preview-fields" aria-label={t('onboarding.preview.fields_label') || 'Contact fields'}>
+            <ul
+              class="card-preview-fields"
+              aria-label={t('onboarding.preview.fields_label') || 'Contact fields'}
+            >
               <For each={card()?.fields}>
                 {(field) => (
                   <li class="card-preview-field">

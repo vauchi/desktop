@@ -13,17 +13,13 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('Accessibility @a11y', () => {
-  test('setup page has no critical a11y violations', async ({ page }) => {
+  test('onboarding page has no critical a11y violations', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.page.setup')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.page.onboarding')).toBeVisible({ timeout: 10000 });
 
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa'])
-      .analyze();
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
 
-    expect(
-      results.violations.filter((v) => v.impact === 'critical')
-    ).toEqual([]);
+    expect(results.violations.filter((v) => v.impact === 'critical')).toEqual([]);
   });
 
   test('home page has no critical a11y violations', async ({ page }) => {
@@ -31,13 +27,9 @@ test.describe('Accessibility @a11y', () => {
     await addTestFields(page);
     await expect(page.locator('.page.home')).toBeVisible();
 
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa'])
-      .analyze();
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
 
-    expect(
-      results.violations.filter((v) => v.impact === 'critical')
-    ).toEqual([]);
+    expect(results.violations.filter((v) => v.impact === 'critical')).toEqual([]);
   });
 
   test('contacts page has no critical a11y violations', async ({ page }) => {
@@ -45,13 +37,9 @@ test.describe('Accessibility @a11y', () => {
     await navigateTo(page, 'Contacts');
     await expect(page.locator('.page.contacts')).toBeVisible({ timeout: 10000 });
 
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa'])
-      .analyze();
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
 
-    expect(
-      results.violations.filter((v) => v.impact === 'critical')
-    ).toEqual([]);
+    expect(results.violations.filter((v) => v.impact === 'critical')).toEqual([]);
   });
 
   test('settings page has no critical a11y violations', async ({ page }) => {
@@ -59,13 +47,9 @@ test.describe('Accessibility @a11y', () => {
     await navigateTo(page, 'Settings');
     await expect(page.locator('.page.settings')).toBeVisible({ timeout: 10000 });
 
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa'])
-      .analyze();
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
 
-    expect(
-      results.violations.filter((v) => v.impact === 'critical')
-    ).toEqual([]);
+    expect(results.violations.filter((v) => v.impact === 'critical')).toEqual([]);
   });
 
   test('exchange page has no critical a11y violations', async ({ page }) => {
@@ -73,13 +57,9 @@ test.describe('Accessibility @a11y', () => {
     await navigateTo(page, 'Exchange');
     await expect(page.locator('.page.exchange')).toBeVisible({ timeout: 10000 });
 
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa'])
-      .analyze();
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
 
-    expect(
-      results.violations.filter((v) => v.impact === 'critical')
-    ).toEqual([]);
+    expect(results.violations.filter((v) => v.impact === 'critical')).toEqual([]);
   });
 
   test('high contrast mode applies correctly', async ({ page }) => {

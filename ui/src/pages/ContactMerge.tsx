@@ -185,9 +185,7 @@ function ContactMerge(props: ContactMergeProps) {
 
           {/* Contact Comparison */}
           <section aria-labelledby="comparison-title">
-            <h2 id="comparison-title">
-              {t('contacts.merge.comparison') || 'Contact Comparison'}
-            </h2>
+            <h2 id="comparison-title">{t('contacts.merge.comparison') || 'Contact Comparison'}</h2>
 
             <div class="delivery-records-list">
               {/* Primary Contact */}
@@ -204,8 +202,7 @@ function ContactMerge(props: ContactMergeProps) {
                 <div class="record-details">
                   <span class="setting-label">{effectivePrimary()!.display_name}</span>
                   <span class="setting-description">
-                    {effectivePrimary()!.fields.length}{' '}
-                    {t('contacts.merge.fields') || 'fields'}
+                    {effectivePrimary()!.fields.length} {t('contacts.merge.fields') || 'fields'}
                     {effectivePrimary()!.verified
                       ? ` - ${t('contacts.merge.verified') || 'Verified'}`
                       : ''}
@@ -237,8 +234,7 @@ function ContactMerge(props: ContactMergeProps) {
                 <div class="record-details">
                   <span class="setting-label">{effectiveSecondary()!.display_name}</span>
                   <span class="setting-description">
-                    {effectiveSecondary()!.fields.length}{' '}
-                    {t('contacts.merge.fields') || 'fields'}
+                    {effectiveSecondary()!.fields.length} {t('contacts.merge.fields') || 'fields'}
                     {effectiveSecondary()!.verified
                       ? ` - ${t('contacts.merge.verified') || 'Verified'}`
                       : ''}
@@ -295,9 +291,7 @@ function ContactMerge(props: ContactMergeProps) {
                         </Show>
                       </div>
                       <div class="record-details">
-                        <span class="count-label">
-                          {t('contacts.merge.primary') || 'Primary'}:
-                        </span>
+                        <span class="count-label">{t('contacts.merge.primary') || 'Primary'}:</span>
                         <span class="count-value">{field.primaryValue}</span>
                       </div>
                       <Show when={!field.same}>
@@ -357,8 +351,8 @@ function ContactMerge(props: ContactMergeProps) {
                 }
               >
                 {merging()
-                  ? (t('contacts.merge.merging') || 'Merging...')
-                  : (t('contacts.merge.merge_button') || 'Merge Contacts')}
+                  ? t('contacts.merge.merging') || 'Merging...'
+                  : t('contacts.merge.merge_button') || 'Merge Contacts'}
               </button>
               <button
                 class="small"

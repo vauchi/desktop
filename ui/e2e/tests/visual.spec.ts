@@ -10,15 +10,34 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript({ content: tauriMockScript() });
 });
 
-/** Create an identity via the setup form. */
+/** Create an identity via the onboarding wizard. */
 async function createIdentity(page: Page): Promise<void> {
   await page.goto('/');
-  // Wait for setup page to render (has_identity returns false initially)
-  await page.waitForSelector('.page.setup', { timeout: 10000 });
-  await page.fill('#name', 'Test User');
-  await page.click('button[type="submit"]');
-  // Wait for the page to reload after identity creation
-  await page.waitForSelector('.page.home', { timeout: 10000 });
+  // Wait for onboarding page to render (has_identity returns false initially)
+  await page.waitForSelector('.page.onboarding', { timeout: 10000 });
+  // Step 1: Welcome
+  await page.click('.welcome-step .step-actions button');
+  // Step 2: Create Identity
+  await page.waitForSelector('.create-identity-step', { timeout: 5000 });
+  await page.fill('#display-name', 'Test User');
+  await page.click('.create-identity-step button[type="submit"]');
+  // Step 3: Add Fields — skip
+  await page.waitForSelector('.add-fields-step', { timeout: 5000 });
+  await page.click('.add-fields-step .text-btn');
+  // Step 4: Preview Card — next
+  await page.waitForSelector('.preview-card-step', { timeout: 5000 });
+  await page.click('.preview-card-step .step-actions button:not(.secondary)');
+  // Step 5: Security — next
+  await page.waitForSelector('.security-step', { timeout: 5000 });
+  await page.click('.security-step .step-actions button:not(.secondary)');
+  // Step 6: Backup Prompt — skip
+  await page.waitForSelector('.backup-prompt-step', { timeout: 5000 });
+  await page.click('.backup-prompt-step .text-btn');
+  // Step 7: Ready — complete
+  await page.waitForSelector('.ready-step', { timeout: 5000 });
+  await page.click('.ready-step .step-actions button');
+  // Wait for the page to reload after onboarding completes
+  await page.waitForSelector('.page.home', { timeout: 15000 });
 }
 
 /** Add test fields via the Add Field dialog. */
@@ -75,10 +94,10 @@ async function setGermanLocale(page: Page): Promise<void> {
 }
 
 test.describe('Visual Regression @visual', () => {
-  test('setup page', async ({ page }) => {
+  test('onboarding page', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.page.setup', { timeout: 10000 });
-    await expect(page).toHaveScreenshot('setup-page.png');
+    await page.waitForSelector('.page.onboarding', { timeout: 10000 });
+    await expect(page).toHaveScreenshot('onboarding-page.png');
   });
 
   test('main app - empty state', async ({ page }) => {
@@ -146,11 +165,11 @@ test.describe('Visual Regression @visual', () => {
 });
 
 test.describe('Dark Theme Variants @visual', () => {
-  test('setup page - dark', async ({ page }) => {
+  test('onboarding page - dark', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.page.setup', { timeout: 10000 });
+    await page.waitForSelector('.page.onboarding', { timeout: 10000 });
     await setDarkTheme(page);
-    await expect(page).toHaveScreenshot('setup-page-dark.png');
+    await expect(page).toHaveScreenshot('onboarding-page-dark.png');
   });
 
   test('main app - dark', async ({ page }) => {
@@ -178,11 +197,11 @@ test.describe('Dark Theme Variants @visual', () => {
 });
 
 test.describe('German Locale Variants @visual', () => {
-  test('setup page - German', async ({ page }) => {
+  test('onboarding page - German', async ({ page }) => {
     await page.goto('/');
     await setGermanLocale(page);
-    await page.waitForSelector('.page.setup', { timeout: 10000 });
-    await expect(page).toHaveScreenshot('setup-page-de.png');
+    await page.waitForSelector('.page.onboarding', { timeout: 10000 });
+    await expect(page).toHaveScreenshot('onboarding-page-de.png');
   });
 
   test('main app - German', async ({ page }) => {

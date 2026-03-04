@@ -143,8 +143,7 @@ function OnboardingWizard(props: OnboardingWizardProps) {
             </For>
           </ol>
           <p class="sr-only" role="status" aria-live="polite">
-            {t('onboarding.progress.step_of') ||
-              `Step ${currentIndex() + 1} of ${totalSteps}`}
+            {t('onboarding.progress.step_of') || `Step ${currentIndex() + 1} of ${totalSteps}`}
           </p>
         </div>
 
@@ -169,34 +168,19 @@ function OnboardingWizard(props: OnboardingWizardProps) {
             />
           </Show>
           <Show when={currentStep() === 'add-fields'}>
-            <AddFieldsStep
-              onNext={goNext}
-              onBack={goBack}
-              onSkip={goNext}
-            />
+            <AddFieldsStep onNext={goNext} onBack={goBack} onSkip={goNext} />
           </Show>
           <Show when={currentStep() === 'preview-card'}>
-            <PreviewCardStep
-              displayName={displayName()}
-              onNext={goNext}
-              onBack={goBack}
-            />
+            <PreviewCardStep displayName={displayName()} onNext={goNext} onBack={goBack} />
           </Show>
           <Show when={currentStep() === 'security'}>
             <SecurityStep onNext={goNext} onBack={goBack} />
           </Show>
           <Show when={currentStep() === 'backup-prompt'}>
-            <BackupPromptStep
-              onNext={goNext}
-              onBack={goBack}
-              onSkip={goNext}
-            />
+            <BackupPromptStep onNext={goNext} onBack={goBack} onSkip={goNext} />
           </Show>
           <Show when={currentStep() === 'ready'}>
-            <ReadyStep
-              displayName={displayName()}
-              onComplete={props.onComplete}
-            />
+            <ReadyStep displayName={displayName()} onComplete={props.onComplete} />
           </Show>
         </div>
       </div>

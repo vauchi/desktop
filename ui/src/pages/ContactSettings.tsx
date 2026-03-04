@@ -49,15 +49,11 @@ function ContactSettings(props: ContactSettingsProps) {
   const saveLimit = async () => {
     const parsed = parseInt(newLimit(), 10);
     if (isNaN(parsed) || parsed < 1) {
-      setError(
-        t('contacts.settings.invalid_limit') || 'Contact limit must be a positive number.'
-      );
+      setError(t('contacts.settings.invalid_limit') || 'Contact limit must be a positive number.');
       return;
     }
     if (parsed > 100000) {
-      setError(
-        t('contacts.settings.limit_too_high') || 'Contact limit cannot exceed 100,000.'
-      );
+      setError(t('contacts.settings.limit_too_high') || 'Contact limit cannot exceed 100,000.');
       return;
     }
 
@@ -104,9 +100,7 @@ function ContactSettings(props: ContactSettingsProps) {
         >
           {t('action.back') || 'Back'}
         </button>
-        <h1 id="contact-settings-title">
-          {t('contacts.settings.title') || 'Contact Settings'}
-        </h1>
+        <h1 id="contact-settings-title">{t('contacts.settings.title') || 'Contact Settings'}</h1>
       </header>
 
       <Show when={error()}>
@@ -130,9 +124,7 @@ function ContactSettings(props: ContactSettingsProps) {
       <Show when={!isLoading()}>
         {/* Contact Limit Section */}
         <section aria-labelledby="contact-limit-title">
-          <h2 id="contact-limit-title">
-            {t('contacts.settings.limit_title') || 'Contact Limit'}
-          </h2>
+          <h2 id="contact-limit-title">{t('contacts.settings.limit_title') || 'Contact Limit'}</h2>
           <p class="setting-description">
             {t('contacts.settings.limit_description') ||
               'Maximum number of contacts allowed in your address book. This limit helps prevent excessive resource usage.'}
@@ -176,11 +168,7 @@ function ContactSettings(props: ContactSettingsProps) {
                 {t('contacts.settings.limit_help') || 'Enter a number between 1 and 100,000.'}
               </p>
               <div class="delivery-action-buttons">
-                <button
-                  class="nav-btn"
-                  onClick={saveLimit}
-                  aria-label={t('action.save') || 'Save'}
-                >
+                <button class="nav-btn" onClick={saveLimit} aria-label={t('action.save') || 'Save'}>
                   {t('action.save') || 'Save'}
                 </button>
                 <button

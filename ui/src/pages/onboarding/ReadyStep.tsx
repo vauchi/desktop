@@ -16,35 +16,53 @@ function ReadyStep(props: ReadyStepProps) {
         <span class="celebration-icon">{'\uD83C\uDF89'}</span>
       </div>
 
-      <h2>
-        {t('onboarding.ready.title') || "You're all set!"}
-      </h2>
+      <h2>{t('onboarding.ready.title') || "You're all set!"}</h2>
       <p class="step-subtitle">
-        {t('onboarding.ready.subtitle') || `Welcome, ${props.displayName}! Your contact card is ready to share.`}
+        {t('onboarding.ready.subtitle') ||
+          `Welcome, ${props.displayName}! Your contact card is ready to share.`}
       </p>
 
-      <div class="ready-tips" role="list" aria-label={t('onboarding.ready.tips_label') || 'Getting started tips'}>
+      <div
+        class="ready-tips"
+        role="list"
+        aria-label={t('onboarding.ready.tips_label') || 'Getting started tips'}
+      >
         <div class="ready-tip" role="listitem">
-          <span class="tip-icon" aria-hidden="true">{'\uD83D\uDCF1'}</span>
+          <span class="tip-icon" aria-hidden="true">
+            {'\uD83D\uDCF1'}
+          </span>
           <div>
             <strong>{t('onboarding.ready.tip_exchange_title') || 'Exchange Cards'}</strong>
-            <p>{t('onboarding.ready.tip_exchange_desc') || 'Meet someone? Scan their QR code to exchange contact cards instantly.'}</p>
+            <p>
+              {t('onboarding.ready.tip_exchange_desc') ||
+                'Meet someone? Scan their QR code to exchange contact cards instantly.'}
+            </p>
           </div>
         </div>
 
         <div class="ready-tip" role="listitem">
-          <span class="tip-icon" aria-hidden="true">{'\u270F\uFE0F'}</span>
+          <span class="tip-icon" aria-hidden="true">
+            {'\u270F\uFE0F'}
+          </span>
           <div>
             <strong>{t('onboarding.ready.tip_edit_title') || 'Edit Your Card'}</strong>
-            <p>{t('onboarding.ready.tip_edit_desc') || 'Add or update your contact details anytime from the home screen.'}</p>
+            <p>
+              {t('onboarding.ready.tip_edit_desc') ||
+                'Add or update your contact details anytime from the home screen.'}
+            </p>
           </div>
         </div>
 
         <div class="ready-tip" role="listitem">
-          <span class="tip-icon" aria-hidden="true">{'\uD83D\uDD04'}</span>
+          <span class="tip-icon" aria-hidden="true">
+            {'\uD83D\uDD04'}
+          </span>
           <div>
             <strong>{t('onboarding.ready.tip_auto_title') || 'Automatic Updates'}</strong>
-            <p>{t('onboarding.ready.tip_auto_desc') || 'Change your info and everyone who has your card gets updated automatically.'}</p>
+            <p>
+              {t('onboarding.ready.tip_auto_desc') ||
+                'Change your info and everyone who has your card gets updated automatically.'}
+            </p>
           </div>
         </div>
       </div>

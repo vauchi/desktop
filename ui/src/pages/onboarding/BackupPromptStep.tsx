@@ -82,15 +82,19 @@ function BackupPromptStep(props: BackupPromptStepProps) {
     <div class="onboarding-step backup-prompt-step">
       <h2>{t('onboarding.backup.title') || 'Backup Your Identity'}</h2>
       <p class="step-description">
-        {t('onboarding.backup.description') || 'If you lose this device, your identity is gone forever. Creating a backup lets you restore it.'}
+        {t('onboarding.backup.description') ||
+          'If you lose this device, your identity is gone forever. Creating a backup lets you restore it.'}
       </p>
 
       <Show when={!showBackupForm() && !backupComplete()}>
         <div class="backup-prompt-info">
           <div class="backup-warning" role="alert">
-            <span class="warning-icon" aria-hidden="true">{'\u26A0\uFE0F'}</span>
+            <span class="warning-icon" aria-hidden="true">
+              {'\u26A0\uFE0F'}
+            </span>
             <p>
-              {t('onboarding.backup.warning') || 'Without a backup, there is no way to recover your identity if your device is lost or damaged.'}
+              {t('onboarding.backup.warning') ||
+                'Without a backup, there is no way to recover your identity if your device is lost or damaged.'}
             </p>
           </div>
 
@@ -131,8 +135,12 @@ function BackupPromptStep(props: BackupPromptStepProps) {
           />
 
           <Show when={passwordStrength()}>
-            <p class={`password-strength strength-${passwordStrength().replace(/_/g, '-')}`} aria-live="polite">
-              {t(`onboarding.backup.strength_${passwordStrength()}`) || `Strength: ${passwordStrength()}`}
+            <p
+              class={`password-strength strength-${passwordStrength().replace(/_/g, '-')}`}
+              aria-live="polite"
+            >
+              {t(`onboarding.backup.strength_${passwordStrength()}`) ||
+                `Strength: ${passwordStrength()}`}
             </p>
           </Show>
 
@@ -166,8 +174,8 @@ function BackupPromptStep(props: BackupPromptStepProps) {
             </button>
             <button type="submit" disabled={loading()} aria-busy={loading()}>
               {loading()
-                ? (t('onboarding.backup.creating') || 'Creating backup...')
-                : (t('onboarding.backup.create') || 'Create Backup')}
+                ? t('onboarding.backup.creating') || 'Creating backup...'
+                : t('onboarding.backup.create') || 'Create Backup'}
             </button>
           </div>
         </form>
@@ -175,10 +183,13 @@ function BackupPromptStep(props: BackupPromptStepProps) {
 
       <Show when={backupComplete()}>
         <div class="backup-success" role="status" aria-live="polite">
-          <div class="success-icon" aria-hidden="true">{'\u2705'}</div>
+          <div class="success-icon" aria-hidden="true">
+            {'\u2705'}
+          </div>
           <h3>{t('onboarding.backup.success_title') || 'Backup Created!'}</h3>
           <p>
-            {t('onboarding.backup.success_desc') || 'Store this backup data in a safe place. You will need it along with your password to restore your identity.'}
+            {t('onboarding.backup.success_desc') ||
+              'Store this backup data in a safe place. You will need it along with your password to restore your identity.'}
           </p>
 
           <div class="backup-data-section">

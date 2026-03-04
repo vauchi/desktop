@@ -21,19 +21,42 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('Identity Management', () => {
-  test('should create new identity', async ({ page }) => {
+  test('should create new identity via onboarding', async ({ page }) => {
     await page.goto('/');
 
-    // Should show setup page for new user
-    await expect(page.locator('.page.setup')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('#name')).toBeVisible();
+    // Should show onboarding page for new user
+    await expect(page.locator('.page.onboarding')).toBeVisible({ timeout: 10000 });
 
-    // Create identity
-    await page.fill('#name', TEST_USER.displayName);
-    await page.click('button[type="submit"]');
+    // Step 1: Welcome
+    await page.click('.welcome-step .step-actions button');
+
+    // Step 2: Create Identity
+    await page.waitForSelector('.create-identity-step', { timeout: 5000 });
+    await page.fill('#display-name', TEST_USER.displayName);
+    await page.click('.create-identity-step button[type="submit"]');
+
+    // Step 3: Add Fields — skip
+    await page.waitForSelector('.add-fields-step', { timeout: 5000 });
+    await page.click('.add-fields-step .text-btn');
+
+    // Step 4: Preview Card — next
+    await page.waitForSelector('.preview-card-step', { timeout: 5000 });
+    await page.click('.preview-card-step .step-actions button:not(.secondary)');
+
+    // Step 5: Security — next
+    await page.waitForSelector('.security-step', { timeout: 5000 });
+    await page.click('.security-step .step-actions button:not(.secondary)');
+
+    // Step 6: Backup Prompt — skip
+    await page.waitForSelector('.backup-prompt-step', { timeout: 5000 });
+    await page.click('.backup-prompt-step .text-btn');
+
+    // Step 7: Ready — complete
+    await page.waitForSelector('.ready-step', { timeout: 5000 });
+    await page.click('.ready-step .step-actions button');
 
     // Should redirect to main app (home page)
-    await expect(page.locator('.page.home')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.page.home')).toBeVisible({ timeout: 15000 });
   });
 
   test('should display user identity information', async ({ page }) => {
@@ -91,7 +114,9 @@ test.describe('Identity Management', () => {
 
     // Verify the field shows the updated value after reload
     const emailField2 = page.locator('.field-item').first();
-    await expect(emailField2.locator('.field-value')).toContainText('updated@example.com', { timeout: 5000 });
+    await expect(emailField2.locator('.field-value')).toContainText('updated@example.com', {
+      timeout: 5000,
+    });
   });
 
   test('should remove field from identity', async ({ page }) => {

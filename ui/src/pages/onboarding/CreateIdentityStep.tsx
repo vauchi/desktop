@@ -50,7 +50,8 @@ function CreateIdentityStep(props: CreateIdentityStepProps) {
     <div class="onboarding-step create-identity-step">
       <h2>{t('onboarding.identity.title') || 'Create Your Identity'}</h2>
       <p class="step-description">
-        {t('onboarding.identity.description') || 'Choose a display name for your contact card. This is what others will see when you exchange cards.'}
+        {t('onboarding.identity.description') ||
+          'Choose a display name for your contact card. This is what others will see when you exchange cards.'}
       </p>
 
       <form
@@ -64,12 +65,11 @@ function CreateIdentityStep(props: CreateIdentityStepProps) {
         aria-describedby="identity-form-description"
       >
         <p id="identity-form-description" class="sr-only">
-          {t('onboarding.identity.form_description') || 'Enter your display name to create your identity card.'}
+          {t('onboarding.identity.form_description') ||
+            'Enter your display name to create your identity card.'}
         </p>
 
-        <label for="display-name">
-          {t('settings.display_name') || 'Display Name'}
-        </label>
+        <label for="display-name">{t('settings.display_name') || 'Display Name'}</label>
         <input
           id="display-name"
           type="text"
@@ -104,16 +104,12 @@ function CreateIdentityStep(props: CreateIdentityStepProps) {
           >
             {t('onboarding.back') || 'Back'}
           </button>
-          <button
-            type="submit"
-            disabled={loading() || created()}
-            aria-busy={loading()}
-          >
+          <button type="submit" disabled={loading() || created()} aria-busy={loading()}>
             {loading()
-              ? (t('setup.creating') || 'Creating...')
+              ? t('setup.creating') || 'Creating...'
               : created()
-                ? (t('onboarding.identity.done') || 'Done!')
-                : (t('onboarding.identity.create') || 'Create Identity')}
+                ? t('onboarding.identity.done') || 'Done!'
+                : t('onboarding.identity.create') || 'Create Identity'}
           </button>
         </div>
       </form>

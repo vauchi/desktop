@@ -13,10 +13,30 @@ interface FieldEntry {
 }
 
 const FIELD_TYPES = [
-  { type: 'phone', icon: '\uD83D\uDCF1', labelKey: 'onboarding.fields.phone', defaultLabel: 'Phone' },
-  { type: 'email', icon: '\u2709\uFE0F', labelKey: 'onboarding.fields.email', defaultLabel: 'Email' },
-  { type: 'website', icon: '\uD83C\uDF10', labelKey: 'onboarding.fields.website', defaultLabel: 'Website' },
-  { type: 'social', icon: '\uD83D\uDC64', labelKey: 'onboarding.fields.social', defaultLabel: 'Social' },
+  {
+    type: 'phone',
+    icon: '\uD83D\uDCF1',
+    labelKey: 'onboarding.fields.phone',
+    defaultLabel: 'Phone',
+  },
+  {
+    type: 'email',
+    icon: '\u2709\uFE0F',
+    labelKey: 'onboarding.fields.email',
+    defaultLabel: 'Email',
+  },
+  {
+    type: 'website',
+    icon: '\uD83C\uDF10',
+    labelKey: 'onboarding.fields.website',
+    defaultLabel: 'Website',
+  },
+  {
+    type: 'social',
+    icon: '\uD83D\uDC64',
+    labelKey: 'onboarding.fields.social',
+    defaultLabel: 'Social',
+  },
 ];
 
 interface AddFieldsStepProps {
@@ -51,7 +71,7 @@ function AddFieldsStep(props: AddFieldsStepProps) {
 
   const getDefaultLabel = (type: string): string => {
     const ft = FIELD_TYPES.find((f) => f.type === type);
-    return ft ? (t(ft.labelKey) || ft.defaultLabel) : type;
+    return ft ? t(ft.labelKey) || ft.defaultLabel : type;
   };
 
   const handleAddField = async () => {
@@ -94,12 +114,16 @@ function AddFieldsStep(props: AddFieldsStepProps) {
     <div class="onboarding-step add-fields-step">
       <h2>{t('onboarding.fields.title') || 'Add Contact Details'}</h2>
       <p class="step-description">
-        {t('onboarding.fields.description') || 'Add optional information to your card. You can always change this later.'}
+        {t('onboarding.fields.description') ||
+          'Add optional information to your card. You can always change this later.'}
       </p>
 
       {/* Added fields list */}
       <Show when={fields().length > 0}>
-        <ul class="fields-list onboarding-fields" aria-label={t('onboarding.fields.added_label') || 'Added fields'}>
+        <ul
+          class="fields-list onboarding-fields"
+          aria-label={t('onboarding.fields.added_label') || 'Added fields'}
+        >
           <For each={fields()}>
             {(field, index) => {
               const ft = FIELD_TYPES.find((f) => f.type === field.fieldType);
@@ -144,15 +168,18 @@ function AddFieldsStep(props: AddFieldsStepProps) {
                   }}
                   aria-label={`${t('onboarding.fields.add') || 'Add'} ${t(ft.labelKey) || ft.defaultLabel}`}
                 >
-                  <span aria-hidden="true">{ft.icon}</span>
-                  {' '}{t(ft.labelKey) || ft.defaultLabel}
+                  <span aria-hidden="true">{ft.icon}</span> {t(ft.labelKey) || ft.defaultLabel}
                 </button>
               )}
             </For>
           </div>
         }
       >
-        <div class="add-field-form" role="group" aria-label={t('onboarding.fields.add_form') || 'Add field'}>
+        <div
+          class="add-field-form"
+          role="group"
+          aria-label={t('onboarding.fields.add_form') || 'Add field'}
+        >
           <div class="field-type-header">
             <span aria-hidden="true">
               {FIELD_TYPES.find((f) => f.type === selectedType())?.icon}
@@ -172,9 +199,7 @@ function AddFieldsStep(props: AddFieldsStepProps) {
             disabled={saving()}
           />
 
-          <label for="field-value">
-            {t('onboarding.fields.value_label') || 'Value'}
-          </label>
+          <label for="field-value">{t('onboarding.fields.value_label') || 'Value'}</label>
           <input
             id="field-value"
             type="text"
@@ -204,15 +229,10 @@ function AddFieldsStep(props: AddFieldsStepProps) {
             >
               {t('onboarding.cancel') || 'Cancel'}
             </button>
-            <button
-              type="button"
-              onClick={handleAddField}
-              disabled={saving()}
-              aria-busy={saving()}
-            >
+            <button type="button" onClick={handleAddField} disabled={saving()} aria-busy={saving()}>
               {saving()
-                ? (t('onboarding.fields.saving') || 'Saving...')
-                : (t('onboarding.fields.add_field') || 'Add Field')}
+                ? t('onboarding.fields.saving') || 'Saving...'
+                : t('onboarding.fields.add_field') || 'Add Field'}
             </button>
           </div>
         </div>
@@ -224,11 +244,7 @@ function AddFieldsStep(props: AddFieldsStepProps) {
         </button>
         <div class="step-actions-right">
           <Show when={fields().length === 0}>
-            <button
-              type="button"
-              class="text-btn"
-              onClick={() => props.onSkip()}
-            >
+            <button type="button" class="text-btn" onClick={() => props.onSkip()}>
               {t('onboarding.skip') || 'Skip for now'}
             </button>
           </Show>

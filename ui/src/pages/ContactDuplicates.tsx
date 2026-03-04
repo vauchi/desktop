@@ -88,9 +88,7 @@ function ContactDuplicates(props: ContactDuplicatesProps) {
         >
           {t('action.back') || 'Back'}
         </button>
-        <h1 id="duplicates-title">
-          {t('contacts.duplicates.title') || 'Potential Duplicates'}
-        </h1>
+        <h1 id="duplicates-title">{t('contacts.duplicates.title') || 'Potential Duplicates'}</h1>
       </header>
 
       <Show when={error()}>
@@ -137,7 +135,11 @@ function ContactDuplicates(props: ContactDuplicatesProps) {
             {t('contacts.duplicates.description') ||
               'These contacts appear similar and may be duplicates. You can merge them or dismiss the suggestion.'}
           </p>
-          <div class="delivery-records-list" role="list" aria-label={t('contacts.duplicates.list_label') || 'Duplicate contact pairs'}>
+          <div
+            class="delivery-records-list"
+            role="list"
+            aria-label={t('contacts.duplicates.list_label') || 'Duplicate contact pairs'}
+          >
             <For each={duplicates()}>
               {(pair) => (
                 <div
@@ -146,18 +148,20 @@ function ContactDuplicates(props: ContactDuplicatesProps) {
                   aria-label={`${pair.name1} and ${pair.name2}, ${formatSimilarity(pair.similarity)} similar`}
                 >
                   <div class="record-header">
-                    <span class="record-status accent">
-                      {formatSimilarity(pair.similarity)}
-                    </span>
+                    <span class="record-status accent">{formatSimilarity(pair.similarity)}</span>
                     <span class="setting-label">
                       {t('contacts.duplicates.similarity') || 'Similarity'}
                     </span>
                   </div>
                   <div class="record-details">
                     <div class="duplicate-contact-names">
-                      <span class="setting-label" title={pair.id1}>{pair.name1}</span>
+                      <span class="setting-label" title={pair.id1}>
+                        {pair.name1}
+                      </span>
                       <span class="setting-description">&amp;</span>
-                      <span class="setting-label" title={pair.id2}>{pair.name2}</span>
+                      <span class="setting-label" title={pair.id2}>
+                        {pair.name2}
+                      </span>
                     </div>
                   </div>
                   <div class="delivery-action-buttons">
@@ -179,8 +183,8 @@ function ContactDuplicates(props: ContactDuplicatesProps) {
                       aria-label={`${t('contacts.duplicates.dismiss') || 'Dismiss'} ${pair.name1} ${t('contacts.duplicates.and') || 'and'} ${pair.name2}`}
                     >
                       {dismissingPair() === `${pair.id1}-${pair.id2}`
-                        ? (t('contacts.duplicates.dismissing') || 'Dismissing...')
-                        : (t('contacts.duplicates.dismiss') || 'Not Duplicates')}
+                        ? t('contacts.duplicates.dismissing') || 'Dismissing...'
+                        : t('contacts.duplicates.dismiss') || 'Not Duplicates'}
                     </button>
                   </div>
                 </div>

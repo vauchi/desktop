@@ -15,9 +15,7 @@ export const TEST_USER = {
 
 export const TEST_CONTACT = {
   displayName: 'Contact Test',
-  fields: [
-    { type: 'email', label: 'Email', value: 'contact@example.com' },
-  ],
+  fields: [{ type: 'email', label: 'Email', value: 'contact@example.com' }],
 };
 
 // Helper functions using real CSS/ARIA selectors
@@ -35,28 +33,28 @@ export async function setupTestUser(page: Page): Promise<void> {
   ]);
 
   if (first === 'onboarding') {
-    // Step 1: Welcome — click "Get Started"
-    await page.click('.welcome-step button');
+    // Step 1: Welcome — click the primary button
+    await page.click('.welcome-step .step-actions button');
     // Step 2: Create Identity — fill name and submit
     await page.waitForSelector('.create-identity-step', { timeout: 5000 });
     await page.fill('#display-name', TEST_USER.displayName);
     await page.click('.create-identity-step button[type="submit"]');
     // Wait for identity creation + auto-advance (500ms delay)
     await page.waitForSelector('.add-fields-step', { timeout: 5000 });
-    // Step 3: Add Fields — skip
-    await page.click('.add-fields-step button:has-text("Skip")');
-    // Step 4: Preview Card — next
+    // Step 3: Add Fields — skip (text-btn class)
+    await page.click('.add-fields-step .text-btn');
+    // Step 4: Preview Card — next (non-secondary button in step-actions)
     await page.waitForSelector('.preview-card-step', { timeout: 5000 });
-    await page.click('.preview-card-step button:has-text("Next")');
-    // Step 5: Security — next
+    await page.click('.preview-card-step .step-actions button:not(.secondary)');
+    // Step 5: Security — next (non-secondary button in step-actions)
     await page.waitForSelector('.security-step', { timeout: 5000 });
-    await page.click('.security-step button:has-text("Next")');
-    // Step 6: Backup Prompt — skip (remind later)
+    await page.click('.security-step .step-actions button:not(.secondary)');
+    // Step 6: Backup Prompt — skip (text-btn class = "Remind me later")
     await page.waitForSelector('.backup-prompt-step', { timeout: 5000 });
-    await page.click('.backup-prompt-step button:has-text("Remind me later")');
-    // Step 7: Ready — complete
+    await page.click('.backup-prompt-step .text-btn');
+    // Step 7: Ready — complete (only button in step-actions)
     await page.waitForSelector('.ready-step', { timeout: 5000 });
-    await page.click('.ready-step button:has-text("Start using Vauchi")');
+    await page.click('.ready-step .step-actions button');
     // App reloads after onComplete — wait for home page
     await page.waitForSelector('.page.home', { timeout: 15000 });
   }
