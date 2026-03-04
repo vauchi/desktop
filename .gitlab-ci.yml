@@ -29,6 +29,7 @@ include:
       - '/ci-templates/downstream.yml'
       - '/ci-templates/reuse.yml'
       - '/ci-templates/test-quality.yml'
+      - '/ci-templates/mutation.yml'
 
 stages:
   - lint
@@ -461,21 +462,16 @@ coverage:frontend:
 
 # Nightly full mutation testing on Rust backend (scheduled pipeline)
 mutation:nightly:
-  extends: [.rust-runner, .desktop-cache, .timeout-extended]
-  stage: mutation
+  extends: [.mutation-nightly, .rust-runner, .desktop-cache, .timeout-extended]
+  # Override: Tauri's generate_context! requires built frontend
   needs: [build:frontend-dist]
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
   before_script:
     - !reference [.self-hosted, before_script]
     - !reference [.clone-locales, before_script]
     - !reference [.clone-themes, before_script]
-  script:
-    - cd src-tauri && cargo mutants --no-default-features --features custom-protocol --timeout 60 --output target/mutants
-  artifacts:
-    paths:
-      - src-tauri/target/mutants/
-    expire_in: 1 week
+  variables:
+    MUTATION_EXTRA_FLAGS: "--no-default-features --features custom-protocol"
+    MUTATION_WORKDIR: "src-tauri"
 
 # ============================================================
 # Security Stage (change-based, gated by lint, parallel with test)
