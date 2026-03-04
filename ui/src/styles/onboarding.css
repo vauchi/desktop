@@ -1,0 +1,612 @@
+/* SPDX-FileCopyrightText: 2026 Mattia Egloff <mattia.egloff@pm.me> */
+
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* ============================================================
+   Onboarding Wizard Styles (SP-21)
+   ============================================================ */
+
+/* Main onboarding layout */
+.onboarding {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+.onboarding-container {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ============================================================
+   Progress Indicator
+   ============================================================ */
+
+.onboarding-progress {
+  padding: 0 1rem;
+}
+
+.progress-steps {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  position: relative;
+}
+
+/* Connecting line between steps */
+.progress-steps::before {
+  content: '';
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  height: 2px;
+  background: var(--border);
+  z-index: 0;
+}
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  position: relative;
+  z-index: 1;
+}
+
+.progress-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
+  color: var(--text-secondary);
+  transition:
+    background var(--transition-duration),
+    border-color var(--transition-duration),
+    color var(--transition-duration);
+}
+
+.progress-step.current .progress-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-primary);
+}
+
+.progress-step.completed .progress-dot {
+  background: var(--success);
+  border-color: var(--success);
+  color: white;
+}
+
+.progress-label {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  text-align: center;
+  max-width: 60px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.progress-step.current .progress-label {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.progress-step.completed .progress-label {
+  color: var(--success);
+}
+
+/* ============================================================
+   Step Content Container
+   ============================================================ */
+
+.onboarding-step-content {
+  animation: fade-in var(--transition-duration) ease-in;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* When navigating backward */
+.onboarding-step-content.step-backward {
+  animation: fade-in-back var(--transition-duration) ease-in;
+}
+
+@keyframes fade-in-back {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-step-content,
+  .onboarding-step-content.step-backward {
+    animation: none;
+  }
+}
+
+[data-reduce-motion='true'] .onboarding-step-content,
+[data-reduce-motion='true'] .onboarding-step-content.step-backward {
+  animation: none;
+}
+
+/* ============================================================
+   Step Base Styles
+   ============================================================ */
+
+.onboarding-step {
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+}
+
+.onboarding-step h1,
+.onboarding-step h2 {
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+}
+
+.step-subtitle,
+.step-description {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+/* ============================================================
+   Step Actions
+   ============================================================ */
+
+.step-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  justify-content: center;
+}
+
+.step-actions-split {
+  justify-content: space-between;
+}
+
+.step-actions-center {
+  flex-direction: column;
+  align-items: center;
+}
+
+.step-actions-right {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.text-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.5rem;
+  text-decoration: underline;
+  min-height: var(--min-touch-target);
+}
+
+.text-btn:hover {
+  color: var(--text-primary);
+}
+
+.text-btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* ============================================================
+   Welcome Step
+   ============================================================ */
+
+.welcome-step {
+  text-align: center;
+}
+
+.step-icon {
+  margin-bottom: 1rem;
+}
+
+.welcome-icon {
+  font-size: 3rem;
+}
+
+.feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0;
+  text-align: left;
+}
+
+.feature-list li {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  background: var(--bg-tertiary);
+}
+
+.feature-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  width: 2rem;
+  text-align: center;
+}
+
+.feature-list li strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--text-primary);
+}
+
+.feature-list li p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ============================================================
+   Create Identity Step
+   ============================================================ */
+
+.create-identity-step .form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.create-identity-step .success {
+  padding: 0.75rem;
+  background: rgb(76 175 80 / 10%);
+  border-radius: 6px;
+  text-align: center;
+}
+
+/* ============================================================
+   Add Fields Step
+   ============================================================ */
+
+.add-field-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.add-field-type-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem !important;
+  font-size: 0.95rem;
+}
+
+.onboarding-fields {
+  margin: 1rem 0;
+}
+
+.add-field-form {
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.field-type-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+.add-field-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.add-field-actions button {
+  flex: 1;
+}
+
+/* ============================================================
+   Preview Card Step
+   ============================================================ */
+
+.card-preview {
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  border: 1px solid var(--border);
+}
+
+.card-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.card-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.card-empty-fields {
+  color: var(--text-secondary);
+  font-style: italic;
+  text-align: center;
+  padding: 1rem;
+}
+
+.card-preview-fields {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.card-preview-field {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+}
+
+/* ============================================================
+   Security Step
+   ============================================================ */
+
+.security-features {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.security-feature {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+}
+
+.security-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  width: 2rem;
+  text-align: center;
+}
+
+.security-feature h3 {
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+  color: var(--text-primary);
+}
+
+.security-feature p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ============================================================
+   Backup Prompt Step
+   ============================================================ */
+
+.backup-warning {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgb(255 152 0 / 10%);
+  border: 1px solid var(--warning);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.warning-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.backup-warning p {
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.backup-form {
+  margin-top: 1rem;
+}
+
+.password-strength {
+  font-size: 0.85rem;
+  padding: 0.25rem 0;
+}
+
+.password-strength.strength-weak {
+  color: var(--error);
+}
+
+.password-strength.strength-acceptable {
+  color: var(--warning);
+}
+
+.password-strength.strength-strong {
+  color: var(--success);
+}
+
+.password-strength.strength-very-strong {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.backup-success {
+  text-align: center;
+}
+
+.success-icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.backup-success h3 {
+  color: var(--success);
+  margin-bottom: 0.5rem;
+}
+
+.backup-data-section {
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.backup-data-section textarea {
+  font-family: monospace;
+  font-size: 0.75rem;
+  resize: none;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  color: var(--text-primary);
+  width: 100%;
+}
+
+.backup-nav {
+  margin-top: 0;
+}
+
+/* ============================================================
+   Ready Step
+   ============================================================ */
+
+.ready-step {
+  text-align: center;
+}
+
+.ready-celebration {
+  margin-bottom: 0.5rem;
+}
+
+.celebration-icon {
+  font-size: 3rem;
+}
+
+.ready-tips {
+  margin: 1.5rem 0;
+  text-align: left;
+}
+
+.ready-tip {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
+.tip-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  width: 2rem;
+  text-align: center;
+}
+
+.ready-tip strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--text-primary);
+}
+
+.ready-tip p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ============================================================
+   High Contrast Overrides
+   ============================================================ */
+
+[data-high-contrast='true'] .onboarding-step {
+  border: 1px solid var(--border);
+}
+
+[data-high-contrast='true'] .progress-dot {
+  border-width: 3px;
+}
+
+[data-high-contrast='true'] .card-preview {
+  border-width: 2px;
+}
+
+[data-high-contrast='true'] .backup-warning {
+  border-width: 2px;
+}
