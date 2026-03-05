@@ -558,6 +558,235 @@ security:npm-audit:
           - ".gitlab-ci.yml"
 
 # ============================================================
+# Dev Tag Pipeline (lightweight — lint + test only)
+# ============================================================
+# Triggered by v0.2.3-dev.N tags. Fast feedback, no coverage/mutation/publish.
+
+dev:verify:
+  extends: [.rust-runner-nocache, .dev-verify]
+  stage: lint
+  needs: []
+
+dev:build:frontend-dist:
+  extends: [.node-job, .timeout-quick]
+  stage: lint
+  needs: [dev:verify]
+  cache:
+    policy: pull-push
+  script:
+    - cd ui && npm ci --prefer-offline && npm run build
+  artifacts:
+    paths:
+      - ui/dist/
+    expire_in: 1 day
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-dev\.\d+$/
+
+dev:lint:format:
+  extends: [.rust-runner-nocache, .lint-format]
+  needs: [dev:verify]
+  script:
+    - cd src-tauri && cargo fmt --all -- --check
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-dev\.\d+$/
+
+dev:lint:clippy:
+  extends: [.rust-runner, .lint-clippy, .desktop-cache]
+  needs: [dev:verify, dev:build:frontend-dist]
+  cache:
+    policy: pull
+  before_script:
+    - !reference [.self-hosted, before_script]
+    - !reference [.clone-locales, before_script]
+    - !reference [.clone-themes, before_script]
+  script:
+    - cd src-tauri && cargo clippy --all-targets --no-default-features --features custom-protocol -- -D warnings
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-dev\.\d+$/
+
+dev:test:rust:
+  extends: [.rust-runner, .desktop-cache, .timeout-standard]
+  stage: test
+  needs:
+    - job: dev:build:frontend-dist
+      artifacts: true
+    - job: dev:lint:format
+  before_script:
+    - !reference [.self-hosted, before_script]
+    - !reference [.clone-locales, before_script]
+    - !reference [.clone-themes, before_script]
+  script:
+    - cd src-tauri && cargo nextest run --profile ci --all-targets --no-default-features --features custom-protocol
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-dev\.\d+$/
+  artifacts:
+    when: always
+    reports:
+      junit: src-tauri/target/nextest/ci/junit.xml
+    expire_in: 1 week
+
+dev:test:frontend:
+  extends: [.node-job, .timeout-quick]
+  stage: test
+  needs:
+    - job: dev:build:frontend-dist
+      artifacts: true
+  script:
+    - cd ui && npm ci --prefer-offline
+    - npx playwright install chromium
+    - npx playwright test --project=chromium --grep-invert "@visual|@a11y|@stub"
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-dev\.\d+$/
+  artifacts:
+    when: on_failure
+    paths:
+      - ui/playwright-report/
+    expire_in: 3 days
+
+# ============================================================
+# RC Tag Pipeline (full quality gate — no publish/deploy)
+# ============================================================
+# Triggered by v0.2.3-rc.N tags. Full coverage, mutation, VRT.
+
+rc:verify:
+  extends: [.rust-runner-nocache, .rc-verify]
+  stage: lint
+  needs: []
+
+rc:build:frontend-dist:
+  extends: [.node-job, .timeout-quick]
+  stage: lint
+  needs: [rc:verify]
+  cache:
+    policy: pull-push
+  script:
+    - cd ui && npm ci --prefer-offline && npm run build
+  artifacts:
+    paths:
+      - ui/dist/
+    expire_in: 1 day
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\.\d+$/
+
+rc:lint:format:
+  extends: [.rust-runner-nocache, .lint-format]
+  needs: [rc:verify]
+  script:
+    - cd src-tauri && cargo fmt --all -- --check
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\.\d+$/
+
+rc:lint:clippy:
+  extends: [.rust-runner, .lint-clippy, .desktop-cache]
+  needs: [rc:verify, rc:build:frontend-dist]
+  cache:
+    policy: pull
+  before_script:
+    - !reference [.self-hosted, before_script]
+    - !reference [.clone-locales, before_script]
+    - !reference [.clone-themes, before_script]
+  script:
+    - cd src-tauri && cargo clippy --all-targets --no-default-features --features custom-protocol -- -D warnings
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\.\d+$/
+
+rc:test:rust:
+  extends: [.coverage-job, .rust-runner, .desktop-cache, .timeout-long]
+  needs:
+    - job: rc:build:frontend-dist
+      artifacts: true
+    - job: rc:lint:format
+      optional: true
+    - job: rc:lint:clippy
+      optional: true
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\.\d+$/
+  before_script:
+    - !reference [.self-hosted, before_script]
+    - !reference [.clone-locales, before_script]
+    - !reference [.clone-themes, before_script]
+    - rustup component add llvm-tools-preview 2>/dev/null || true
+  variables:
+    COVERAGE_WORKDIR: "src-tauri"
+    COVERAGE_EXTRA_FLAGS: "--no-default-features --features custom-protocol"
+    COVERAGE_REPO_LABEL: "desktop-rust"
+
+rc:test:frontend:
+  extends: [.node-job, .timeout-quick]
+  stage: test
+  needs:
+    - job: rc:build:frontend-dist
+      artifacts: true
+  script:
+    - cd ui && npm ci --prefer-offline
+    - npx playwright install chromium
+    - npx playwright test --project=chromium --grep-invert "@visual|@a11y|@stub"
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\.\d+$/
+  artifacts:
+    when: on_failure
+    paths:
+      - ui/playwright-report/
+    expire_in: 3 days
+
+rc:test:visual-regression:
+  extends: [.node-job, .timeout-standard]
+  stage: test
+  needs:
+    - job: rc:build:frontend-dist
+      artifacts: true
+  allow_failure: true
+  script:
+    - cd ui && npm ci --prefer-offline
+    - npx playwright install chromium
+    - npx playwright test --grep @visual --project visual-chromium --reporter=html
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\.\d+$/
+  artifacts:
+    when: always
+    paths:
+      - ui/playwright-report/
+    expire_in: 7 days
+
+rc:mutation:
+  extends: [.mutation-nightly, .rust-runner, .desktop-cache, .timeout-extended]
+  needs: [rc:build:frontend-dist]
+  before_script:
+    - !reference [.self-hosted, before_script]
+    - !reference [.clone-locales, before_script]
+    - !reference [.clone-themes, before_script]
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\.\d+$/
+  variables:
+    MUTATION_EXTRA_FLAGS: "--no-default-features --features custom-protocol"
+    MUTATION_WORKDIR: "src-tauri"
+
+rc:security:audit:
+  extends: [.rust-runner-readonly, .security-audit, .timeout-quick]
+  needs: []
+  cache:
+    key:
+      files:
+        - src-tauri/Cargo.lock
+      prefix: rust-${CI_JOB_NAME}
+    fallback_keys:
+      - rust-${CI_JOB_NAME}-${CI_DEFAULT_BRANCH}
+      - rust-${CI_JOB_NAME}
+    paths:
+      - .cargo/bin/
+      - .cargo/registry/index/
+      - .cargo/registry/cache/
+      - src-tauri/target/
+    policy: pull
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\.\d+$/
+  before_script:
+    - !reference [.self-hosted, before_script]
+    - command -v cargo-audit >/dev/null 2>&1 || cargo binstall cargo-audit --no-confirm 2>/dev/null || cargo install cargo-audit
+  script:
+    - cd src-tauri && cargo audit
+
+# ============================================================
 # Verify Stage (upstream trigger only)
 # ============================================================
 # Runs when core merges to main and triggers this repo via
