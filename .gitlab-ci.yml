@@ -29,6 +29,7 @@ include:
       - '/ci-templates/mr-rules.yml'
       - '/ci-templates/downstream.yml'
       - '/ci-templates/reuse.yml'
+      - '/ci-templates/release.yml'
       - '/ci-templates/test-quality.yml'
       - '/ci-templates/mutation.yml'
 
