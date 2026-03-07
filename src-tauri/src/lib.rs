@@ -19,6 +19,7 @@ use std::sync::{Arc, Mutex};
 
 use tauri::Manager;
 
+use commands::workflow::OnboardingState;
 use state::AppState;
 
 /// Initialize and run the Tauri application.
@@ -91,6 +92,7 @@ pub fn run() {
             }
 
             app.manage(Mutex::new(app_state));
+            app.manage(Mutex::new(OnboardingState { engine: None }));
 
             // Set up system tray
             if let Err(e) = tray::setup(app.handle()) {
@@ -258,6 +260,11 @@ pub fn run() {
             // Tor commands
             commands::tor::get_tor_config,
             commands::tor::save_tor_config,
+            // Workflow commands (core-driven UI)
+            commands::workflow::start_onboarding,
+            commands::workflow::get_onboarding_screen,
+            commands::workflow::handle_onboarding_action,
+            commands::workflow::get_onboarding_data,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {

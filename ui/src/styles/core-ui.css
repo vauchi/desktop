@@ -1,0 +1,410 @@
+/* SPDX-FileCopyrightText: 2026 Mattia Egloff <mattia.egloff@pm.me> */
+
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* ============================================================
+   Core UI Component Library Styles
+   Styles for core-driven ScreenRenderer and Component variants.
+   ============================================================ */
+
+/* === Screen Layout === */
+
+.core-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+.core-screen-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.core-screen-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin-top: -0.5rem;
+}
+
+.core-screen-components {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.core-screen-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+/* === Progress Bar === */
+
+.core-progress {
+  margin-bottom: 0.5rem;
+}
+
+.core-progress-bar {
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.core-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width var(--transition-duration) ease;
+}
+
+.core-progress-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+  text-align: center;
+}
+
+/* === Text Component === */
+
+.core-text {
+  color: var(--text-primary);
+}
+
+.core-text-title h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.core-text-subtitle h3 {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.core-text-body p {
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.core-text-caption small {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* === TextInput Component === */
+
+.core-text-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.core-text-input label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.core-text-input input {
+  padding: 0.625rem 0.75rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  min-height: var(--min-touch-target);
+  transition: border-color var(--transition-duration);
+}
+
+.core-text-input input:focus {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  border-color: var(--accent);
+}
+
+.core-text-input.has-error input {
+  border-color: var(--error);
+}
+
+/* === ToggleList Component === */
+
+.core-toggle-list {
+  border: none;
+  padding: 0;
+}
+
+.core-toggle-list legend {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.toggle-items {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.toggle-item {
+  border-radius: 8px;
+  transition: background var(--transition-duration);
+}
+
+.toggle-item:hover {
+  background: var(--bg-secondary);
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  cursor: pointer;
+  min-height: var(--min-touch-target);
+}
+
+.toggle-label input[type='checkbox'] {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.toggle-item-label {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.toggle-item-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* === FieldList Component === */
+
+.core-field-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.field-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.625rem 0.75rem;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  gap: 0.75rem;
+}
+
+.field-row.field-hidden {
+  opacity: 0.5;
+}
+
+.field-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.field-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.field-value {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.field-visibility {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+/* === Chips (shared by FieldList and CardPreview) === */
+
+.chip {
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition:
+    background var(--transition-duration),
+    border-color var(--transition-duration);
+  min-height: calc(var(--min-touch-target) * 0.75);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.chip:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.chip-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-primary);
+  font-weight: 500;
+}
+
+.chip-inactive:hover {
+  border-color: var(--text-secondary);
+}
+
+/* === CardPreview Component === */
+
+.core-card-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.card-group-selector {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.card-preview-content {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.card-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.card-empty {
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.card-fields {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.card-field-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.card-field-value {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+/* === InfoPanel Component === */
+
+.core-info-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.info-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.info-panel-icon {
+  font-size: 1.25rem;
+}
+
+.info-panel-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.info-panel-items {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.info-panel-item {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.info-item-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.info-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.info-item-title {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.info-item-detail {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* === Divider === */
+
+.core-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.5rem 0;
+}
