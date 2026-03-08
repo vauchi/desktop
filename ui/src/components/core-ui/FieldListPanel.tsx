@@ -3,7 +3,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import { For, Show } from 'solid-js';
-import type { FieldListComponent, FieldDisplay, UiFieldVisibility, UserAction } from '../../types/core-ui';
+import type {
+  FieldListComponent,
+  FieldDisplay,
+  UiFieldVisibility,
+  UserAction,
+} from '../../types/core-ui';
 
 interface FieldListPanelProps {
   data: FieldListComponent;
@@ -55,10 +60,18 @@ export default function FieldListPanel(props: FieldListPanelProps) {
   };
 
   return (
-    <div class="core-field-list" data-component-id={props.data.id} role="list" aria-label="Contact fields">
+    <div
+      class="core-field-list"
+      data-component-id={props.data.id}
+      role="list"
+      aria-label="Contact fields"
+    >
       <For each={props.data.fields}>
         {(field) => (
-          <div class={`field-row ${isHidden(field.visibility) ? 'field-hidden' : ''}`} role="listitem">
+          <div
+            class={`field-row ${isHidden(field.visibility) ? 'field-hidden' : ''}`}
+            role="listitem"
+          >
             <div class="field-info">
               <span class="field-label">{field.label}</span>
               <span class="field-value">{field.value}</span>

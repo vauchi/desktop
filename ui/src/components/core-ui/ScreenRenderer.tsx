@@ -45,7 +45,9 @@ export default function ScreenRenderer(props: ScreenRendererProps) {
             aria-valuenow={progress().current_step}
             aria-valuemin={1}
             aria-valuemax={progress().total_steps}
-            aria-label={progress().label ?? `Step ${progress().current_step} of ${progress().total_steps}`}
+            aria-label={
+              progress().label ?? `Step ${progress().current_step} of ${progress().total_steps}`
+            }
           >
             <div class="core-progress-bar">
               <div

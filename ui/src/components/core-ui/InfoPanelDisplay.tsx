@@ -16,7 +16,12 @@ interface InfoPanelDisplayProps {
  */
 export default function InfoPanelDisplay(props: InfoPanelDisplayProps) {
   return (
-    <div class="core-info-panel" data-component-id={props.data.id} role="region" aria-label={props.data.title}>
+    <div
+      class="core-info-panel"
+      data-component-id={props.data.id}
+      role="region"
+      aria-label={props.data.title}
+    >
       <div class="info-panel-header">
         <Show when={props.data.icon}>
           <span class="info-panel-icon" aria-hidden="true">

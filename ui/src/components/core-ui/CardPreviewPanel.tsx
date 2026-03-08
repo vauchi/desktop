@@ -78,7 +78,10 @@ export default function CardPreviewPanel(props: CardPreviewPanelProps) {
       {/* Card preview */}
       <div class="card-preview-content" role="region" aria-label="Card preview">
         <div class="card-name">{displayName()}</div>
-        <Show when={displayFields().length > 0} fallback={<p class="card-empty">No fields to show</p>}>
+        <Show
+          when={displayFields().length > 0}
+          fallback={<p class="card-empty">No fields to show</p>}
+        >
           <ul class="card-fields" role="list">
             <For each={displayFields()}>
               {(field) => (

@@ -167,7 +167,7 @@ export type ActionResult =
 
 /** Extract the variant key from a Component. */
 export function componentType(
-  comp: Component,
+  comp: Component
 ): 'Text' | 'TextInput' | 'ToggleList' | 'FieldList' | 'CardPreview' | 'InfoPanel' | 'Divider' {
   if (typeof comp === 'string') return 'Divider';
   const keys = Object.keys(comp) as (keyof Exclude<Component, string>)[];
@@ -177,7 +177,7 @@ export function componentType(
 /** Extract the data from a Component by variant name. */
 export function componentData<K extends keyof Exclude<Component, string>>(
   comp: Component,
-  key: K,
+  key: K
 ): Exclude<Component, string>[K] | undefined {
   if (typeof comp === 'string') return undefined;
   return (comp as Record<string, unknown>)[key] as Exclude<Component, string>[K] | undefined;
