@@ -24,7 +24,9 @@ pub struct OnboardingState {
 pub fn start_onboarding(
     onboarding: State<'_, Mutex<OnboardingState>>,
 ) -> Result<String, CommandError> {
-    let mut state = onboarding.lock().unwrap();
+    let mut state = onboarding
+        .lock()
+        .map_err(|e| CommandError::Storage(format!("Mutex poisoned: {e}")))?;
     let engine = OnboardingEngine::new();
     let screen = engine.current_screen();
     state.engine = Some(engine);
@@ -37,7 +39,9 @@ pub fn start_onboarding(
 pub fn get_onboarding_screen(
     onboarding: State<'_, Mutex<OnboardingState>>,
 ) -> Result<String, CommandError> {
-    let state = onboarding.lock().unwrap();
+    let state = onboarding
+        .lock()
+        .map_err(|e| CommandError::Storage(format!("Mutex poisoned: {e}")))?;
     let engine = state
         .engine
         .as_ref()
@@ -56,7 +60,9 @@ pub fn handle_onboarding_action(
     let action: UserAction =
         serde_json::from_str(&action_json).map_err(|e| CommandError::Validation(e.to_string()))?;
 
-    let mut state = onboarding.lock().unwrap();
+    let mut state = onboarding
+        .lock()
+        .map_err(|e| CommandError::Storage(format!("Mutex poisoned: {e}")))?;
     let engine = state
         .engine
         .as_mut()
@@ -81,7 +87,9 @@ pub fn handle_onboarding_action(
 pub fn get_onboarding_data(
     onboarding: State<'_, Mutex<OnboardingState>>,
 ) -> Result<String, CommandError> {
-    let state = onboarding.lock().unwrap();
+    let state = onboarding
+        .lock()
+        .map_err(|e| CommandError::Storage(format!("Mutex poisoned: {e}")))?;
     let engine = state
         .engine
         .as_ref()
