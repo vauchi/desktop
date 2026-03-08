@@ -36,6 +36,7 @@ export default function FieldListPanel(props: FieldListPanelProps) {
     props.onAction({
       FieldVisibilityChanged: {
         field_id: field.id,
+        group_id: null,
         visible: !isShown(field.visibility),
       },
     });
